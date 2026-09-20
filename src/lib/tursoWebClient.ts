@@ -204,8 +204,13 @@ export async function tursoWebFetchUsers(): Promise<{ success: boolean; users?: 
       const fname = String(r.full_name || '').toLowerCase();
       let branchId = String(r.branch_id || '');
 
+      let uId = String(r.id);
+      if (uId === 'USR-1789831191191') uId = 'USR-007';
+      else if (uId === 'USR-1789831134773') uId = 'USR-008';
+      else if (uId === 'USR-1789831165592') uId = 'USR-009';
+
       if (!countryCode || countryCode === 'NULL') {
-        if (uname.startsWith('th-') || uname.includes('thai') || fname.includes('thai') || branchId.includes('1789830806420')) {
+        if (uname.startsWith('th-') || uname.includes('thai') || fname.includes('thai') || branchId.includes('1789830806420') || branchId === 'BR-009') {
           countryCode = 'TH';
         } else if (uname.startsWith('sg-') || uname.includes('singapore') || fname.includes('singapore') || branchId === 'BR-007' || branchId === 'BR-008') {
           countryCode = 'SG';
@@ -216,16 +221,19 @@ export async function tursoWebFetchUsers(): Promise<{ success: boolean; users?: 
         }
       }
 
-      if (!branchId || branchId === 'BR-001') {
+      if (!branchId || branchId === 'BR-001' || branchId === 'BR-1789830806420') {
         if (countryCode === 'TH' || uname.startsWith('th-')) {
-          branchId = 'BR-1789830806420';
+          branchId = 'BR-009';
         } else if (countryCode === 'SG' || uname.startsWith('sg-')) {
           branchId = 'BR-008';
         }
       }
+      if (branchId === 'BR-1789830806420') {
+        branchId = 'BR-009';
+      }
 
       return {
-        id: String(r.id),
+        id: uId,
         username: String(r.username),
         fullName: String(r.full_name || ''),
         email: String(r.email || `${r.username}@remitmyanmar.com`),
@@ -249,15 +257,30 @@ export async function tursoWebFetchBranches(): Promise<{ success: boolean; branc
   try {
     const client = getTursoWebClient();
     const res = await client.execute('SELECT * FROM branches ORDER BY id ASC;');
-    const branches = res.rows.map((r: any) => {
-      let countryCode = String(r.country_code || '').trim().toUpperCase();
-      const bId = String(r.id || '');
-      const bCode = String(r.code || '').toUpperCase();
+    const rawBranches = res.rows;
+    const branches: any[] = [];
+    const seenCodes = new Set<string>();
+
+    for (const r of rawBranches as any[]) {
+      let bId = String(r.id || '');
+      let bCode = String(r.code || '').toUpperCase();
       const bCity = String(r.city || '').toLowerCase();
       const bName = String(r.name_en || '').toLowerCase();
 
+      // Normalize long timestamp branch IDs
+      if (bId === 'BR-1789830806420') {
+        bId = 'BR-009';
+        bCode = 'TH-01';
+      }
+
+      // Filter out duplicate branches like BR-1789788738927 (China Town duplicate)
+      if (bId.startsWith('BR-1789') && (bName.includes('china town') || bCity.includes('singapore'))) {
+        continue; // skip duplicate, BR-007 is already present
+      }
+
+      let countryCode = String(r.country_code || '').trim().toUpperCase();
       if (!countryCode || countryCode === 'NULL') {
-        if (bId.includes('1789830806420') || bCode.startsWith('TH') || bCode.startsWith('BKK') || bCity.includes('bangkok') || bCity.includes('thailand') || bName.includes('bangkok') || bName.includes('thai')) {
+        if (bId === 'BR-009' || bId.includes('1789830806420') || bCode.startsWith('TH') || bCode.startsWith('BKK') || bCity.includes('bangkok') || bCity.includes('thailand') || bName.includes('bangkok') || bName.includes('thai')) {
           countryCode = 'TH';
         } else if (bCode.startsWith('SG') || bCode.startsWith('SIN') || bCity.includes('singapore') || bName.includes('singapore') || bId === 'BR-007' || bId === 'BR-008') {
           countryCode = 'SG';
@@ -266,9 +289,12 @@ export async function tursoWebFetchBranches(): Promise<{ success: boolean; branc
         }
       }
 
-      return {
+      // Deduplicate by ID
+      if (branches.some(b => b.id === bId)) continue;
+
+      branches.push({
         id: bId,
-        code: String(r.code || ''),
+        code: bCode || String(r.code || ''),
         nameEn: String(r.name_en || ''),
         nameMm: String(r.name_mm || ''),
         countryCode: countryCode,
@@ -278,8 +304,8 @@ export async function tursoWebFetchBranches(): Promise<{ success: boolean; branc
         managerName: String(r.manager_name || ''),
         status: String(r.status || 'ACTIVE'),
         createdAt: String(r.created_at || '')
-      };
-    });
+      });
+    }
 
     return { success: true, branches };
   } catch (err: any) {
@@ -1128,6 +1154,86 @@ export async function tursoWebSyncPull(): Promise<{
     return {
       success: false,
       message: err?.message || 'Failed to pull from Turso Cloud'
+    };
+  }
+}
+
+/**
+ * Clean & Normalize all legacy timestamp long IDs (e.g. BR-1789830806420, USR-1789831191191) in Turso database.
+ * Replaces them with canonical clean sequential IDs: BR-009, USR-007, USR-008, USR-009, and cleans duplicate branches.
+ */
+export async function tursoWebCleanLongIds(): Promise<{ success: boolean; message: string; details?: any }> {
+  try {
+    const client = getTursoWebClient();
+
+    // 1. Delete duplicate/legacy long timestamp branches from Turso
+    await client.execute(`DELETE FROM branches WHERE id LIKE 'BR-178%';`);
+
+    // 2. Ensure canonical Big C Supercenter (BR-009) is saved with clean ID
+    await client.execute({
+      sql: `INSERT INTO branches (id, code, name_en, name_mm, country_code, city, phone, address, manager_name, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              code = excluded.code,
+              name_en = excluded.name_en,
+              name_mm = excluded.name_mm,
+              country_code = excluded.country_code,
+              city = excluded.city,
+              phone = excluded.phone,
+              address = excluded.address,
+              manager_name = excluded.manager_name,
+              status = excluded.status;`,
+      args: [
+        'BR-009',
+        'TH-01',
+        'Big C Supercenter (Bangkok Branch)',
+        'ဘစ် စီ စူပါစင်တာ (ဘန်ကောက် ဘဏ်ခွဲ)',
+        'TH',
+        'Bangkok',
+        '+66-2-2505500',
+        '97/11 Ratchadamri Rd, Lumphini, Pathum Wan, Bangkok 10330, Thailand',
+        'U Thai',
+        'ACTIVE',
+        '2026-09-19T15:13:26.420Z'
+      ]
+    });
+
+    // 3. Delete old long ID users from Turso
+    await client.execute(`DELETE FROM system_users WHERE id LIKE 'USR-178%';`);
+
+    // 4. Ensure clean USR-007, USR-008, USR-009 exist with BR-009
+    const cleanUsers = [
+      { id: 'USR-007', username: 'th-admin', fullName: 'Thai Admin (Thailand Operations)', email: 'th-admin@remit.internal', role: 'ADMIN' },
+      { id: 'USR-008', username: 'th-maker', fullName: 'Thai Maker (Bangkok Operator)', email: 'th-maker@remit.internal', role: 'MAKER' },
+      { id: 'USR-009', username: 'th-checker', fullName: 'Thai Checker (Bangkok Approver)', email: 'th-checker@remit.internal', role: 'CHECKER' },
+    ];
+    for (const u of cleanUsers) {
+      await client.execute({
+        sql: `INSERT INTO system_users (id, username, full_name, email, role, branch_id, is_active, phone, status, password_hash, country_code, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, 1, '+66-81-2345678', 'ACTIVE', 'password123', 'TH', datetime('now'))
+              ON CONFLICT(id) DO UPDATE SET
+                username = excluded.username,
+                full_name = excluded.full_name,
+                branch_id = excluded.branch_id,
+                country_code = excluded.country_code;`,
+        args: [u.id, u.username, u.fullName, u.email, u.role, 'BR-009']
+      });
+    }
+
+    // 5. Clean foreign key references in transactions & users
+    await client.execute(`UPDATE transactions SET sending_branch_id = 'BR-009' WHERE sending_branch_id LIKE 'BR-178%';`);
+    await client.execute(`UPDATE transactions SET payout_branch_id = 'BR-009' WHERE payout_branch_id LIKE 'BR-178%';`);
+    await client.execute(`UPDATE system_users SET branch_id = 'BR-009' WHERE branch_id LIKE 'BR-178%';`);
+
+    return {
+      success: true,
+      message: 'Turso Table များရှိ Long Number ID များကို နံပါတ်စဉ်အမှန် (BR-009, USR-007, USR-008, USR-009) သို့ အောင်မြင်စွာ ပြင်ဆင်ပြီးပါပြီ။'
+    };
+  } catch (err: any) {
+    console.error('Error cleaning Turso IDs:', err);
+    return {
+      success: false,
+      message: err?.message || 'Turso IDs ပြင်ဆင်မှု မအောင်မြင်ပါ'
     };
   }
 }

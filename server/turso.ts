@@ -1320,12 +1320,12 @@ export async function seedTursoSystemUsers(clientInstance?: Client) {
       country_code: 'MM'
     },
     { 
-      id: 'USR-1789831191191', 
+      id: 'USR-007', 
       username: 'th-admin', 
       full_name: 'Thai Admin (Thailand Operations)', 
       email: 'th-admin@remit.internal', 
       role: 'ADMIN', 
-      branch_id: 'BR-1789830806420', 
+      branch_id: 'BR-009', 
       is_active: 1, 
       phone: '+66-81-2345678', 
       status: 'ACTIVE', 
@@ -1333,12 +1333,12 @@ export async function seedTursoSystemUsers(clientInstance?: Client) {
       country_code: 'TH'
     },
     { 
-      id: 'USR-1789831134773', 
+      id: 'USR-008', 
       username: 'th-maker', 
       full_name: 'Thai Maker (Bangkok Operator)', 
       email: 'th-maker@remit.internal', 
       role: 'MAKER', 
-      branch_id: 'BR-1789830806420', 
+      branch_id: 'BR-009', 
       is_active: 1, 
       phone: '+66-81-2345679', 
       status: 'ACTIVE', 
@@ -1346,12 +1346,12 @@ export async function seedTursoSystemUsers(clientInstance?: Client) {
       country_code: 'TH'
     },
     { 
-      id: 'USR-1789831165592', 
+      id: 'USR-009', 
       username: 'th-checker', 
       full_name: 'Thai Checker (Bangkok Approver)', 
       email: 'th-checker@remit.internal', 
       role: 'CHECKER', 
-      branch_id: 'BR-1789830806420', 
+      branch_id: 'BR-009', 
       is_active: 1, 
       phone: '+66-81-2345680', 
       status: 'ACTIVE', 
@@ -1439,12 +1439,12 @@ export async function getTursoUsers() {
 
     const username = String(r.username || '');
     let branchId = String(r.branch_id || '');
-    if (!branchId || branchId === 'BR-001') {
+    if (!branchId || branchId === 'BR-001' || branchId === 'BR-1789830806420') {
       if (countryCode === 'TH' || username.startsWith('th-')) {
-        branchId = 'BR-1789830806420';
+        branchId = 'BR-009';
       } else if (countryCode === 'SG' || username.startsWith('sg-')) {
         branchId = 'BR-008';
-      } else {
+      } else if (!branchId) {
         branchId = 'BR-001';
       }
     }
@@ -1538,9 +1538,9 @@ export async function loginTursoUser(usernameOrEmail: string, passwordAttempt: s
     }
   }
 
-  if (!userBranchId || userBranchId === 'BR-001') {
+  if (!userBranchId || userBranchId === 'BR-001' || userBranchId === 'BR-1789830806420') {
     if (userCountryCode === 'TH' || lowerUname.startsWith('th-')) {
-      userBranchId = 'BR-1789830806420';
+      userBranchId = 'BR-009';
     } else if (userCountryCode === 'SG' || lowerUname.startsWith('sg-')) {
       userBranchId = 'BR-008';
     }

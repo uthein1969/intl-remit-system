@@ -35,7 +35,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { useRemittance } from '../../lib/store';
+import { useRemittance, getNextCleanId } from '../../lib/store';
 import { RemittanceTransaction, RemittanceScope, PayoutMethod, BlacklistEntry, Company } from '../../types';
 import { VoucherModal } from '../VoucherModal';
 import { uploadPassportToSupabase } from '../../lib/supabase';
@@ -534,15 +534,16 @@ export const InwardEntryView: React.FC = () => {
   // Partner CRUD Handlers
   const handleOpenAddPartner = () => {
     setIsNewPartner(true);
+    const nextId = getNextCleanId('CMP', db.companies, 3);
     setEditingPartner({
-      id: `CMP-${Date.now()}`,
-      code: `CMP-00${db.companies.length + 1}`,
+      id: nextId,
+      code: nextId,
       nameEn: '',
       nameMm: '',
       countryCode: senderCountryCode || 'TH',
       type: 'AGENT',
       swiftCode: '',
-      licenseNo: `LIC-${Date.now().toString().slice(-4)}`,
+      licenseNo: `LIC-${nextId.replace('CMP-', '')}`,
       phone: '+66-',
       email: '',
       status: 'ACTIVE',
@@ -574,15 +575,16 @@ export const InwardEntryView: React.FC = () => {
   const handleSavePartner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPartner.nameEn) return;
+    const nextId = editingPartner.id || getNextCleanId('CMP', db.companies, 3);
     const toSave: Company = {
-      id: editingPartner.id || `CMP-${Date.now()}`,
-      code: editingPartner.code || `CMP-00${db.companies.length + 1}`,
+      id: nextId,
+      code: editingPartner.code || nextId,
       nameEn: editingPartner.nameEn,
       nameMm: editingPartner.nameMm || editingPartner.nameEn,
       countryCode: editingPartner.countryCode || senderCountryCode || 'TH',
       type: (editingPartner.type as any) || 'AGENT',
       swiftCode: editingPartner.swiftCode || '',
-      licenseNo: editingPartner.licenseNo || `LIC-${Date.now().toString().slice(-4)}`,
+      licenseNo: editingPartner.licenseNo || `LIC-${nextId.replace('CMP-', '')}`,
       phone: editingPartner.phone || '',
       email: editingPartner.email || '',
       status: editingPartner.status || 'ACTIVE',

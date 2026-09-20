@@ -29,7 +29,7 @@ import {
   Edit3,
   CheckSquare
 } from 'lucide-react';
-import { useRemittance } from '../../lib/store';
+import { useRemittance, getNextCleanId } from '../../lib/store';
 import { SetupSubTab } from '../Sidebar';
 import { CompanyProfileModal } from '../CompanyProfileModal';
 import { CompanyProfileSettingForm } from './CompanyProfileSettingForm';
@@ -127,9 +127,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     setModalType(type);
     
     if (type === 'branch') {
+      const nextId = getNextCleanId('BR', db.branches, 3);
       setEditingItem({
-        id: `BR-${Date.now()}`,
-        code: `BR-00${db.branches.length + 1}`,
+        id: nextId,
+        code: nextId,
         nameEn: '',
         nameMm: '',
         countryCode: 'MM',
@@ -141,8 +142,9 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         createdAt: new Date().toISOString()
       });
     } else if (type === 'user') {
+      const nextId = getNextCleanId('USR', db.users, 3);
       setEditingItem({
-        id: `USR-${Date.now()}`,
+        id: nextId,
         username: '',
         fullName: '',
         email: '',
@@ -154,9 +156,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         createdAt: new Date().toISOString()
       });
     } else if (type === 'company') {
+      const nextId = getNextCleanId('CMP', db.companies, 3);
       setEditingItem({
-        id: `CMP-${Date.now()}`,
-        code: `CMP-00${db.companies.length + 1}`,
+        id: nextId,
+        code: nextId,
         nameEn: '',
         nameMm: '',
         countryCode: 'SG',
@@ -170,7 +173,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       });
     } else if (type === 'currency') {
       setEditingItem({
-        id: `CUR-${Date.now()}`,
+        id: getNextCleanId('CUR', db.currencies, 3),
         code: '',
         nameEn: '',
         nameMm: '',
@@ -181,7 +184,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       });
     } else if (type === 'country') {
       setEditingItem({
-        id: `CTY-${Date.now()}`,
+        id: getNextCleanId('CTY', db.countries, 3),
         code: '',
         nameEn: '',
         nameMm: '',
@@ -193,7 +196,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       });
     } else if (type === 'exchange_rate') {
       setEditingItem({
-        id: `EXR-${Date.now()}`,
+        id: getNextCleanId('EXR', db.exchangeRates, 3),
         fromCurrency: 'USD',
         toCurrency: 'MMK',
         buyRate: 4500,
@@ -206,7 +209,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       });
     } else if (type === 'blacklist') {
       setEditingItem({
-        id: `BLK-${Date.now()}`,
+        id: getNextCleanId('BLK', db.blacklist, 3),
         fullNameEn: '',
         fullNameMm: '',
         nrcNumber: '',
@@ -220,9 +223,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         createdAt: new Date().toISOString()
       });
     } else if (type === 'purpose') {
+      const nextId = getNextCleanId('PUR', db.purposes, 3);
       setEditingItem({
-        id: `PUR-${Date.now()}`,
-        code: presetData?.code || `PUR-00${db.purposes.length + 1}`,
+        id: nextId,
+        code: presetData?.code || nextId,
         nameEn: presetData?.nameEn || '',
         nameMm: presetData?.nameMm || '',
         category: presetData?.category || 'PERSONAL',
@@ -231,9 +235,11 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         ...presetData
       });
     } else if (type === 'customer') {
+      const nextId = getNextCleanId('CUST', db.customers, 3);
+      const numSuffix = nextId.replace('CUST-', '');
       setEditingItem({
-        id: `CUST-${Date.now()}`,
-        customerCode: `CUS-2026-00${db.customers.length + 1}`,
+        id: nextId,
+        customerCode: `CUS-2026-${numSuffix}`,
         fullNameEn: '',
         fullNameMm: '',
         nrcNumber: '',

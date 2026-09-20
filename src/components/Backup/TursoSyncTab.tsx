@@ -25,6 +25,7 @@ import {
   fetchTursoSchema,
   TursoStatusResponse
 } from '../../lib/tursoClient';
+import { tursoWebCleanLongIds } from '../../lib/tursoWebClient';
 
 interface TursoSyncTabProps {
   onNotify: (type: 'success' | 'error', message: string) => void;
@@ -36,6 +37,7 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; isRemote?: boolean; url?: string } | null>(null);
   const [schemaSql, setSchemaSql] = useState('');
@@ -218,6 +220,24 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
       onNotify('error', err?.message || 'Sync pull error');
     } finally {
       setIsPulling(false);
+    }
+  };
+
+  const handleCleanLongIds = async () => {
+    setIsCleaning(true);
+    try {
+      const res = await tursoWebCleanLongIds();
+      if (res.success) {
+        onNotify('success', res.message);
+        await handlePullData();
+        await loadStatus();
+      } else {
+        onNotify('error', res.message);
+      }
+    } catch (err: any) {
+      onNotify('error', err?.message || 'Failed to clean long IDs');
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -539,6 +559,60 @@ turso db tokens create remittance-db`;
                 : (language === 'my' ? 'Turso မှ Table အားလုံး ရယူမည် (Pull All Tables)' : 'Pull All Tables from Turso Database')}
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* Turso Database ID Format & Cleanup Manager */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">
+                {language === 'my' ? 'Turso Table ID များ သန့်စင်ပြင်ဆင်မှု (Clean Sequential ID Normalizer)' : 'Turso Clean Sequential ID Normalizer'}
+              </h4>
+              <p className="text-xs text-slate-400">
+                {language === 'my'
+                  ? 'Date.now() ကြောင့်ဖြစ်ပေါ်နေသော Long Number IDs (ဥပမာ- BR-1789830806420, USR-1789831191191) များကို သပ်ရပ်သော နံပါတ်စဉ် (BR-009, USR-007, USR-008, USR-009, TX-001) သို့ တိုက်ရိုက်ရှင်းလင်း ပြင်ဆင်ပါမည်။'
+                  : 'Permanently converts legacy timestamp IDs (e.g. BR-1789830806420, USR-1789831191191) to clean sequential format (BR-009, USR-007, USR-008, USR-009, TX-001).'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            id="btn-turso-clean-ids"
+            onClick={handleCleanLongIds}
+            disabled={isCleaning}
+            className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer whitespace-nowrap"
+          >
+            <RefreshCw className={`w-4 h-4 ${isCleaning ? 'animate-spin' : ''}`} />
+            <span>
+              {isCleaning
+                ? (language === 'my' ? 'ID များ ရှင်းလင်းနေပါသည်...' : 'Cleaning Long IDs...')
+                : (language === 'my' ? 'Turso ID များကို နံပါတ်စဉ်အမှန်သို့ ပြင်မည်' : 'Clean & Normalize Turso IDs')}
+            </span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[11px] mb-1">Thai Branch (ဘဏ်ခွဲ)</span>
+            <span className="text-slate-400 line-through mr-2">BR-1789830806420</span>
+            <span className="text-emerald-400 font-bold font-mono">→ BR-009</span>
+          </div>
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[11px] mb-1">Thai System Users (ဝန်ထမ်းများ)</span>
+            <span className="text-slate-400 line-through mr-2">USR-1789831...</span>
+            <span className="text-emerald-400 font-bold font-mono">→ USR-007, 008, 009</span>
+          </div>
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[11px] mb-1">Transactions (ငွေလွှဲမှတ်တမ်း)</span>
+            <span className="text-slate-400 line-through mr-2">TX-1789...</span>
+            <span className="text-emerald-400 font-bold font-mono">→ TX-001, TX-002...</span>
+          </div>
         </div>
       </div>
 

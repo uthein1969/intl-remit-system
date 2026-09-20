@@ -57,6 +57,25 @@ async function safeFetchJson(url: string, options?: RequestInit): Promise<{ ok: 
 
 const DB_STORAGE_KEY = LOCAL_STORAGE_DB_KEY;
 
+/**
+ * Generates clean, sequential, short IDs (e.g. BR-009, USR-007, CMP-009, TX-006)
+ * instead of long timestamp numbers like BR-1789830806420.
+ */
+export function getNextCleanId(prefix: string, items: { id?: string }[] = [], padLen: number = 3): string {
+  let maxNum = 0;
+  for (const item of items) {
+    if (item && item.id && item.id.startsWith(`${prefix}-`)) {
+      const numPart = item.id.substring(prefix.length + 1);
+      const parsed = parseInt(numPart, 10);
+      // Only treat clean sequential numbers (< 100,000) as valid sequence (ignores millisecond timestamps)
+      if (!isNaN(parsed) && parsed < 100000 && parsed > maxNum) {
+        maxNum = parsed;
+      }
+    }
+  }
+  return `${prefix}-${String(maxNum + 1).padStart(padLen, '0')}`;
+}
+
 interface RemittanceContextType {
   db: AppDatabase;
   setDb: React.Dispatch<React.SetStateAction<AppDatabase>>;
@@ -946,29 +965,56 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return null;
   }, [db.blacklist]);
 
+  // Helper to extract numeric rate from an exchange rate row (supports camelCase and snake_case)
+  const extractNumericRate = (r: any): number => {
+    if (!r) return 0;
+    let val = Number(r.transferRate ?? r.transfer_rate ?? r.sellRate ?? r.sell_rate ?? r.buyRate ?? r.buy_rate ?? 0);
+    if (isNaN(val) || val <= 0) return 0;
+    // If reciprocal rate like 0.007547 was stored, invert back to standard MMK value (~132.50)
+    if (val > 0 && val < 0.1) {
+      val = 1 / val;
+    }
+    return val;
+  };
+
   // Exchange rate lookup
   const getExchangeRate = useCallback((from: string, to: string): number => {
     if (from === to) return 1;
+    const f = (from || '').toUpperCase();
+    const t = (to || '').toUpperCase();
     
     // Direct match
-    const direct = db.exchangeRates.find(r => r.fromCurrency === from && r.toCurrency === to);
-    if (direct) return direct.transferRate || direct.sellRate;
+    const direct = db.exchangeRates.find(r => 
+      ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === f) &&
+      ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === t)
+    );
+    if (direct) {
+      const val = extractNumericRate(direct);
+      if (val > 0) return val;
+    }
 
     // Inverse match
-    const inverse = db.exchangeRates.find(r => r.fromCurrency === to && r.toCurrency === from);
+    const inverse = db.exchangeRates.find(r => 
+      ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === t) &&
+      ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === f)
+    );
     if (inverse) {
-      const rate = inverse.transferRate || inverse.buyRate;
-      return rate > 0 ? 1 / rate : 1;
+      const rate = extractNumericRate(inverse);
+      return rate > 0 ? (rate >= 1 ? 1 / rate : rate) : 1;
     }
 
     // Default fallbacks for base MMK
-    if (to === 'MMK') {
-      const base = db.exchangeRates.find(r => r.fromCurrency === from && r.toCurrency === 'MMK');
-      if (base) return base.transferRate;
+    if (t === 'MMK') {
+      if (f === 'THB') return 134.50;
+      if (f === 'SGD') return 3450.00;
+      if (f === 'USD') return 4580.00;
+      if (f === 'MYR') return 980.00;
     }
-    if (from === 'MMK') {
-      const base = db.exchangeRates.find(r => r.fromCurrency === to && r.toCurrency === 'MMK');
-      if (base && base.transferRate > 0) return 1 / base.transferRate;
+    if (f === 'MMK') {
+      if (t === 'THB') return 1 / 134.50;
+      if (t === 'SGD') return 1 / 3450.00;
+      if (t === 'USD') return 1 / 4580.00;
+      if (t === 'MYR') return 1 / 980.00;
     }
 
     return 1;
@@ -977,23 +1023,70 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Corridor rate lookup - always returns the base rate in MMK per 1 foreign unit (e.g. 134.50 MMK per THB, 4580 MMK per USD)
   const getCorridorExchangeRate = useCallback((sourceCur: string, targetCur: string): number => {
     if (sourceCur === targetCur) return 1;
+    const sCur = (sourceCur || '').toUpperCase();
+    const tCur = (targetCur || '').toUpperCase();
     
     // Foreign to MMK (e.g. THB -> MMK)
-    if (sourceCur !== 'MMK' && targetCur === 'MMK') {
-      const match = db.exchangeRates.find(r => r.fromCurrency === sourceCur && r.toCurrency === 'MMK');
-      if (match) return match.transferRate || match.buyRate || match.sellRate || 1;
+    if (sCur !== 'MMK' && tCur === 'MMK') {
+      const match = db.exchangeRates.find(r => 
+        ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === sCur) &&
+        ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === 'MMK')
+      );
+      if (match) {
+        const val = extractNumericRate(match);
+        if (val > 0) return val;
+      }
+      // Also check reverse if stored as MMK -> THB with base MMK rate
+      const revMatch = db.exchangeRates.find(r => 
+        ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === 'MMK') &&
+        ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === sCur)
+      );
+      if (revMatch) {
+        const val = extractNumericRate(revMatch);
+        if (val > 0) return val;
+      }
+      // Standard corridor defaults
+      if (sCur === 'THB') return 134.50;
+      if (sCur === 'SGD') return 3450.00;
+      if (sCur === 'USD') return 4580.00;
+      if (sCur === 'MYR') return 980.00;
     }
+
     // MMK to Foreign (e.g. MMK -> THB)
-    if (sourceCur === 'MMK' && targetCur !== 'MMK') {
-      const match = db.exchangeRates.find(r => r.fromCurrency === targetCur && r.toCurrency === 'MMK');
-      if (match) return match.transferRate || match.sellRate || match.buyRate || 1;
+    if (sCur === 'MMK' && tCur !== 'MMK') {
+      const match = db.exchangeRates.find(r => 
+        ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === tCur) &&
+        ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === 'MMK')
+      );
+      if (match) {
+        const val = extractNumericRate(match);
+        if (val > 0) return val;
+      }
+      const revMatch = db.exchangeRates.find(r => 
+        ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === 'MMK') &&
+        ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === tCur)
+      );
+      if (revMatch) {
+        const val = extractNumericRate(revMatch);
+        if (val > 0) return val;
+      }
+      if (tCur === 'THB') return 134.50;
+      if (tCur === 'SGD') return 3450.00;
+      if (tCur === 'USD') return 4580.00;
+      if (tCur === 'MYR') return 980.00;
     }
     
     // Direct match
-    const direct = db.exchangeRates.find(r => r.fromCurrency === sourceCur && r.toCurrency === targetCur);
-    if (direct) return direct.transferRate || direct.sellRate;
+    const direct = db.exchangeRates.find(r => 
+      ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === sCur) &&
+      ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === tCur)
+    );
+    if (direct) {
+      const val = extractNumericRate(direct);
+      if (val > 0) return val;
+    }
 
-    return getExchangeRate(sourceCur, targetCur);
+    return getExchangeRate(sCur, tCur);
   }, [db.exchangeRates, getExchangeRate]);
 
   // Generate unique MTCN
@@ -1162,7 +1255,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const newTx: RemittanceTransaction = {
-      id: `TX-${Date.now()}`,
+      id: getNextCleanId('TX', db.transactions, 3),
       transactionNo: txNo,
       mtcn: mtcn,
       type: 'OUTWARD',
@@ -1294,7 +1387,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const senderPassportAttachSize = txData.senderPassportAttachmentSize || txData.senderPassbookAttachmentSize || '';
 
     const newTx: RemittanceTransaction = {
-      id: `TX-${Date.now()}`,
+      id: getNextCleanId('TX', db.transactions, 3),
       transactionNo: txNo,
       mtcn: mtcn,
       type: 'INWARD',
@@ -2572,15 +2665,19 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let userBranchId = authenticatedUser.branchId || localUser?.branchId;
       if (!userBranchId || userBranchId === 'BR-001') {
         if (userCountryCode === 'TH' || uname.startsWith('th-')) {
-          userBranchId = 'BR-1789830806420';
+          const thBranch = db.branches.find(b => b.countryCode === 'TH' || b.id === 'BR-009' || b.id === 'BR-1789830806420');
+          userBranchId = thBranch?.id || 'BR-009';
         } else if (userCountryCode === 'SG' || uname.startsWith('sg-')) {
           userBranchId = 'BR-008';
         } else {
           userBranchId = 'BR-001';
         }
       }
+      if (userBranchId === 'BR-1789830806420' && db.branches.some(b => b.id === 'BR-009')) {
+        userBranchId = 'BR-009';
+      }
 
-      const assignedBranch = db.branches.find(b => b.id === userBranchId);
+      const assignedBranch = db.branches.find(b => b.id === userBranchId || (userBranchId === 'BR-009' && b.id === 'BR-1789830806420') || (userBranchId === 'BR-1789830806420' && b.id === 'BR-009'));
       if (assignedBranch?.countryCode) {
         userCountryCode = assignedBranch.countryCode;
       }
@@ -2611,7 +2708,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       }
 
-      if (effectiveBranch && effectiveBranch !== userBranchId) {
+      const isBranchMatched = effectiveBranch === userBranchId || 
+        ((effectiveBranch === 'BR-009' && userBranchId === 'BR-1789830806420') || (effectiveBranch === 'BR-1789830806420' && userBranchId === 'BR-009'));
+
+      if (effectiveBranch && !isBranchMatched) {
         const expectedBranch = db.branches.find(b => b.id === userBranchId);
         const selectedBranch = db.branches.find(b => b.id === effectiveBranch);
         const expectedBranchName = language === 'my' ? (expectedBranch?.nameMm || expectedBranch?.nameEn) : expectedBranch?.nameEn;
@@ -2876,15 +2976,19 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let userBranchId = authenticatedUser!.branchId || localUser?.branchId;
       if (!userBranchId || userBranchId === 'BR-001') {
         if (userCountryCode === 'TH' || uname.startsWith('th-')) {
-          userBranchId = 'BR-1789830806420';
+          const thBranch = db.branches.find(b => b.countryCode === 'TH' || b.id === 'BR-009' || b.id === 'BR-1789830806420');
+          userBranchId = thBranch?.id || 'BR-009';
         } else if (userCountryCode === 'SG' || uname.startsWith('sg-')) {
           userBranchId = 'BR-008';
         } else {
           userBranchId = 'BR-001';
         }
       }
+      if (userBranchId === 'BR-1789830806420' && db.branches.some(b => b.id === 'BR-009')) {
+        userBranchId = 'BR-009';
+      }
 
-      const assignedBranch = db.branches.find(b => b.id === userBranchId);
+      const assignedBranch = db.branches.find(b => b.id === userBranchId || (userBranchId === 'BR-009' && b.id === 'BR-1789830806420') || (userBranchId === 'BR-1789830806420' && b.id === 'BR-009'));
       if (assignedBranch?.countryCode) {
         userCountryCode = assignedBranch.countryCode;
       }
@@ -2915,7 +3019,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       }
 
-      if (effectiveBranch && effectiveBranch !== userBranchId) {
+      const isBranchMatched = effectiveBranch === userBranchId || 
+        ((effectiveBranch === 'BR-009' && userBranchId === 'BR-1789830806420') || (effectiveBranch === 'BR-1789830806420' && userBranchId === 'BR-009'));
+
+      if (effectiveBranch && !isBranchMatched) {
         const expectedBranch = db.branches.find(b => b.id === userBranchId);
         const selectedBranch = db.branches.find(b => b.id === effectiveBranch);
         const expectedBranchName = language === 'my' ? (expectedBranch?.nameMm || expectedBranch?.nameEn) : expectedBranch?.nameEn;
