@@ -1,0 +1,6 @@
+{
+  "name": "Remittance Management System (ပြည်တွင်း ပြည်ပ ငွေလွှဲစနစ်)",
+  "description": "Domestic & International Remittance Management System with Outward/Inward Entry, Maker-Checker Approval Workflow, 9 Admin Setup Modules, Turso LibSQL & Supabase Cloud Connection, Blacklist Screening (NRC/Passport), Reports, and Audit Trail in English & Myanmar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

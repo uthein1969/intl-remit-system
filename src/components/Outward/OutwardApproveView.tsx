@@ -1,0 +1,1656 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  CheckSquare, 
+  CheckCircle2, 
+  XCircle, 
+  X,
+  PauseCircle, 
+  Printer, 
+  Eye, 
+  ShieldAlert, 
+  ShieldCheck, 
+  Search, 
+  Filter, 
+  ArrowRight, 
+  Clock, 
+  Building2,
+  Edit3,
+  FileText,
+  FileCheck,
+  ExternalLink,
+  Download,
+  Paperclip,
+  Upload,
+  AlertCircle,
+  Maximize2,
+  Trash2,
+  Sparkles,
+  Receipt,
+  RefreshCw
+} from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { useRemittance } from '../../lib/store';
+import { RemittanceTransaction } from '../../types';
+import { VoucherModal } from '../VoucherModal';
+import { EditOutwardModal } from './EditOutwardModal';
+import { formatToDDMMYYYY } from '../Common/DobDatePicker';
+import { DocumentLightboxModal } from '../Common/DocumentLightboxModal';
+import { 
+  createSampleMyanmarNrcSvg, 
+  createSampleMyanmarNrcBackSvg,
+  createSampleMyanmarPassportSvg,
+  createSampleDepositReceiptSvg
+} from '../../lib/sampleDocuments';
+import { extractNrcInfoFromUpload, scanNrcWithAi } from '../../lib/nrcOcrParser';
+import { readFileAsOptimizedDataUrl } from '../../lib/imageCompressor';
+
+export interface OutwardApproveViewProps {
+  initialTxId?: string | null;
+  onClearInitialTxId?: () => void;
+}
+
+export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
+  initialTxId,
+  onClearInitialTxId
+}) => {
+  const { 
+    db, 
+    currentUser,
+    language, 
+    t, 
+    approveTransaction, 
+    rejectTransaction, 
+    holdTransaction, 
+    updateTransaction,
+    isSyncingTurso,
+    syncTursoBidirectional,
+    activeBranchId,
+    activeCountryCode
+  } = useRemittance();
+  
+  const isAdmin = currentUser?.role === 'ADMIN';
+  
+  const [filterStatus, setFilterStatus] = useState<string>('PENDING_APPROVAL');
+  const [selectedCountry, setSelectedCountry] = useState('ALL');
+  const [selectedBranch, setSelectedBranch] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTx, setSelectedTx] = useState<RemittanceTransaction | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  useEffect(() => {
+    if (initialTxId) {
+      const tx = db.transactions.find(t => t.id === initialTxId && t.type === 'OUTWARD');
+      if (tx) {
+        setSelectedBranch('ALL');
+        setSelectedCountry('ALL');
+        setFilterStatus(tx.status || 'PENDING_APPROVAL');
+        setSearchQuery(tx.transactionNo);
+        setSelectedTx(tx);
+        setApprovalNote('Verified all sender/receiver compliance details and financial records.');
+        setShowReviewModal(true);
+        if (onClearInitialTxId) {
+          onClearInitialTxId();
+        }
+      }
+    }
+  }, [initialTxId, db.transactions, onClearInitialTxId]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [approvalNote, setApprovalNote] = useState('');
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [voucherTx, setVoucherTx] = useState<RemittanceTransaction | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTx, setEditingTx] = useState<RemittanceTransaction | null>(null);
+  const [lightboxDoc, setLightboxDoc] = useState<{
+    isOpen: boolean;
+    title: string;
+    url?: string;
+    name?: string;
+    type?: string;
+    size?: string;
+    idNumber?: string;
+    sender?: string;
+  } | null>(null);
+  const [uploadFeedback, setUploadFeedback] = useState<{ message: string; type?: string } | null>(null);
+
+  const outwardTxs = db.transactions.filter(t => t.type === 'OUTWARD');
+
+  // Location filter applied first so status tab counts match the selected country/branch
+  const locationFilteredTxs = outwardTxs.filter(tx => {
+    // Country Filter
+    if (selectedCountry !== 'ALL') {
+      const branch = db.branches.find(b => b.id === (tx.sendingBranchId || tx.branchId));
+      const match = branch?.countryCode === selectedCountry || 
+        tx.senderCountryCode === selectedCountry || 
+        tx.receiverCountryCode === selectedCountry;
+      if (!match) return false;
+    }
+
+    // Branch Filter
+    if (selectedBranch !== 'ALL' && tx.sendingBranchId !== selectedBranch && tx.branchId !== selectedBranch) {
+      return false;
+    }
+    return true;
+  });
+
+  const pendingCount = locationFilteredTxs.filter(t => t.status === 'PENDING_APPROVAL').length;
+  const approvedCount = locationFilteredTxs.filter(t => t.status === 'APPROVED').length;
+  const allCount = locationFilteredTxs.length;
+
+  const filteredTxs = locationFilteredTxs.filter(tx => {
+    if (filterStatus !== 'ALL' && tx.status !== filterStatus) return false;
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        tx.transactionNo.toLowerCase().includes(q) ||
+        tx.mtcn.toLowerCase().includes(q) ||
+        tx.senderName.toLowerCase().includes(q) ||
+        tx.receiverName.toLowerCase().includes(q) ||
+        tx.senderNrc.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const handleOpenReview = (tx: RemittanceTransaction) => {
+    setSelectedTx(tx);
+    setApprovalNote('Verified all sender/receiver compliance details and financial records.');
+    setShowReviewModal(true);
+  };
+
+  const handleOpenEdit = (tx: RemittanceTransaction) => {
+    if (!isAdmin) return;
+    setEditingTx(tx);
+    setShowEditModal(true);
+  };
+
+  const handleDirectApproveFromEdit = async (updatedTx: RemittanceTransaction) => {
+    const success = await approveTransaction(updatedTx.id, 'Approved immediately after Review & Edit');
+    if (success) {
+      confetti({ particleCount: 70, spread: 60 });
+      setVoucherTx(updatedTx);
+      setShowVoucherModal(true);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedTx) return;
+    const success = await approveTransaction(selectedTx.id, approvalNote);
+    if (success) {
+      confetti({ particleCount: 70, spread: 60 });
+      setShowReviewModal(false);
+      setVoucherTx(selectedTx);
+      setShowVoucherModal(true);
+    }
+  };
+
+  const handleOpenReject = (tx: RemittanceTransaction) => {
+    setSelectedTx(tx);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!selectedTx || !rejectionReason.trim()) return;
+    await rejectTransaction(selectedTx.id, rejectionReason);
+    setShowRejectModal(false);
+    setShowReviewModal(false);
+  };
+
+  const handleHold = async () => {
+    if (!selectedTx) return;
+    await holdTransaction(selectedTx.id, approvalNote || 'Placed on hold for KYC verification.');
+    setShowReviewModal(false);
+  };
+
+  const openLightbox = (doc: {
+    title: string;
+    url?: string;
+    name?: string;
+    type?: string;
+    size?: string;
+    idNumber?: string;
+    sender?: string;
+  }) => {
+    if (!doc.url) return;
+    setLightboxDoc({
+      isOpen: true,
+      ...doc
+    });
+  };
+
+  const handleQuickAttach = async (type: 'nrc-front' | 'nrc-back' | 'nrc-both' | 'passport' | 'deposit') => {
+    if (!selectedTx) return;
+    let updated: RemittanceTransaction = { ...selectedTx };
+
+    if (type === 'nrc-front' || type === 'nrc-both') {
+      const frontUrl = createSampleMyanmarNrcSvg(
+        selectedTx.senderNrc || '12/BAHANA(N)184920',
+        selectedTx.senderNameMm || selectedTx.senderName,
+        selectedTx.senderName,
+        formatToDDMMYYYY(selectedTx.senderDateOfBirth) || '14/07/1988',
+        selectedTx.senderFatherName || 'U Tin Aung'
+      );
+      const frontName = `NRC_Front_${selectedTx.senderName.replace(/\s+/g, '_')}_${(selectedTx.senderNrc || 'Card').replace(/[^a-zA-Z0-9]/g, '_')}.svg`;
+      updated = {
+        ...updated,
+        senderNrcAttachment: frontUrl,
+        senderNrcAttachmentName: frontName,
+        senderNrcAttachmentType: 'image/svg+xml',
+        senderNrcAttachmentSize: '18 KB',
+        senderNrcFrontAttachment: frontUrl,
+        senderNrcFrontAttachmentName: frontName,
+        senderNrcFrontAttachmentType: 'image/svg+xml',
+        senderNrcFrontAttachmentSize: '18 KB'
+      };
+    }
+
+    if (type === 'nrc-back' || type === 'nrc-both') {
+      const backUrl = createSampleMyanmarNrcBackSvg(
+        selectedTx.senderOccupation || 'ကုမ္ပဏီဝန်ထမ်း (Company Staff)',
+        selectedTx.senderAddress || 'အမှတ် (၁၂)၊ ဗဟန်းလမ်း၊ ရန်ကုန်'
+      );
+      const backName = `NRC_Back_${selectedTx.senderName.replace(/\s+/g, '_')}_${(selectedTx.senderNrc || 'Card').replace(/[^a-zA-Z0-9]/g, '_')}.svg`;
+      updated = {
+        ...updated,
+        senderNrcBackAttachment: backUrl,
+        senderNrcBackAttachmentName: backName,
+        senderNrcBackAttachmentType: 'image/svg+xml',
+        senderNrcBackAttachmentSize: '16 KB'
+      };
+    }
+
+    if (type === 'passport') {
+      const passUrl = createSampleMyanmarPassportSvg(
+        selectedTx.senderPassport || 'MA-918234',
+        selectedTx.senderName,
+        formatToDDMMYYYY(selectedTx.senderDateOfBirth) || '14/07/1988'
+      );
+      const passName = `Passport_${selectedTx.senderName.replace(/\s+/g, '_')}_${selectedTx.senderPassport || 'MA918234'}.svg`;
+      updated = {
+        ...updated,
+        senderPassportAttachment: passUrl,
+        senderPassportAttachmentName: passName,
+        senderPassportAttachmentType: 'image/svg+xml',
+        senderPassportAttachmentSize: '24 KB',
+        senderPassbookAttachment: passUrl,
+        senderPassbookAttachmentName: passName,
+        senderPassbookAttachmentType: 'image/svg+xml',
+        senderPassbookAttachmentSize: '24 KB'
+      };
+    }
+
+    if (type === 'deposit') {
+      const curBranch = db.branches.find(b => b.id === selectedTx.sendingBranchId) || db.branches[0];
+      const depositUrl = createSampleDepositReceiptSvg(
+        selectedTx.senderName,
+        selectedTx.senderNrc || '12/BAHANA(N)184920',
+        `${selectedTx.sendAmount?.toLocaleString()} ${selectedTx.sourceCurrency || 'MMK'}`,
+        curBranch?.nameEn || 'Yangon Main Branch',
+        selectedTx.createdDate ? formatToDDMMYYYY(selectedTx.createdDate) : '07/09/2026'
+      );
+      const depositName = `Deposit_Receipt_${selectedTx.transactionNo || Date.now().toString().slice(-4)}.svg`;
+      updated = {
+        ...updated,
+        proofDocumentUrl: depositUrl,
+        proofDocumentName: depositName,
+        proofDocumentType: 'image/svg+xml',
+        proofDocumentSize: '21 KB',
+        proofDocCategory: 'DEPOSIT_RECEIPT'
+      };
+    }
+
+    await updateTransaction(updated, `Attached sample ${type} document in Outward Approval Queue`);
+    setSelectedTx(updated);
+    setUploadFeedback({
+      message: language === 'my'
+        ? `နမူနာ အထောက်အထားစာရွက်စာတမ်း အောင်မြင်စွာ ပူးတွဲပြီးပါပြီ`
+        : `Attached sample document successfully`,
+      type: 'general'
+    });
+    setTimeout(() => setUploadFeedback(null), 5000);
+  };
+
+  const handleFileUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'nrc-front' | 'nrc-back' | 'nrc' | 'passport' | 'deposit' | 'custom'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTx) return;
+
+    readFileAsOptimizedDataUrl(file).then(async (opt) => {
+      const dataUrl = opt.dataUrl;
+      const sizeStr = opt.sizeStr;
+      let updated: RemittanceTransaction = { ...selectedTx };
+
+      if (type === 'nrc-front' || type === 'nrc' || type === 'nrc-back') {
+        const extracted = extractNrcInfoFromUpload(file, dataUrl, db.customers);
+        updated = {
+          ...updated,
+          senderName: extracted.nameEn || updated.senderName,
+          senderNameMm: extracted.nameMm || updated.senderNameMm,
+          senderNrc: extracted.nrcNumber || updated.senderNrc,
+          senderFatherName: extracted.fatherName || updated.senderFatherName,
+          senderDateOfBirth: extracted.dob || updated.senderDateOfBirth,
+          senderAddress: extracted.address || updated.senderAddress,
+          senderOccupation: extracted.occupation || updated.senderOccupation,
+          ...(type === 'nrc-back' ? {
+            senderNrcBackAttachment: dataUrl,
+            senderNrcBackAttachmentName: opt.name,
+            senderNrcBackAttachmentType: opt.type,
+            senderNrcBackAttachmentSize: sizeStr
+          } : {
+            senderNrcAttachment: dataUrl,
+            senderNrcAttachmentName: opt.name,
+            senderNrcAttachmentType: opt.type,
+            senderNrcAttachmentSize: sizeStr,
+            senderNrcFrontAttachment: dataUrl,
+            senderNrcFrontAttachmentName: opt.name,
+            senderNrcFrontAttachmentType: opt.type,
+            senderNrcFrontAttachmentSize: sizeStr
+          })
+        };
+        await updateTransaction(updated, `Uploaded NRC: Auto-extracted ${extracted.nameEn || updated.senderName} (${extracted.nrcNumber || updated.senderNrc})`);
+        setSelectedTx(updated);
+        setUploadFeedback({
+          message: language === 'my'
+            ? `✨ မှတ်ပုံတင် ဖိုင်တင်သွင်းပြီးသည်နှင့် အမည် (${extracted.nameEn || extracted.nameMm || updated.senderName}) နှင့် မှတ်ပုံတင်နံပတ် (${extracted.nrcNumber || updated.senderNrc}) အား Auto တန်းဖတ်ရှုပြီး မှတ်တမ်းတွင် ဖြည့်သွင်းပြင်ဆင်လိုက်ပါပြီ`
+            : `✨ Auto-extracted Name (${extracted.nameEn || updated.senderName}) & NRC (${extracted.nrcNumber || updated.senderNrc}) upon upload!`,
+          type: 'general'
+        });
+
+        // Asynchronous AI Vision OCR
+        scanNrcWithAi(file, dataUrl, db.customers).then(async (aiExtracted) => {
+          if (selectedTx) {
+            const aiUpdated: RemittanceTransaction = {
+              ...selectedTx,
+              senderName: aiExtracted.nameEn || selectedTx.senderName,
+              senderNameMm: aiExtracted.nameMm || selectedTx.senderNameMm,
+              senderNrc: aiExtracted.nrcNumber || selectedTx.senderNrc,
+              senderFatherName: aiExtracted.fatherName || selectedTx.senderFatherName,
+              senderDateOfBirth: aiExtracted.dob || selectedTx.senderDateOfBirth,
+              senderAddress: aiExtracted.address || selectedTx.senderAddress,
+              senderOccupation: aiExtracted.occupation || selectedTx.senderOccupation,
+            };
+            await updateTransaction(aiUpdated, `AI OCR Refinement: ${aiExtracted.nameEn || aiUpdated.senderName} (${aiExtracted.nrcNumber || aiUpdated.senderNrc})`);
+            setSelectedTx(aiUpdated);
+          }
+        }).catch(() => {});
+
+        setTimeout(() => setUploadFeedback(null), 7000);
+        return;
+      } else if (type === 'deposit' || type === 'custom') {
+        updated = {
+          ...updated,
+          proofDocumentUrl: dataUrl,
+          proofDocumentName: opt.name,
+          proofDocumentType: opt.type,
+          proofDocumentSize: sizeStr,
+          proofDocCategory: type === 'deposit' ? 'DEPOSIT_RECEIPT' : 'OTHER'
+        };
+      }
+
+      await updateTransaction(updated, `Uploaded ${type} file: ${opt.name}`);
+      setSelectedTx(updated);
+      setUploadFeedback({
+        message: language === 'my'
+          ? `ပုံအသစ် အောင်မြင်စွာ အစားထိုးထည့်သွင်းပြီးပါပြီ (${opt.name})`
+          : `Successfully replaced old picture with new file (${opt.name})`,
+        type: 'general'
+      });
+      setTimeout(() => setUploadFeedback(null), 6000);
+    });
+    e.target.value = '';
+  };
+
+  const handleRemoveAttachment = async (
+    type: 'nrc-front' | 'nrc-back' | 'nrc' | 'passport' | 'deposit'
+  ) => {
+    if (!selectedTx) return;
+    let updated: RemittanceTransaction = { ...selectedTx };
+
+    if (type === 'nrc-front' || type === 'nrc') {
+      updated = {
+        ...updated,
+        senderNrcAttachment: undefined,
+        senderNrcAttachmentName: undefined,
+        senderNrcAttachmentType: undefined,
+        senderNrcAttachmentSize: undefined,
+        senderNrcFrontAttachment: undefined,
+        senderNrcFrontAttachmentName: undefined,
+        senderNrcFrontAttachmentType: undefined,
+        senderNrcFrontAttachmentSize: undefined
+      };
+    } else if (type === 'nrc-back') {
+      updated = {
+        ...updated,
+        senderNrcBackAttachment: undefined,
+        senderNrcBackAttachmentName: undefined,
+        senderNrcBackAttachmentType: undefined,
+        senderNrcBackAttachmentSize: undefined
+      };
+    } else if (type === 'passport') {
+      updated = {
+        ...updated,
+        senderPassportAttachment: undefined,
+        senderPassportAttachmentName: undefined,
+        senderPassportAttachmentType: undefined,
+        senderPassportAttachmentSize: undefined,
+        senderPassbookAttachment: undefined,
+        senderPassbookAttachmentName: undefined,
+        senderPassbookAttachmentType: undefined,
+        senderPassbookAttachmentSize: undefined
+      };
+    } else if (type === 'deposit') {
+      updated = {
+        ...updated,
+        proofDocumentUrl: undefined,
+        proofDocumentName: undefined,
+        proofDocumentType: undefined,
+        proofDocumentSize: undefined,
+        proofDocCategory: undefined
+      };
+    }
+
+    await updateTransaction(updated, `Removed ${type} attachment`);
+    setSelectedTx(updated);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <span className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+              <CheckSquare className="w-4 h-4" />
+            </span>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              {t.outwardApproveTitle}
+            </h2>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {t.approveListSubtitle}
+          </p>
+        </div>
+
+        {/* Filter Tabs & Cloud Sync */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
+            <button
+              onClick={() => setFilterStatus('PENDING_APPROVAL')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                filterStatus === 'PENDING_APPROVAL' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {language === 'my' ? 'စိစစ်ရန်ကျန်' : 'Pending'} ({pendingCount})
+            </button>
+            <button
+              onClick={() => setFilterStatus('APPROVED')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                filterStatus === 'APPROVED' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {language === 'my' ? 'အတည်ပြုပြီး' : 'Approved'} ({approvedCount})
+            </button>
+            <button
+              onClick={() => setFilterStatus('ALL')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                filterStatus === 'ALL' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {t.all} ({allCount})
+            </button>
+          </div>
+
+          {/* Turso Cloud Live Sync Button */}
+          <button
+            onClick={() => syncTursoBidirectional()}
+            disabled={isSyncingTurso}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-semibold shadow-xs"
+            title={language === 'my' ? 'Turso Cloud မှ စာရင်းအသစ်များ ရယူရန် / Refresh လုပ်ရန် နှိပ်ပါ' : 'Fetch latest transactions from Turso Cloud'}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingTurso ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
+            <span>{isSyncingTurso ? (language === 'my' ? 'Sync လုပ်နေသည်...' : 'Syncing...') : (language === 'my' ? 'Cloud Sync' : 'Sync Cloud')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Search & Location Filter Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={language === 'my' ? 'MTCN၊ အမှတ်စဉ်၊ ပို့သူ/လက်ခံသူ အမည်ဖြင့် ရှာရန်...' : 'Search by MTCN, Tx No, Sender/Receiver...'}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          {/* Country Filter */}
+          <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
+            <span className="text-[11px] text-slate-400 font-medium">
+              {language === 'my' ? 'နိုင်ငံ:' : 'Country:'}
+            </span>
+            <select
+              value={selectedCountry}
+              onChange={(e) => {
+                const c = e.target.value;
+                setSelectedCountry(c);
+                if (c !== 'ALL') {
+                  const b = db.branches.find(br => br.countryCode === c);
+                  if (b) setSelectedBranch(b.id);
+                  else setSelectedBranch('ALL');
+                } else {
+                  setSelectedBranch('ALL');
+                }
+              }}
+              className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
+            >
+              <option value="ALL" className="bg-slate-900 text-white">🌐 {language === 'my' ? 'နိုင်ငံအားလုံး' : 'All Countries'}</option>
+              {db.countries.map(c => (
+                <option key={c.id} value={c.code} className="bg-slate-900 text-white">
+                  {c.flagEmoji} {c.nameEn} ({c.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Branch Filter */}
+          <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
+            <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[11px] text-slate-400 font-medium">
+              {language === 'my' ? 'ဘဏ်ခွဲ:' : 'Branch:'}
+            </span>
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer max-w-[180px] truncate"
+            >
+              <option value="ALL" className="bg-slate-900 text-white">{language === 'my' ? 'ဘဏ်ခွဲအားလုံး' : 'All Branches'}</option>
+              {db.branches
+                .filter(b => selectedCountry === 'ALL' || b.countryCode === selectedCountry)
+                .map(b => (
+                  <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                    {b.code} - {b.nameEn}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {(selectedCountry !== 'ALL' || selectedBranch !== 'ALL' || searchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCountry('ALL');
+                setSelectedBranch('ALL');
+                setSearchQuery('');
+              }}
+              className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium px-1 cursor-pointer"
+            >
+              {language === 'my' ? 'အားလုံးပြမည် (Reset)' : 'Reset All'}
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs text-slate-400 self-end md:self-center font-mono shrink-0">
+          <span className="text-amber-400 font-bold">{filteredTxs.length}</span> {language === 'my' ? 'ခု တွေ့ရှိပါသည်' : 'transactions found'}
+        </div>
+      </div>
+
+      {/* Transaction List Table */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-300">
+            <thead className="bg-slate-950 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="px-4 py-3">{t.transactionNo} / MTCN</th>
+                <th className="px-4 py-3">{t.senderName}</th>
+                <th className="px-4 py-3">{t.receiverName}</th>
+                <th className="px-4 py-3">{t.amount} & Exchange</th>
+                <th className="px-4 py-3">{t.creator}</th>
+                <th className="px-4 py-3">{t.status}</th>
+                <th className="px-4 py-3 text-right">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {filteredTxs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 text-slate-500">
+                    {t.noData}
+                  </td>
+                </tr>
+              ) : (
+                filteredTxs.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-mono font-bold text-white">{tx.transactionNo}</div>
+                      <div className="flex items-center gap-1.5 my-0.5">
+                        <span className="font-mono text-amber-400 text-[11px]">MTCN: {tx.mtcn}</span>
+                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                          tx.scope === 'DOMESTIC' 
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                            : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                        }`}>
+                          {tx.scope || 'INTERNATIONAL'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">{formatToDDMMYYYY(tx.createdDate)}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-slate-200">{tx.senderName}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">{tx.senderNrc}</div>
+
+                      {/* Attached NRC or Passport Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {tx.senderNrcAttachment ? (
+                          <button
+                            type="button"
+                            onClick={() => openLightbox({
+                              title: language === 'my' ? 'ငွေလွှဲပို့သူ၏ မှတ်ပုံတင် (NRC)' : "Sender's National Registration Card (NRC)",
+                              url: tx.senderNrcAttachment,
+                              name: tx.senderNrcAttachmentName || 'Sender_NRC.svg',
+                              type: tx.senderNrcAttachmentType || 'image/svg+xml',
+                              size: tx.senderNrcAttachmentSize || '',
+                              idNumber: tx.senderNrc,
+                              sender: tx.senderName
+                            })}
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition-all cursor-pointer group hover:scale-[1.02]"
+                            title={language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် ကြည့်မည်' : 'View attached NRC Card'}
+                          >
+                            <FileText className="w-3 h-3 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                            <span>NRC Attached</span>
+                            <Eye className="w-2.5 h-2.5 text-emerald-400/80 ml-0.5 shrink-0" />
+                          </button>
+                        ) : null}
+
+                        {(tx.senderPassportAttachment || tx.senderPassbookAttachment) ? (
+                          <button
+                            type="button"
+                            onClick={() => openLightbox({
+                              title: language === 'my' ? 'ငွေလွှဲပို့သူ၏ နိုင်ငံကူးလက်မှတ် (Passport)' : "Sender's Passport Document",
+                              url: tx.senderPassportAttachment || tx.senderPassbookAttachment,
+                              name: tx.senderPassportAttachmentName || tx.senderPassbookAttachmentName || 'Sender_Passport.svg',
+                              type: tx.senderPassportAttachmentType || tx.senderPassbookAttachmentType || 'image/svg+xml',
+                              size: tx.senderPassportAttachmentSize || tx.senderPassbookAttachmentSize || '',
+                              idNumber: tx.senderPassport,
+                              sender: tx.senderName
+                            })}
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[10px] font-semibold transition-all cursor-pointer group hover:scale-[1.02]"
+                            title={language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် ကြည့်မည်' : 'View attached Passport Document'}
+                          >
+                            <FileCheck className="w-3 h-3 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+                            <span>Passport Attached</span>
+                            <Eye className="w-2.5 h-2.5 text-sky-400/80 ml-0.5 shrink-0" />
+                          </button>
+                        ) : null}
+
+                        {!tx.senderNrcAttachment && !tx.senderPassportAttachment && !tx.senderPassbookAttachment && (
+                          <span className="inline-flex items-center space-x-1 text-[10px] text-slate-500 italic py-0.5">
+                            <AlertCircle className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                            <span>No doc attached</span>
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-slate-200">{tx.receiverName}</div>
+                      <div className="text-[11px] text-slate-400">Destination: {tx.receiverCountryCode}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-mono font-bold text-emerald-400">
+                        {Number(tx.sendAmount || 0).toLocaleString()} {tx.sourceCurrency}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        ➔ {Number(tx.receiveAmount || 0).toLocaleString()} {tx.targetCurrency}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-slate-300 font-medium">{tx.creatorName}</div>
+                      <div className="flex items-center space-x-1 text-[10px] text-sky-400 font-mono mt-0.5">
+                        <Building2 className="w-3 h-3 text-sky-400 shrink-0" />
+                        <span>{db.branches.find(b => b.id === tx.sendingBranchId)?.nameEn || tx.sendingBranchId || 'Yangon HQ'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">{tx.purposeName}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        tx.status === 'APPROVED' || tx.status === 'PAID_OUT'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : tx.status === 'PENDING_APPROVAL'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                          : tx.status === 'ON_HOLD'
+                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        {tx.status === 'PENDING_APPROVAL' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReview(tx)}
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-950/40 transition-all flex items-center space-x-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                            title={language === 'my' ? 'စိစစ် & အတည်ပြုမည်' : 'Review & Approve'}
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>{language === 'my' ? 'စိစစ် & အတည်ပြု' : 'Review & Approve'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setVoucherTx(tx);
+                              setShowVoucherModal(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            title={t.printVoucher}
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Checker Review Modal */}
+      {showReviewModal && selectedTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 text-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header with Title, Transaction Number & Top Close Button */}
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/60 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                  <CheckSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>{language === 'my' ? 'ငွေလွှဲပို့မှု စိစစ်အတည်ပြုခြင်း (Checker Review)' : 'Outward Remittance Approval Review'}</span>
+                    <span className="font-mono text-xs text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
+                      {selectedTx.transactionNo}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {language === 'my' ? 'ငွေလွှဲစိစစ်ချက်နှင့် အထောက်အထားများ အပြည့်အစုံ ကြည့်ရှုရန်' : 'View all transaction details, KYC compliance checks & attachments'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Close Button at Top */}
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer"
+                title={language === 'my' ? 'ပိတ်မည် (Close)' : 'Close'}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Body with Top-Down Scrollbar to view all information */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-200 custom-scrollbar scroll-smooth">
+              {/* Quick overview grid */}
+            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <div>
+                <span className="text-slate-400 block font-medium">{t.senderName}:</span>
+                <strong className="text-slate-200 text-sm">{selectedTx.senderName}</strong>
+                <p className="text-[11px] text-slate-400 font-mono">{selectedTx.senderNrc}</p>
+                <p className="text-[11px] text-slate-400">{selectedTx.senderPhone}</p>
+                {selectedTx.senderDateOfBirth && (
+                  <p className="text-[11px] text-amber-400 font-mono flex items-center gap-1 mt-0.5">
+                    <span className="text-slate-500">DOB:</span>
+                    <span>{formatToDDMMYYYY(selectedTx.senderDateOfBirth)}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <span className="text-slate-400 block font-medium">{t.receiverName}:</span>
+                <strong className="text-slate-200 text-sm">{selectedTx.receiverName}</strong>
+                <p className="text-[11px] text-slate-400">Destination: {selectedTx.receiverCountryCode}</p>
+                <p className="text-[11px] text-slate-400">{selectedTx.receiverPhone}</p>
+              </div>
+
+              <div className="border-t border-slate-800 pt-2">
+                <span className="text-slate-400 block font-medium">{t.sendAmount}:</span>
+                <strong className="text-emerald-400 text-sm font-mono">
+                  {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency}
+                </strong>
+              </div>
+
+              <div className="border-t border-slate-800 pt-2">
+                <span className="text-slate-400 block font-medium">{t.receiveAmount}:</span>
+                <strong className="text-emerald-400 text-sm font-mono">
+                  {Number(selectedTx.receiveAmount || 0).toLocaleString()} {selectedTx.targetCurrency}
+                </strong>
+              </div>
+            </div>
+
+            {/* Sender Identity Document Verification (NRC Front & Back, Passport, Deposit Slip) */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <FileCheck className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span className="text-xs font-bold text-white">
+                    {language === 'my' 
+                      ? 'ငွေလွှဲစိစစ်ရန် မူရင်း မှတ်ပုံတင် (NRC) / နိုင်ငံကူးလက်မှတ် / ငွေသွင်းပြေစာ ပူးတွဲဖိုင်များ' 
+                      : "Sender Identity & Compliance Documents Verification"}
+                  </span>
+                </div>
+                
+                {/* Status indicator */}
+                <div className="flex items-center space-x-2">
+                  {(selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment) && selectedTx.senderNrcBackAttachment ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                      ✓ {language === 'my' ? 'NRC ရှေ့/နောက် ပြည့်စုံစွာ ပူးတွဲပြီး' : 'NRC Front & Back Attached'}
+                    </span>
+                  ) : (selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment) ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                      ✓ {language === 'my' ? 'NRC အရှေ့ခြမ်း ပူးတွဲပြီး' : 'NRC Front Attached'}
+                    </span>
+                  ) : (selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment) ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-bold">
+                      ✓ {language === 'my' ? 'Passport ပူးတွဲပြီး' : 'Passport Attached'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                      ⚠ {language === 'my' ? 'စာရွက်စာတမ်း မပူးတွဲရသေးပါ' : 'No Attachment Uploaded'}
+                    </span>
+                  )}
+                  {selectedTx.proofDocumentUrl && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-bold">
+                      ✓ {language === 'my' ? 'ငွေသွင်းပြေစာ ပူးတွဲပြီး' : 'Deposit Slip Attached'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Attach Presets Toolbar */}
+              <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-medium mr-1 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{language === 'my' ? 'နမူနာ အမြန်တွဲရန်:' : 'Quick Presets:'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleQuickAttach('nrc-both')}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                  title="Generate both Front and Back NRC cards"
+                >
+                  <span>+ {language === 'my' ? 'NRC ရှေ့/နောက် နှစ်ဖက်လုံး နမူနာတွဲမည်' : 'Attach Both NRC Front & Back'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickAttach('passport')}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                  title="Generate Passport document"
+                >
+                  <span>+ {language === 'my' ? 'Passport နမူနာတွဲမည်' : 'Attach Sample Passport'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickAttach('deposit')}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                  title="Generate Bank Deposit Slip voucher"
+                >
+                  <span>+ {language === 'my' ? 'ငွေသွင်းပြေစာ နမူနာ ထုတ်ယူတွဲမည်' : 'Attach Sample Deposit Slip'}</span>
+                </button>
+              </div>
+
+              {/* Informational Banner on Data Text View & Preview */}
+              <div className="flex items-start space-x-2 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs">
+                <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-emerald-300">
+                    {language === 'my' ? 'စာရွက်စာတမ်း အချက်အလက်နှင့် ပုံကြည့်ရှုခြင်း:' : 'Document Data & Picture Preview:'}
+                  </span>{' '}
+                  <span>
+                    {language === 'my' 
+                      ? 'စာရွက်စာတမ်း အချက်အလက်များကို စာသားအတန်းလိုက် ဖော်ပြထားပါသည်။ မူရင်းပုံ ကြည့်ရှုလိုပါက သက်ဆိုင်ရာ အတန်းရှိ "Preview" ခလုတ်ကို နှိပ်၍ ကြည့်ရှုနိုင်ပါသည်။'
+                      : 'Documents are displayed strictly as word rows. Click the "Preview" button in any row to inspect original documents.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Upload & Replace Feedback Banner */}
+              {uploadFeedback && (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs animate-in fade-in duration-200">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-semibold">{uploadFeedback.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUploadFeedback(null)}
+                    className="text-emerald-400 hover:text-white p-0.5 cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Documents Table: Only Show by Words by Rows (No Picture Frames) */}
+              <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/80">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/90 text-slate-400 font-semibold text-[11px]">
+                      <th className="py-2.5 px-3">{language === 'my' ? 'စာရွက်စာတမ်း အမျိုးအစား' : 'Document Type'}</th>
+                      <th className="py-2.5 px-3">{language === 'my' ? 'အချက်အလက် / နံပါတ်' : 'Reference / ID'}</th>
+                      <th className="py-2.5 px-3">{language === 'my' ? 'ဖိုင်အမည် & ဆိုဒ်' : 'Attached File & Size'}</th>
+                      <th className="py-2.5 px-3 text-center">{language === 'my' ? 'အခြေအနေ' : 'Status'}</th>
+                      <th className="py-2.5 px-3 text-right">{language === 'my' ? 'လုပ်ဆောင်ချက်' : 'Actions'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80 text-[11px]">
+                    {/* Row 1: NRC Front */}
+                    <tr className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1 rounded-md bg-emerald-500/20 text-emerald-400 shrink-0">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-semibold text-slate-200">
+                            {language === 'my' ? 'NRC အရှေ့ခြမ်း (Front)' : 'NRC Card (Front Side)'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-emerald-400 font-medium">
+                        {selectedTx.senderNrc || '12/BAHANA(N)184920'}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {(selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment) ? (
+                          <>
+                            <span className="font-mono text-slate-200">
+                              {selectedTx.senderNrcFrontAttachmentName || selectedTx.senderNrcAttachmentName || 'NRC_Front.svg'}
+                            </span>{' '}
+                            <span className="text-[10px] text-emerald-400 font-bold ml-1">
+                              {selectedTx.senderNrcFrontAttachmentSize || selectedTx.senderNrcAttachmentSize || '18 KB'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 italic">{language === 'my' ? 'မပူးတွဲရသေးပါ' : 'Not attached'}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {(selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment) ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>{language === 'my' ? 'စစ်ဆေးပြီး' : 'Verified'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-[10px]">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {(selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment) ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openLightbox({
+                                  title: language === 'my' ? 'ငွေလွှဲပို့သူ၏ မှတ်ပုံတင် အရှေ့ခြမ်း' : "Sender's NRC Card (Front)",
+                                  url: selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment,
+                                  name: selectedTx.senderNrcFrontAttachmentName || selectedTx.senderNrcAttachmentName || 'Sender_NRC_Front.svg',
+                                  type: selectedTx.senderNrcFrontAttachmentType || selectedTx.senderNrcAttachmentType || 'image/svg+xml',
+                                  size: selectedTx.senderNrcFrontAttachmentSize || selectedTx.senderNrcAttachmentSize || '',
+                                  idNumber: selectedTx.senderNrc,
+                                  sender: selectedTx.senderName
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs"
+                                title={language === 'my' ? 'မူရင်းပုံ ကြည့်ရှုမည်' : 'Preview Picture'}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+                              <label
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title={language === 'my' ? 'အစားထိုး' : 'Replace'}
+                              >
+                                <Upload className="w-3 h-3 text-slate-400" />
+                                <span>{language === 'my' ? 'အစားထိုး' : 'Replace'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'nrc-front')}
+                                />
+                              </label>
+                              <a
+                                href={selectedTx.senderNrcFrontAttachment || selectedTx.senderNrcAttachment}
+                                download={selectedTx.senderNrcFrontAttachmentName || selectedTx.senderNrcAttachmentName || 'Sender_NRC_Front.svg'}
+                                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment('nrc-front')}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAttach('nrc-front')}
+                                className="px-2 py-1 rounded-md bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                              >
+                                + Sample
+                              </button>
+                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'nrc-front')}
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 2: NRC Back */}
+                    <tr className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1 rounded-md bg-rose-500/20 text-rose-400 shrink-0">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-semibold text-slate-200">
+                            {language === 'my' ? 'NRC အနောက်ခြမ်း (Back)' : 'NRC Card (Back Side)'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300 font-medium">
+                        {language === 'my' ? 'သွေးအုပ်စု & လိပ်စာ' : 'Blood Group & Address'}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {selectedTx.senderNrcBackAttachment ? (
+                          <>
+                            <span className="font-mono text-slate-200">
+                              {selectedTx.senderNrcBackAttachmentName || 'NRC_Back.svg'}
+                            </span>{' '}
+                            <span className="text-[10px] text-rose-400 font-bold ml-1">
+                              {selectedTx.senderNrcBackAttachmentSize || '16 KB'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 italic">{language === 'my' ? 'မပူးတွဲရသေးပါ' : 'Not attached'}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {selectedTx.senderNrcBackAttachment ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>{language === 'my' ? 'စစ်ဆေးပြီး' : 'Verified'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-[10px]">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {selectedTx.senderNrcBackAttachment ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openLightbox({
+                                  title: language === 'my' ? 'ငွေလွှဲပို့သူ၏ မှတ်ပုံတင် အနောက်ခြမ်း' : "Sender's NRC Card (Back Side)",
+                                  url: selectedTx.senderNrcBackAttachment,
+                                  name: selectedTx.senderNrcBackAttachmentName || 'Sender_NRC_Back.svg',
+                                  type: selectedTx.senderNrcBackAttachmentType || 'image/svg+xml',
+                                  size: selectedTx.senderNrcBackAttachmentSize || '',
+                                  idNumber: selectedTx.senderNrc,
+                                  sender: selectedTx.senderName
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs"
+                                title={language === 'my' ? 'မူရင်းပုံ ကြည့်ရှုမည်' : 'Preview Picture'}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+                              <label
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title={language === 'my' ? 'အစားထိုး' : 'Replace'}
+                              >
+                                <Upload className="w-3 h-3 text-slate-400" />
+                                <span>{language === 'my' ? 'အစားထိုး' : 'Replace'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'nrc-back')}
+                                />
+                              </label>
+                              <a
+                                href={selectedTx.senderNrcBackAttachment}
+                                download={selectedTx.senderNrcBackAttachmentName || 'Sender_NRC_Back.svg'}
+                                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment('nrc-back')}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAttach('nrc-back')}
+                                className="px-2 py-1 rounded-md bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                              >
+                                + Sample
+                              </button>
+                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'nrc-back')}
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 3: Passport */}
+                    <tr className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1 rounded-md bg-sky-500/20 text-sky-400 shrink-0">
+                            <FileCheck className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-semibold text-slate-200">
+                            {language === 'my' ? 'နိုင်ငံကူးလက်မှတ် (Passport)' : 'Passport Document'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-sky-300 font-medium">
+                        {selectedTx.senderPassport || 'MB-102948'}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {(selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment) ? (
+                          <>
+                            <span className="font-mono text-slate-200">
+                              {selectedTx.senderPassportAttachmentName || selectedTx.senderPassbookAttachmentName || 'Sender_Passport.svg'}
+                            </span>{' '}
+                            <span className="text-[10px] text-sky-400 font-bold ml-1">
+                              {selectedTx.senderPassportAttachmentSize || selectedTx.senderPassbookAttachmentSize || '24 KB'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 italic">{language === 'my' ? 'မပူးတွဲရသေးပါ' : 'Not attached'}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {(selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment) ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>{language === 'my' ? 'စစ်ဆေးပြီး' : 'Verified'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-[10px]">
+                            Optional
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {(selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment) ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openLightbox({
+                                  title: language === 'my' ? 'ငွေလွှဲပို့သူ၏ နိုင်ငံကူးလက်မှတ် (Passport)' : "Sender's Passport Document",
+                                  url: selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment,
+                                  name: selectedTx.senderPassportAttachmentName || selectedTx.senderPassbookAttachmentName || 'Sender_Passport.svg',
+                                  type: selectedTx.senderPassportAttachmentType || selectedTx.senderPassbookAttachmentType || 'image/svg+xml',
+                                  size: selectedTx.senderPassportAttachmentSize || selectedTx.senderPassbookAttachmentSize || '',
+                                  idNumber: selectedTx.senderPassport,
+                                  sender: selectedTx.senderName
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs"
+                                title={language === 'my' ? 'မူရင်းပုံ ကြည့်ရှုမည်' : 'Preview Picture'}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+                              <label
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title={language === 'my' ? 'အစားထိုး' : 'Replace'}
+                              >
+                                <Upload className="w-3 h-3 text-slate-400" />
+                                <span>{language === 'my' ? 'အစားထိုး' : 'Replace'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'passport')}
+                                />
+                              </label>
+                              <a
+                                href={selectedTx.senderPassportAttachment || selectedTx.senderPassbookAttachment}
+                                download={selectedTx.senderPassportAttachmentName || selectedTx.senderPassbookAttachmentName || 'Sender_Passport.svg'}
+                                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment('passport')}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAttach('passport')}
+                                className="px-2 py-1 rounded-md bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                              >
+                                + Sample
+                              </button>
+                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'passport')}
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 4: Deposit Slip */}
+                    <tr className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 shrink-0">
+                            <Receipt className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-semibold text-slate-200">
+                            {language === 'my' ? 'ဘဏ်ငွေသွင်းပြေစာ (Deposit Slip)' : 'Deposit Slip Receipt'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-amber-300 font-medium">
+                        {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency || selectedTx.sendCurrency || 'MMK'}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {selectedTx.proofDocumentUrl ? (
+                          <>
+                            <span className="font-mono text-slate-200">
+                              {selectedTx.proofDocumentName || 'Deposit_Receipt.svg'}
+                            </span>{' '}
+                            <span className="text-[10px] text-amber-400 font-bold ml-1">
+                              {selectedTx.proofDocumentSize || '21 KB'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 italic">{language === 'my' ? 'မပူးတွဲရသေးပါ' : 'Not attached'}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {selectedTx.proofDocumentUrl ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>{language === 'my' ? 'စစ်ဆေးပြီး' : 'Verified'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-[10px]">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {selectedTx.proofDocumentUrl ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openLightbox({
+                                  title: language === 'my' ? 'ဘဏ်ငွေသွင်းပြေစာ မူရင်း (Deposit Receipt)' : "Remittance Cash Deposit Receipt",
+                                  url: selectedTx.proofDocumentUrl,
+                                  name: selectedTx.proofDocumentName || 'Deposit_Receipt.svg',
+                                  type: selectedTx.proofDocumentType || 'image/svg+xml',
+                                  size: selectedTx.proofDocumentSize || '',
+                                  idNumber: selectedTx.transactionNo,
+                                  sender: selectedTx.senderName
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs"
+                                title={language === 'my' ? 'မူရင်းပုံ ကြည့်ရှုမည်' : 'Preview Picture'}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+                              <label
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title={language === 'my' ? 'အစားထိုး' : 'Replace'}
+                              >
+                                <Upload className="w-3 h-3 text-slate-400" />
+                                <span>{language === 'my' ? 'အစားထိုး' : 'Replace'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'deposit')}
+                                />
+                              </label>
+                              <a
+                                href={selectedTx.proofDocumentUrl}
+                                download={selectedTx.proofDocumentName || 'Deposit_Receipt.svg'}
+                                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment('deposit')}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAttach('deposit')}
+                                className="px-2 py-1 rounded-md bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                              >
+                                + Sample
+                              </button>
+                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf,.svg"
+                                  className="hidden"
+                                  onChange={(e) => handleFileUpload(e, 'deposit')}
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Identity Verification Checklist */}
+              <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-800/80 text-[11px] text-slate-300 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-3">
+                  <span className="text-slate-400">{language === 'my' ? 'စိစစ်ချက်များ:' : 'KYC Matches:'}</span>
+                  <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{selectedTx.senderName}</span>
+                  </span>
+                  <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span className="font-mono">{selectedTx.senderNrc}</span>
+                  </span>
+                  {selectedTx.senderDateOfBirth && (
+                    <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="font-mono">DOB: {formatToDDMMYYYY(selectedTx.senderDateOfBirth)}</span>
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500">
+                  {language === 'my' ? 'အထောက်အထားမူရင်းနှင့် ကိုက်ညီမှုရှိမရှိ စစ်ဆေးပါ' : 'Confirm match with physical / scanned ID'}
+                </span>
+              </div>
+            </div>
+
+            {/* Compliance Check Status */}
+            <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex items-center space-x-2 text-xs text-emerald-300">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <span>{t.cleanRecord}</span>
+            </div>
+
+            {/* Branch Information */}
+            {(() => {
+              const b = db.branches.find(br => br.id === selectedTx.sendingBranchId) || db.branches[0];
+              if (!b) return null;
+              return (
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center space-x-3">
+                    <Building2 className="w-5 h-5 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-white">
+                          {language === 'my' && b.nameMm ? `${b.nameMm} (${b.nameEn})` : b.nameEn}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 font-mono text-[10px] font-bold">
+                          {b.code}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {b.address}, {b.city} • Tel: <span className="font-mono text-slate-300">{b.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right text-[11px] text-slate-400 shrink-0 border-t sm:border-t-0 pt-1 sm:pt-0 sm:border-l border-slate-800 sm:pl-3">
+                    <span className="text-slate-500 block">{language === 'my' ? 'ဘဏ်ခွဲ မန်နေဂျာ' : 'Branch Manager'}</span>
+                    <span className="font-bold text-slate-200">{b.managerName}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Maker Note */}
+            {selectedTx.senderNote && (
+              <div className="text-xs bg-slate-800 p-3 rounded-xl border border-slate-700">
+                <span className="text-slate-400 font-bold block">{t.makerNote}:</span>
+                <span className="text-slate-200 italic">"{selectedTx.senderNote}"</span>
+              </div>
+            )}
+
+            {/* Approval Remarks Input */}
+            <div className="text-xs">
+              <label className="block text-slate-400 mb-1 font-medium">{t.approvalNote}</label>
+              <input
+                type="text"
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                placeholder="Remarks for audit trail..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* End of Scrollable Body */}
+            </div>
+
+            {/* Sticky Modal Action Buttons Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-4 border-t border-slate-800 bg-slate-950/90 shrink-0">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors cursor-pointer flex items-center space-x-1"
+                  title={language === 'my' ? 'ပိတ်မည်' : 'Close'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'ပိတ်မည်' : 'Close'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleHold}
+                  className="px-3.5 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {t.hold}
+                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReviewModal(false);
+                      handleOpenEdit(selectedTx);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer hover:scale-[1.02]"
+                    title={language === 'my' ? 'ငွေလွှဲအချက်အလက် ပြင်ဆင်ရန်' : 'Edit Remittance Information'}
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{language === 'my' ? 'ပြင်ဆင်ရန် (Review & Edit)' : 'Review & Edit'}</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    handleOpenReject(selectedTx);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {t.reject}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
+                >
+                  {t.approve}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Prompt Modal */}
+      {showRejectModal && selectedTx && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-600 text-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-rose-400">
+                <XCircle className="w-5 h-5" />
+                <h3 className="text-base font-bold">{t.reject} - {selectedTx.transactionNo}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                title={language === 'my' ? 'ပိတ်မည်' : 'Close'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-300">
+              {language === 'my' ? 'ငြင်းပယ်ရသည့် အကြောင်းအရင်းကို အသေးစိတ် ထည့်သွင်းပေးပါ (Audit Log တွင် သိမ်းဆည်းမည်)' : 'Please provide the mandatory rejection reason. This will be recorded in compliance audit.'}
+            </p>
+            <div>
+              <textarea
+                required
+                rows={3}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Inconsistent NRC spelling / Unverified overseas tuition invoice"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={!rejectionReason.trim()}
+                onClick={handleConfirmReject}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold disabled:opacity-50"
+              >
+                {t.reject}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Voucher Modal */}
+      <VoucherModal
+        isOpen={showVoucherModal}
+        transaction={voucherTx}
+        onClose={() => setShowVoucherModal(false)}
+      />
+
+      {/* Edit Outward Modal */}
+      <EditOutwardModal
+        isOpen={showEditModal}
+        transaction={editingTx}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingTx(null);
+        }}
+        onApproveDirectly={handleDirectApproveFromEdit}
+      />
+
+      {/* Document Lightbox Modal for Sender NRC & Passport */}
+      <DocumentLightboxModal
+        isOpen={!!lightboxDoc?.isOpen}
+        title={lightboxDoc?.title || "Sender Identity Document"}
+        documentUrl={lightboxDoc?.url}
+        fileName={lightboxDoc?.name}
+        fileType={lightboxDoc?.type}
+        fileSize={lightboxDoc?.size}
+        idNumber={lightboxDoc?.idNumber}
+        senderName={lightboxDoc?.sender}
+        onClose={() => setLightboxDoc(null)}
+      />
+    </div>
+  );
+};
