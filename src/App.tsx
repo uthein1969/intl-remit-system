@@ -24,7 +24,7 @@ import { BackupRestoreView } from './components/Backup/BackupRestoreView';
 import { useAutoTursoSync } from './hooks/useAutoTursoSync';
 
 const MainLayout: React.FC = () => {
-  const { currentUser, isMenuAllowedForRole, language } = useRemittance();
+  const { currentUser, isMenuAllowedForRole, activeCountryCode, language } = useRemittance();
   const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
     if (currentUser?.role === 'MAKER') return 'outward_entry';
     if (currentUser?.role === 'CHECKER') return 'outward_approve';
@@ -61,7 +61,7 @@ const MainLayout: React.FC = () => {
         if (fallback) setActiveTab(fallback);
       }
     }
-  }, [currentUser?.role, activeTab, isMenuAllowedForRole]);
+  }, [currentUser?.role, activeTab, isMenuAllowedForRole, activeCountryCode]);
 
   const handleNavigate = (tab: NavigationTab, subTab?: SetupSubTab, targetTxId?: string) => {
     setActiveTab(tab);
@@ -77,7 +77,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="h-screen bg-[#F1F5F9] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white overflow-hidden">
       {/* Header */}
       <Header 
         onOpenBackup={() => handleNavigate('backup_restore')}

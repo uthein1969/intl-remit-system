@@ -149,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-60 bg-[#0F172A] border-r border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 select-none ${
+      <aside className={`fixed lg:sticky top-0 lg:top-14 z-50 lg:z-30 w-60 h-screen lg:h-[calc(100vh-3.5rem)] bg-[#0F172A] border-r border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 select-none ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         {/* Brand Header */}
@@ -161,10 +161,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               v2.4
             </span>
           </div>
+          {isMobileOpen && (
+            <button
+              type="button"
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden text-slate-400 hover:text-white p-1"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        {/* Scrollable Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+        {/* Scrollable Navigation with min-h-0 so footer stays pinned */}
+        <nav className="flex-1 overflow-y-auto min-h-0 px-2 py-3 space-y-0.5">
           {/* Section: Core Workflows */}
           {hasCoreMenus && (
             <>
@@ -436,11 +445,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Active Operator & Logout in Sidebar */}
-        <div className="p-3 border-t border-slate-800 bg-[#0E1626]">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0 flex-1 pr-2">
+        <div className="p-3 border-t border-slate-800 bg-[#0E1626] shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center space-x-1.5">
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
                   {currentUser.role}
                 </span>
                 <span className="text-xs font-semibold text-slate-200 truncate">
@@ -455,10 +464,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => logout()}
-              className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 active:bg-rose-500/30 text-rose-400 border border-rose-500/30 transition-colors cursor-pointer"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
               title={language === 'my' ? 'စနစ်မှ ထွက်မည် (Logout)' : 'Sign out'}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 text-white" />
+              <span className="text-[11px]">{language === 'my' ? 'ထွက်မည်' : 'Logout'}</span>
             </button>
           </div>
         </div>

@@ -1374,6 +1374,12 @@ export const initialDatabase: AppDatabase = {
   activeLanguage: 'my', // Default to Myanmar for natural local experience
   currentUserId: 'USR-001',
   roleMenuPermissions: DEFAULT_ROLE_MENU_PERMISSIONS,
+  countryRoleMenuPermissions: {
+    MM: { ...DEFAULT_ROLE_MENU_PERMISSIONS },
+    TH: { ...DEFAULT_ROLE_MENU_PERMISSIONS },
+    SG: { ...DEFAULT_ROLE_MENU_PERMISSIONS },
+    MY: { ...DEFAULT_ROLE_MENU_PERMISSIONS },
+  },
   defaultStatusConfig: {
     autoCountryDefault: true,
     applyOutwardEntry: true,

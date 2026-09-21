@@ -327,6 +327,7 @@ export async function tursoWebSyncPush(data: {
   purposes?: any[];
   operatorProfile?: any;
   roleMenuPermissions?: any;
+  countryRoleMenuPermissions?: any;
   defaultStatusConfig?: any;
 }): Promise<{
   success: boolean;
@@ -886,6 +887,18 @@ export async function tursoWebSyncPush(data: {
         console.warn('[Turso Web Sync] Error saving roleMenuPermissions:', e);
       }
     }
+    if (data.countryRoleMenuPermissions) {
+      try {
+        await client.execute({
+          sql: `INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`,
+          args: ['country_role_menu_permissions', JSON.stringify(data.countryRoleMenuPermissions), new Date().toISOString()]
+        });
+        settCount++;
+      } catch (e) {
+        console.warn('[Turso Web Sync] Error saving countryRoleMenuPermissions:', e);
+      }
+    }
     if (data.defaultStatusConfig) {
       try {
         await client.execute({
@@ -946,6 +959,7 @@ export async function tursoWebSyncPull(): Promise<{
     purposes?: any[];
     operatorProfile?: any;
     roleMenuPermissions?: any;
+    countryRoleMenuPermissions?: any;
     defaultStatusConfig?: any;
   };
   message: string;
@@ -1215,12 +1229,19 @@ export async function tursoWebSyncPull(): Promise<{
     }
 
     let roleMenuPermissions: any = undefined;
+    let countryRoleMenuPermissions: any = undefined;
     let defaultStatusConfig: any = undefined;
     if (settsRes.rows && settsRes.rows.length > 0) {
       for (const row of settsRes.rows as any[]) {
         if (row.key === 'role_menu_permissions') {
           try {
             roleMenuPermissions = JSON.parse(row.value);
+          } catch {
+            // ignore
+          }
+        } else if (row.key === 'country_role_menu_permissions') {
+          try {
+            countryRoleMenuPermissions = JSON.parse(row.value);
           } catch {
             // ignore
           }
@@ -1250,6 +1271,7 @@ export async function tursoWebSyncPull(): Promise<{
         purposes,
         operatorProfile,
         roleMenuPermissions,
+        countryRoleMenuPermissions,
         defaultStatusConfig,
       },
       message: `Retrieved all tables from Turso Cloud (${transactions.length} txs, ${branches.length} branches, ${users.length} users, etc.).`

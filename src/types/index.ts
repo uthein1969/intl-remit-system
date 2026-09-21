@@ -18,6 +18,7 @@ export type NavigationTab =
   | 'turso_sync';
 
 export type RoleMenuPermissions = Record<UserRole, NavigationTab[]>;
+export type CountryRoleMenuPermissions = Record<string, RoleMenuPermissions>;
 
 export const DEFAULT_ROLE_MENU_PERMISSIONS: RoleMenuPermissions = {
   ADMIN: [
@@ -384,5 +385,6 @@ export interface AppDatabase {
   activeLanguage: Language;
   currentUserId: string;
   roleMenuPermissions?: RoleMenuPermissions;
+  countryRoleMenuPermissions?: CountryRoleMenuPermissions;
   defaultStatusConfig?: DefaultStatusConfig;
 }

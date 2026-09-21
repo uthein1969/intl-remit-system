@@ -19,6 +19,7 @@ import {
   OperatorProfile,
   NavigationTab,
   RoleMenuPermissions,
+  CountryRoleMenuPermissions,
   DEFAULT_ROLE_MENU_PERMISSIONS,
   DefaultStatusConfig
 } from '../types';
@@ -225,12 +226,15 @@ interface RemittanceContextType {
   fetchSupabaseUsers: () => Promise<{ success: boolean; users?: User[]; message?: string }>;
   seedUsersToSupabase: () => Promise<{ success: boolean; message: string }>;
 
-  // Role Menu Permissions (Show App Menu by Role)
+  // Role Menu Permissions (Show App Menu by Role & Country)
   roleMenuPermissions: RoleMenuPermissions;
-  updateRoleMenuPermissions: (role: UserRole, menus: NavigationTab[]) => void;
-  toggleRoleMenuPermission: (role: UserRole, menu: NavigationTab) => void;
-  resetRoleMenuPermissions: () => void;
-  isMenuAllowedForRole: (role: UserRole, tab: NavigationTab) => boolean;
+  countryRoleMenuPermissions: CountryRoleMenuPermissions;
+  getRoleMenuPermissionsForCountry: (countryCode?: string) => RoleMenuPermissions;
+  updateRoleMenuPermissions: (role: UserRole, menus: NavigationTab[], countryCode?: string) => void;
+  toggleRoleMenuPermission: (role: UserRole, menu: NavigationTab, countryCode?: string) => void;
+  resetRoleMenuPermissions: (countryCode?: string) => void;
+  copyRoleMenuPermissions: (sourceCountryCode: string, targetCountryCode: string) => void;
+  isMenuAllowedForRole: (role: UserRole, tab: NavigationTab, countryCode?: string) => boolean;
 }
 
 const RemittanceContext = createContext<RemittanceContextType | null>(null);
@@ -366,6 +370,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             roleMenuPermissions: (parsed.roleMenuPermissions && typeof parsed.roleMenuPermissions === 'object')
               ? { ...DEFAULT_ROLE_MENU_PERMISSIONS, ...parsed.roleMenuPermissions }
               : DEFAULT_ROLE_MENU_PERMISSIONS,
+            countryRoleMenuPermissions: (parsed.countryRoleMenuPermissions && typeof parsed.countryRoleMenuPermissions === 'object')
+              ? parsed.countryRoleMenuPermissions
+              : (initialDatabase.countryRoleMenuPermissions || {}),
           };
         }
       }
@@ -797,6 +804,8 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             users: mergedUsers,
             ...(extraData.exchangeRates?.length ? { exchangeRates: extraData.exchangeRates } : {}),
             ...(extraData.customers?.length ? { customers: extraData.customers } : {}),
+            ...(extraData.roleMenuPermissions ? { roleMenuPermissions: extraData.roleMenuPermissions } : {}),
+            ...(extraData.countryRoleMenuPermissions ? { countryRoleMenuPermissions: extraData.countryRoleMenuPermissions } : {}),
           };
         });
       }
@@ -852,6 +861,8 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         customers: currentDb.customers,
         branches: currentDb.branches,
         users: currentDb.users,
+        roleMenuPermissions: currentDb.roleMenuPermissions,
+        countryRoleMenuPermissions: currentDb.countryRoleMenuPermissions,
       };
 
       const { ok } = await safeFetchJson('/api/turso/sync-push', {
@@ -911,6 +922,8 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             customers: currentDb.customers,
             branches: currentDb.branches,
             users: currentDb.users,
+            roleMenuPermissions: currentDb.roleMenuPermissions,
+            countryRoleMenuPermissions: currentDb.countryRoleMenuPermissions,
           };
 
           const { ok } = await safeFetchJson('/api/turso/sync-push', {
@@ -3592,12 +3605,27 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   };
 
-  // Role Menu Permissions (Show App Menu by User Role)
-  const roleMenuPermissions: RoleMenuPermissions = (db.roleMenuPermissions && typeof db.roleMenuPermissions === 'object')
-    ? { ...DEFAULT_ROLE_MENU_PERMISSIONS, ...db.roleMenuPermissions }
-    : DEFAULT_ROLE_MENU_PERMISSIONS;
+  // Role Menu Permissions (Country-Specific Role-Based Access Control)
+  const countryRoleMenuPermissions: CountryRoleMenuPermissions = (db.countryRoleMenuPermissions && typeof db.countryRoleMenuPermissions === 'object')
+    ? db.countryRoleMenuPermissions
+    : (initialDatabase.countryRoleMenuPermissions || {});
 
-  const updateRoleMenuPermissions = (role: UserRole, menus: NavigationTab[]) => {
+  const getRoleMenuPermissionsForCountry = useCallback((countryCode?: string): RoleMenuPermissions => {
+    const targetCountry = countryCode || activeCountryCode || currentUser.countryCode || 'MM';
+    if (countryRoleMenuPermissions[targetCountry] && typeof countryRoleMenuPermissions[targetCountry] === 'object') {
+      return countryRoleMenuPermissions[targetCountry];
+    }
+    return (db.roleMenuPermissions && typeof db.roleMenuPermissions === 'object')
+      ? { ...DEFAULT_ROLE_MENU_PERMISSIONS, ...db.roleMenuPermissions }
+      : DEFAULT_ROLE_MENU_PERMISSIONS;
+  }, [countryRoleMenuPermissions, activeCountryCode, currentUser.countryCode, db.roleMenuPermissions]);
+
+  // Current active country's permissions (convenient for single-country UI consumption)
+  const roleMenuPermissions: RoleMenuPermissions = getRoleMenuPermissionsForCountry(activeCountryCode);
+
+  const updateRoleMenuPermissions = (role: UserRole, menus: NavigationTab[], countryCode?: string) => {
+    const targetCountry = countryCode || activeCountryCode || currentUser.countryCode || 'MM';
+
     // Security enforcement: Admin Setup can ONLY be accessed by ADMIN role
     let sanitizedMenus = [...menus];
     if (role !== 'ADMIN') {
@@ -3606,10 +3634,19 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       sanitizedMenus.push('admin_setup');
     }
 
-    const updatedPermissions: RoleMenuPermissions = {
-      ...roleMenuPermissions,
-      [role]: sanitizedMenus,
+    const currentCountryPerms = countryRoleMenuPermissions[targetCountry]
+      ? { ...countryRoleMenuPermissions[targetCountry] }
+      : { ...getRoleMenuPermissionsForCountry(targetCountry) };
+
+    currentCountryPerms[role] = sanitizedMenus;
+
+    const updatedCountryPermissions: CountryRoleMenuPermissions = {
+      ...countryRoleMenuPermissions,
+      [targetCountry]: currentCountryPerms,
     };
+
+    const countryObj = db.countries.find(c => c.code === targetCountry);
+    const countryLabel = countryObj ? `${countryObj.flagEmoji} ${countryObj.nameEn} (${countryObj.code})` : targetCountry;
 
     const auditRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -3619,25 +3656,28 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       userRole: currentUser.role,
       action: 'UPDATE',
       entityType: 'SYSTEM',
-      entityId: `ROLE_MENU_${role}`,
-      details: `Admin ${currentUser.fullName} updated App Menu permissions for role ${role} (Allowed menus: ${sanitizedMenus.join(', ')})`,
+      entityId: `ROLE_MENU_${targetCountry}_${role}`,
+      details: `Country Admin ${currentUser.fullName} (${currentUser.role}) configured App Menu permissions for [${countryLabel}] - Role: ${role} (Allowed menus: ${sanitizedMenus.join(', ')})`,
     };
 
     setDb(prev => ({
       ...prev,
-      roleMenuPermissions: updatedPermissions,
+      countryRoleMenuPermissions: updatedCountryPermissions,
+      roleMenuPermissions: targetCountry === activeCountryCode ? currentCountryPerms : (prev.roleMenuPermissions || currentCountryPerms),
       auditLogs: [auditRecord, ...prev.auditLogs],
     }));
 
     syncLiveAuditLogToCloud(auditRecord);
   };
 
-  const toggleRoleMenuPermission = (role: UserRole, menu: NavigationTab) => {
+  const toggleRoleMenuPermission = (role: UserRole, menu: NavigationTab, countryCode?: string) => {
     // Non-admin can NEVER have admin_setup
     if (menu === 'admin_setup' && role !== 'ADMIN') {
       return;
     }
-    const current = roleMenuPermissions[role] || DEFAULT_ROLE_MENU_PERMISSIONS[role] || [];
+    const targetCountry = countryCode || activeCountryCode || currentUser.countryCode || 'MM';
+    const currentPerms = getRoleMenuPermissionsForCountry(targetCountry);
+    const current = currentPerms[role] || DEFAULT_ROLE_MENU_PERMISSIONS[role] || [];
     let updatedMenus: NavigationTab[];
     if (current.includes(menu)) {
       // Admin must always retain admin_setup
@@ -3648,10 +3688,19 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       updatedMenus = [...current, menu];
     }
-    updateRoleMenuPermissions(role, updatedMenus);
+    updateRoleMenuPermissions(role, updatedMenus, targetCountry);
   };
 
-  const resetRoleMenuPermissions = () => {
+  const resetRoleMenuPermissions = (countryCode?: string) => {
+    const targetCountry = countryCode || activeCountryCode || currentUser.countryCode || 'MM';
+    const countryObj = db.countries.find(c => c.code === targetCountry);
+    const countryLabel = countryObj ? `${countryObj.flagEmoji} ${countryObj.nameEn} (${countryObj.code})` : targetCountry;
+
+    const updatedCountryPermissions: CountryRoleMenuPermissions = {
+      ...countryRoleMenuPermissions,
+      [targetCountry]: { ...DEFAULT_ROLE_MENU_PERMISSIONS },
+    };
+
     const auditRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
@@ -3660,27 +3709,59 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       userRole: currentUser.role,
       action: 'UPDATE',
       entityType: 'SYSTEM',
-      entityId: 'ROLE_MENU_RESET',
-      details: `Admin ${currentUser.fullName} reset App Menu permissions for all roles to standard default policy (Maker: Outward/Inward Entry; Checker: Outward/Inward Approval; Admin: Full System).`,
+      entityId: `ROLE_MENU_RESET_${targetCountry}`,
+      details: `Country Admin ${currentUser.fullName} reset App Menu permissions for [${countryLabel}] to default standard policy (Maker: Entry; Checker: Approval; Admin: Full System).`,
     };
 
     setDb(prev => ({
       ...prev,
-      roleMenuPermissions: DEFAULT_ROLE_MENU_PERMISSIONS,
+      countryRoleMenuPermissions: updatedCountryPermissions,
+      roleMenuPermissions: targetCountry === activeCountryCode ? DEFAULT_ROLE_MENU_PERMISSIONS : prev.roleMenuPermissions,
       auditLogs: [auditRecord, ...prev.auditLogs],
     }));
 
     syncLiveAuditLogToCloud(auditRecord);
   };
 
-  const isMenuAllowedForRole = (role: UserRole, tab: NavigationTab): boolean => {
+  const copyRoleMenuPermissions = (sourceCountryCode: string, targetCountryCode: string) => {
+    const sourcePerms = getRoleMenuPermissionsForCountry(sourceCountryCode);
+    const updatedCountryPermissions: CountryRoleMenuPermissions = {
+      ...countryRoleMenuPermissions,
+      [targetCountryCode]: { ...sourcePerms },
+    };
+
+    const srcObj = db.countries.find(c => c.code === sourceCountryCode);
+    const trgObj = db.countries.find(c => c.code === targetCountryCode);
+
+    const auditRecord: AuditRecord = {
+      id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      userName: currentUser.fullName,
+      userRole: currentUser.role,
+      action: 'UPDATE',
+      entityType: 'SYSTEM',
+      entityId: `ROLE_MENU_COPY_${sourceCountryCode}_TO_${targetCountryCode}`,
+      details: `Country Admin ${currentUser.fullName} copied Role Menu permissions from [${srcObj?.nameEn || sourceCountryCode}] to [${trgObj?.nameEn || targetCountryCode}]`,
+    };
+
+    setDb(prev => ({
+      ...prev,
+      countryRoleMenuPermissions: updatedCountryPermissions,
+      roleMenuPermissions: targetCountryCode === activeCountryCode ? sourcePerms : prev.roleMenuPermissions,
+      auditLogs: [auditRecord, ...prev.auditLogs],
+    }));
+
+    syncLiveAuditLogToCloud(auditRecord);
+  };
+
+  const isMenuAllowedForRole = (role: UserRole, tab: NavigationTab, countryCode?: string): boolean => {
     // Admin Setup strictly requires ADMIN role
     if (tab === 'admin_setup') {
       return role === 'ADMIN';
     }
-    const currentPerms = (db.roleMenuPermissions && typeof db.roleMenuPermissions === 'object')
-      ? db.roleMenuPermissions
-      : DEFAULT_ROLE_MENU_PERMISSIONS;
+    const targetCountry = countryCode || activeCountryCode || currentUser.countryCode || 'MM';
+    const currentPerms = getRoleMenuPermissionsForCountry(targetCountry);
     const rolePerms = currentPerms[role] || DEFAULT_ROLE_MENU_PERMISSIONS[role] || [];
     return rolePerms.includes(tab);
   };
@@ -3763,9 +3844,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         fetchSupabaseUsers,
         seedUsersToSupabase,
         roleMenuPermissions,
+        countryRoleMenuPermissions,
+        getRoleMenuPermissionsForCountry,
         updateRoleMenuPermissions,
         toggleRoleMenuPermission,
         resetRoleMenuPermissions,
+        copyRoleMenuPermissions,
         isMenuAllowedForRole,
       }}
     >

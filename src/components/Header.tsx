@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
                 v2.4 Pro
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block leading-none mt-0.5">
+            <p className="text-[11px] text-slate-500 hidden xl:block leading-none mt-0.5">
               {language === 'my' ? 'မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် စည်းမျဉ်းကိုက် ငွေလွှဲနှင့် စာရင်းရှင်းလင်းမှု' : 'CBM-Compliant Money Transfer & Cross-Border Settlement'}
             </p>
           </div>
@@ -118,12 +118,12 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right controls */}
-      <div className="flex items-center space-x-2 sm:space-x-3">
-        {/* Official Operating Remittance Company Orange Box (လိမ္မော်ရောင်လေးဒေါင့်အကွက်) */}
+      <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 ml-auto">
+        {/* Official Operating Remittance Company Orange Box (Only on 2XL screens to preserve header width) */}
         <button
           type="button"
           onClick={() => onNavigateCompanySetting ? onNavigateCompanySetting() : setShowCompanyModal(true)}
-          className="hidden xl:flex items-center space-x-2 px-2.5 py-1 rounded-lg border-2 border-orange-500 bg-orange-50 hover:bg-orange-100/90 text-orange-950 transition-colors cursor-pointer shadow-2xs text-left group shrink-0"
+          className="hidden 2xl:flex items-center space-x-2 px-2.5 py-1 rounded-lg border-2 border-orange-500 bg-orange-50 hover:bg-orange-100/90 text-orange-950 transition-colors cursor-pointer shadow-2xs text-left group shrink-0"
           title={language === 'my' ? 'ဆော့ဖ်ဝဲလ် အသုံးပြုသည့် ကုမ္ပဏီ အချက်အလက် ပြင်ဆင်ရန် (Settings ထဲရှိ Form သို့ သွားမည်)' : 'Remittance Operating Company (Go to Settings Form)'}
         >
           <div className="w-6 h-6 rounded bg-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
@@ -131,70 +131,74 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="leading-tight">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-[11px] text-orange-950 truncate max-w-[200px]">
+              <span className="font-bold text-[11px] text-orange-950 truncate max-w-[160px]">
                 {language === 'my' ? operatorProfile.companyNameMm : operatorProfile.companyNameEn}
               </span>
               <span className="text-[9px] font-bold text-orange-700 bg-orange-200/80 border border-orange-300 px-1 rounded shrink-0">
                 {language === 'my' ? 'လိမ္မော်ရောင်ကွက်' : 'Licensed'}
               </span>
             </div>
-            <div className="text-[10px] text-slate-600 flex items-center gap-1.5 truncate max-w-[280px]">
+            <div className="text-[10px] text-slate-600 flex items-center gap-1.5 truncate max-w-[220px]">
               <span className="truncate">📍 {language === 'my' ? operatorProfile.addressMm : operatorProfile.addressEn}</span>
               <span className="shrink-0 font-mono font-bold text-orange-900">📞 {operatorProfile.phone}</span>
             </div>
           </div>
         </button>
 
-        {/* Compact Company Profile Button for smaller screens */}
+        {/* Compact Company Profile Button for laptops & tablets */}
         <button
           type="button"
           onClick={() => onNavigateCompanySetting ? onNavigateCompanySetting() : setShowCompanyModal(true)}
-          className="xl:hidden flex items-center space-x-1 px-2 py-1 rounded-md border-2 border-orange-500 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+          className="2xl:hidden flex items-center space-x-1.5 px-2 py-1 rounded-md border border-orange-400 bg-orange-50 hover:bg-orange-100 text-orange-900 text-xs font-bold transition-colors cursor-pointer shrink-0"
           title={language === 'my' ? 'ကုမ္ပဏီ အချက်အလက် (Settings ထဲရှိ Form သို့ သွားမည်)' : 'Company Profile (Go to Settings Form)'}
         >
-          <Building2 className="w-3.5 h-3.5 text-orange-600" />
-          <span className="text-[11px]">{language === 'my' ? 'ကုမ္ပဏီ' : 'Company'}</span>
+          <Building2 className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+          <span className="text-[11px] font-bold truncate max-w-[110px] hidden sm:inline">
+            {language === 'my' ? operatorProfile.companyNameMm : operatorProfile.companyNameEn}
+          </span>
         </button>
 
-        {/* Turso Cloud Status Pill with Interactive Sync */}
-        <div className="hidden md:flex items-center space-x-1 bg-emerald-50 border border-emerald-200 rounded-md p-0.5">
-          <button
-            onClick={onOpenTurso || onOpenBackup}
-            className="flex items-center space-x-1.5 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100/70 rounded transition-colors"
-            title={language === 'my' 
-              ? `Turso Cloud Database (ချိတ်ဆက်ထားသည်)${lastTursoSyncTime ? ` - နောက်ဆုံး Sync: ${lastTursoSyncTime}` : ''}` 
-              : `Turso Cloud Database (Connected & Active)${lastTursoSyncTime ? ` - Last synced: ${lastTursoSyncTime}` : ''}`}
-          >
-            <div className={`w-2 h-2 rounded-full ${isTursoConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-            <span>{language === 'my' ? 'Turso Cloud' : 'Turso Cloud'}</span>
-          </button>
-          
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              await syncTursoBidirectional();
-            }}
-            disabled={isSyncingTurso}
-            className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded transition-all"
-            title={language === 'my' ? 'Turso Cloud မှ စာရင်းအသစ်များ ရယူရန် / Sync လုပ်ရန် နှိပ်ပါ' : 'Click to fetch latest transactions & sync with Turso Cloud'}
-          >
-            <RefreshCw className={`w-3 h-3 ${isSyncingTurso ? 'animate-spin text-emerald-600' : 'text-emerald-600 hover:rotate-180 transition-transform duration-300'}`} />
-          </button>
-        </div>
+        {/* Unified Turso Cloud Status & 5-Min Sync Pill */}
+        <button
+          type="button"
+          onClick={async () => {
+            await syncTursoBidirectional();
+          }}
+          disabled={isSyncingTurso}
+          className={`flex items-center space-x-1.5 px-2 py-1 rounded-md border text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
+            isSyncingTurso
+              ? 'bg-blue-50 border-blue-200 text-blue-700'
+              : isTursoConnected
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+              : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+          }`}
+          title={language === 'my' 
+            ? `Turso Cloud (၅ မိနစ်တစ်ကြိမ် အလိုအလျောက် Sync)${lastTursoSyncTime ? ` - နောက်ဆုံး: ${lastTursoSyncTime}` : ''} - နှိပ်၍ ချက်ချင်း Sync လုပ်ပါ` 
+            : `Turso Cloud (5-min auto sync)${lastTursoSyncTime ? ` - Last: ${lastTursoSyncTime}` : ''} - Click to sync now`}
+        >
+          <div className={`w-2 h-2 rounded-full shrink-0 ${isSyncingTurso ? 'bg-blue-500 animate-pulse' : isTursoConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+          <span className="hidden xl:inline text-[11px] font-mono">
+            {isSyncingTurso ? 'Syncing...' : lastTursoSyncTime ? `Turso ${lastTursoSyncTime}` : 'Turso Sync'}
+          </span>
+          <span className="xl:hidden text-[11px] font-mono hidden md:inline">
+            {isSyncingTurso ? '...' : 'Turso'}
+          </span>
+          <RefreshCw className={`w-3 h-3 shrink-0 ${isSyncingTurso ? 'animate-spin text-blue-600' : 'text-emerald-600'}`} />
+        </button>
 
         {/* Country & Branch Context Badge with Switcher */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setShowBranchSwitcher(!showBranchSwitcher)}
-            className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors cursor-pointer"
+            className="hidden lg:flex items-center space-x-1 px-2 py-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors cursor-pointer shrink-0"
             title={language === 'my' ? 'လက်ရှိ ရွေးချယ်ထားသော နိုင်ငံနှင့် ဘဏ်ခွဲ ပြောင်းရန် နှိပ်ပါ' : 'Click to change active Country and Branch context'}
           >
-            <span className="text-sm leading-none">{currentCountry?.flagEmoji || '🌐'}</span>
+            <span className="text-xs leading-none">{currentCountry?.flagEmoji || '🌐'}</span>
             <span className="font-bold text-[11px] text-slate-900">{currentCountry?.code || 'MM'}</span>
             <span className="text-slate-300 font-mono">/</span>
-            <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-            <span className="font-semibold text-[11px] text-blue-900 truncate max-w-[140px]">
+            <Building2 className="w-3 h-3 text-blue-600 shrink-0" />
+            <span className="font-semibold text-[11px] text-blue-900 truncate max-w-[90px] xl:max-w-[130px]">
               {language === 'my' ? currentBranch?.nameMm : currentBranch?.nameEn}
             </span>
           </button>
@@ -224,7 +228,6 @@ export const Header: React.FC<HeaderProps> = ({
                   onChange={(e) => {
                     const newCountry = e.target.value;
                     setActiveCountryCode(newCountry);
-                    // Find first branch belonging to this country
                     const matchedBranch = db.branches.find(b => b.countryCode === newCountry);
                     if (matchedBranch) {
                       setActiveBranchId(matchedBranch.id);
@@ -266,27 +269,21 @@ export const Header: React.FC<HeaderProps> = ({
                     ))}
                 </select>
               </div>
-
-              <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg leading-relaxed">
-                {language === 'my' 
-                  ? '💡 နိုင်ငံနှင့် ဘဏ်ခွဲ ပြောင်းလဲလိုက်ပါက Inward၊ Outward နှင့် Reports များတွင် သက်ဆိုင်ရာ အချက်အလက်များ အလိုအလျောက် သီးသန့် ပြသပေးပါမည်။' 
-                  : '💡 Switching country/branch filters all Inward, Outward, and Reports to this active location context.'}
-              </div>
             </div>
           )}
         </div>
 
         {/* Role & Operator Switcher */}
-        <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-md px-2 py-1">
-          <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-          <div className="text-left">
-            <div className="text-[9px] text-slate-500 uppercase font-mono font-bold leading-none">
+        <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 shrink-0 max-w-[150px] sm:max-w-[190px]">
+          <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <div className="text-left min-w-0">
+            <div className="text-[9px] text-slate-500 uppercase font-mono font-bold leading-none truncate">
               {currentUser.role}
             </div>
             <select
               value={currentUser.id}
               onChange={(e) => switchUser(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer pr-1 truncate max-w-[110px] sm:max-w-[150px]"
               aria-label="Switch current active user"
             >
               {db.users.map((u) => (
@@ -298,55 +295,32 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Turso Cloud 5-Min Auto-Sync Status & Trigger */}
-        <button
-          onClick={() => syncTursoBidirectional()}
-          disabled={isSyncingTurso}
-          className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors cursor-pointer active:scale-95 ${
-            isSyncingTurso
-              ? 'bg-blue-50 border-blue-200 text-blue-700'
-              : isTursoConnected
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-              : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-          }`}
-          title={language === 'my' ? 'Turso Cloud 5-Min Auto Sync (နှိပ်၍ ချက်ချင်း Sync လုပ်နိုင်သည်)' : 'Turso Cloud 5-Min Auto Sync (Click to sync now)'}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isSyncingTurso ? 'animate-spin text-blue-600' : 'text-emerald-600'}`} />
-          <span className="font-mono text-[11px]">
-            {isSyncingTurso 
-              ? (language === 'my' ? 'Syncing...' : 'Syncing...') 
-              : lastTursoSyncTime 
-              ? `Turso: ${lastTursoSyncTime}` 
-              : '5-Min Sync'}
-          </span>
-        </button>
-
         {/* Quick Backup Action */}
         <button
           onClick={onOpenBackup}
-          className="p-1.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
+          className="p-1.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors shrink-0"
           title={t.backup}
         >
           <Download className="w-4 h-4" />
         </button>
 
-        {/* Logout Action */}
+        {/* Logout Action - High Prominence & Always Visible (shrink-0) */}
         <button
           type="button"
           disabled={isSyncingTurso}
           onClick={() => logout()}
-          className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition-colors cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
           title={language === 'my' ? 'စနစ်မှ ထွက်မည် (Logout - Cloud သို့ အချက်အလက်များ သိမ်းဆည်းပေးမည်)' : 'Sign out (Syncs all transactions to Turso Cloud)'}
         >
           {isSyncingTurso ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
           ) : (
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3.5 h-3.5 text-white" />
           )}
-          <span className="hidden sm:inline">
+          <span className="inline font-bold">
             {isSyncingTurso 
-              ? (language === 'my' ? 'Syncing...' : 'Syncing...') 
-              : (language === 'my' ? 'ထွက်မည် (Logout)' : 'Logout')}
+              ? (language === 'my' ? 'Sync...' : 'Sync...') 
+              : (language === 'my' ? 'ထွက်မည်' : 'Logout')}
           </span>
         </button>
       </div>

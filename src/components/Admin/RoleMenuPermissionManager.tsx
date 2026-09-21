@@ -20,7 +20,11 @@ import {
   Database,
   Users,
   AlertTriangle,
-  BarChart3
+  BarChart3,
+  Globe,
+  Copy,
+  Layers,
+  CheckCheck
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import { UserRole, NavigationTab, DEFAULT_ROLE_MENU_PERMISSIONS } from '../../types';
@@ -41,15 +45,28 @@ export const RoleMenuPermissionManager: React.FC = () => {
     language, 
     currentUser, 
     roleMenuPermissions, 
+    countryRoleMenuPermissions,
+    getRoleMenuPermissionsForCountry,
     toggleRoleMenuPermission, 
     updateRoleMenuPermissions, 
     resetRoleMenuPermissions,
+    copyRoleMenuPermissions,
+    activeCountryCode,
+    setActiveCountryCode,
     db,
     switchUser
   } = useRemittance();
 
+  // State: selected country for configuration (defaults to active country or user's country or 'MM')
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string>(() => {
+    return activeCountryCode || currentUser.countryCode || 'MM';
+  });
+
   const [selectedRole, setSelectedRole] = useState<UserRole>('MAKER');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [showMatrixView, setShowMatrixView] = useState<boolean>(false);
+  const [copySourceCountry, setCopySourceCountry] = useState<string>('MM');
+  const [showCopyModal, setShowCopyModal] = useState<boolean>(false);
 
   const menuList: MenuDefinition[] = [
     {
@@ -234,61 +251,117 @@ export const RoleMenuPermissionManager: React.FC = () => {
     },
   ];
 
-  const currentRoleMenus = roleMenuPermissions[selectedRole] || DEFAULT_ROLE_MENU_PERMISSIONS[selectedRole] || [];
+  // Active country permissions
+  const activeCountryPermissions = getRoleMenuPermissionsForCountry(selectedCountryCode);
+  const currentRoleMenus = activeCountryPermissions[selectedRole] || DEFAULT_ROLE_MENU_PERMISSIONS[selectedRole] || [];
+
+  const selectedCountryObj = db.countries.find(c => c.code === selectedCountryCode);
+  const selectedCountryName = selectedCountryObj 
+    ? (language === 'my' ? selectedCountryObj.nameMm : selectedCountryObj.nameEn)
+    : selectedCountryCode;
+  const selectedCountryFlag = selectedCountryObj?.flagEmoji || '🌐';
+
+  // Check if this country has custom policies
+  const isCustomizedForCountry = Boolean(
+    countryRoleMenuPermissions && countryRoleMenuPermissions[selectedCountryCode]
+  );
+
+  const showFeedback = (msg: string) => {
+    setSaveSuccessMessage(msg);
+    setTimeout(() => {
+      setSaveSuccessMessage(null);
+    }, 4000);
+  };
 
   const handleToggle = (menuId: NavigationTab) => {
     // If admin_setup and role is not ADMIN, disallow
     if (menuId === 'admin_setup' && selectedRole !== 'ADMIN') {
       return;
     }
-    toggleRoleMenuPermission(selectedRole, menuId);
-    showFeedback(language === 'my' ? 'မီနူး ခွင့်ပြုချက် ပြင်ဆင်ပြီးပါပြီ' : 'Permission updated');
+    toggleRoleMenuPermission(selectedRole, menuId, selectedCountryCode);
+    showFeedback(
+      language === 'my' 
+        ? `[${selectedCountryFlag} ${selectedCountryName}] ${selectedRole} အတွက် မီနူး ပြင်ဆင်ပြီးပါပြီ` 
+        : `Permission updated for [${selectedCountryName}] - ${selectedRole}`
+    );
   };
 
   const handleQuickPreset = (type: 'default' | 'all' | 'entry_only' | 'approve_only') => {
     if (type === 'default') {
-      resetRoleMenuPermissions();
-      showFeedback(language === 'my' ? 'မူလသတ်မှတ်ချက်များသို့ ပြန်လည်ထားရှိပြီးပါပြီ (Maker: Entry, Checker: Approval)' : 'Reset all roles to default policy');
+      resetRoleMenuPermissions(selectedCountryCode);
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] ကို မူလပုံသေစနစ်သို့ ပြန်လည်ထားရှိပြီးပါပြီ (Maker: Entry, Checker: Approval)` 
+          : `Reset [${selectedCountryName}] to default policy`
+      );
       return;
     }
 
     if (selectedRole === 'ADMIN') {
-      updateRoleMenuPermissions('ADMIN', menuList.map(m => m.id));
-      showFeedback(language === 'my' ? 'Admin အတွက် မီနူးအားလုံး ဖွင့်ထားပါသည်' : 'All menus enabled for Admin');
+      updateRoleMenuPermissions('ADMIN', menuList.map(m => m.id), selectedCountryCode);
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] Admin အတွက် မီနူးအားလုံး ဖွင့်ထားပါသည်` 
+          : `All menus enabled for [${selectedCountryName}] Admin`
+      );
       return;
     }
 
     if (type === 'entry_only') {
-      updateRoleMenuPermissions(selectedRole, ['dashboard', 'outward_entry', 'inward_entry']);
-      showFeedback(language === 'my' ? `${selectedRole} အတွက် Entry မီနူးများသာ သတ်မှတ်လိုက်ပါပြီ` : `Set ${selectedRole} to Entry operations`);
+      updateRoleMenuPermissions(selectedRole, ['dashboard', 'outward_entry', 'inward_entry'], selectedCountryCode);
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] ${selectedRole} အတွက် Entry မီနူးများသာ သတ်မှတ်လိုက်ပါပြီ` 
+          : `Set ${selectedRole} in [${selectedCountryName}] to Entry operations`
+      );
       return;
     }
 
     if (type === 'approve_only') {
-      updateRoleMenuPermissions(selectedRole, ['dashboard', 'outward_approve', 'inward_approve']);
-      showFeedback(language === 'my' ? `${selectedRole} အတွက် Approval မီနူးများသာ သတ်မှတ်လိုက်ပါပြီ` : `Set ${selectedRole} to Approval operations`);
+      updateRoleMenuPermissions(selectedRole, ['dashboard', 'outward_approve', 'inward_approve'], selectedCountryCode);
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] ${selectedRole} အတွက် Approval မီနူးများသာ သတ်မှတ်လိုက်ပါပြီ` 
+          : `Set ${selectedRole} in [${selectedCountryName}] to Approval operations`
+      );
       return;
     }
 
     if (type === 'all') {
       // All except admin_setup for non-admins
       const allMenus = menuList.map(m => m.id).filter(m => m !== 'admin_setup');
-      updateRoleMenuPermissions(selectedRole, allMenus);
-      showFeedback(language === 'my' ? `${selectedRole} အတွက် မီနူးများဖွင့်ပေးလိုက်ပါပြီ (Admin Setup မပါ)` : `Enabled available menus for ${selectedRole}`);
+      updateRoleMenuPermissions(selectedRole, allMenus, selectedCountryCode);
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] ${selectedRole} အတွက် မီနူးများဖွင့်ပေးလိုက်ပါပြီ (Admin Setup မပါ)` 
+          : `Enabled available menus for [${selectedCountryName}] ${selectedRole}`
+      );
     }
   };
 
-  const showFeedback = (msg: string) => {
-    setSaveSuccessMessage(msg);
-    setTimeout(() => {
-      setSaveSuccessMessage(null);
-    }, 3500);
+  const handleCopyPermissions = () => {
+    if (copySourceCountry === selectedCountryCode) {
+      showFeedback(language === 'my' ? 'ကူးယူမည့် နိုင်ငံနှင့် ထည့်သွင်းမည့် နိုင်ငံ တူညီနေပါသည်' : 'Source and target countries are the same');
+      return;
+    }
+    copyRoleMenuPermissions(copySourceCountry, selectedCountryCode);
+    setShowCopyModal(false);
+    const srcObj = db.countries.find(c => c.code === copySourceCountry);
+    const srcName = srcObj ? (language === 'my' ? srcObj.nameMm : srcObj.nameEn) : copySourceCountry;
+    showFeedback(
+      language === 'my'
+        ? `[${srcName}] ၏ မီနူးခွင့်ပြုချက်များကို [${selectedCountryName}] သို့ အောင်မြင်စွာ ကူးယူပြီးပါပြီ`
+        : `Successfully copied permissions from [${srcName}] to [${selectedCountryName}]`
+    );
   };
 
-  // Find sample users for testing roles
-  const makerUser = db.users.find(u => u.role === 'MAKER');
+  // Find sample users for testing roles and country contexts
+  const mmMaker = db.users.find(u => u.role === 'MAKER' && (u.countryCode === 'MM' || !u.countryCode));
+  const thMaker = db.users.find(u => u.role === 'MAKER' && u.countryCode === 'TH');
+  const sgMaker = db.users.find(u => u.role === 'MAKER' && u.countryCode === 'SG');
+  const thAdmin = db.users.find(u => u.role === 'ADMIN' && u.countryCode === 'TH');
+  const superAdmin = db.users.find(u => u.role === 'ADMIN' && (u.countryCode === 'MM' || !u.countryCode));
   const checkerUser = db.users.find(u => u.role === 'CHECKER');
-  const adminUser = db.users.find(u => u.role === 'ADMIN');
 
   return (
     <div className="space-y-5">
@@ -301,14 +374,14 @@ export const RoleMenuPermissionManager: React.FC = () => {
             </span>
             <h3 className="text-base sm:text-lg font-bold text-slate-900">
               {language === 'my' 
-                ? '၁၁။ အသုံးပြုသူအခန်းကဏ္ဍအလိုက် မီနူးခွင့်ပြုချက်များ (Show App Menu by User Role)' 
-                : '11. Role-Based App Menu Permissions (Show App Menu)'}
+                ? '၁၁။ နိုင်ငံအလိုက် အသုံးပြုသူအခန်းကဏ္ဍ မီနူးခွင့်ပြုချက်များ (Per-Country Role Menu Permissions)' 
+                : '11. Per-Country Role Menu Permissions (Country Admin RBAC)'}
             </h3>
           </div>
           <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
             {language === 'my'
-              ? 'Admin Setup ကို Admin Role သာ လုပ်ဆောင်ခွင့်ရှိပြီး၊ Maker Role သည် Outward Entry/Inward Entry သာ လုပ်ဆောင်နိုင်ရန် နှင့် Checker Role သည် Outward Approval/Inward Approval သာ လုပ်ဆောင်နိုင်ရန် Checkbox များဖြင့် သတ်မှတ်နိုင်ပါသည်။'
-              : 'Admin Setup is strictly restricted to Admin Role only. Configure whether each menu is visible for Maker (Entry only), Checker (Approval only), Auditor, and Admin.'}
+              ? 'Role Menu Permissions ကို သက်ဆိုင်ရာနိုင်ငံအလိုက် Country Admin Role User မှ Configure လုပ်ခွင့်ရှိပါသည်။ နိုင်ငံပေါ်မူတည်ပြီး Maker (Entry), Checker (Approval), Admin (Setup) မီနူးခွင့်ပြုချက်များကို သီးခြားစီ သတ်မှတ်နိုင်ပါသည်။'
+              : 'Configure Role Menu Permissions per country. Each Country Admin can customize which menus are accessible for Maker, Checker, Auditor, and Admin based on local operational requirements.'}
           </p>
         </div>
 
@@ -316,21 +389,44 @@ export const RoleMenuPermissionManager: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => handleQuickPreset('default')}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-300 transition-colors shadow-2xs"
-            title={language === 'my' ? 'Maker/Checker မူလသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset to Standard Default Policy'}
+            onClick={() => setShowMatrixView(!showMatrixView)}
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors shadow-2xs ${
+              showMatrixView 
+                ? 'bg-blue-600 text-white border-blue-600' 
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
-            <span>{language === 'my' ? 'မူလသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset Default Policy'}</span>
+            <Layers className="w-3.5 h-3.5" />
+            <span>{language === 'my' ? 'နိုင်ငံအားလုံး နှိုင်းယှဉ်ချက်' : 'Country Matrix'}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => showFeedback(language === 'my' ? 'မီနူးခွင့်ပြုချက်အားလုံး အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ' : 'All permissions saved successfully')}
+            onClick={() => setShowCopyModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-300 transition-colors shadow-2xs"
+            title={language === 'my' ? 'အခြားနိုင်ငံမှ မီနူးခွင့်ပြုချက် ကူးယူမည်' : 'Copy from another country'}
+          >
+            <Copy className="w-3.5 h-3.5 text-slate-600" />
+            <span>{language === 'my' ? 'အခြားနိုင်ငံမှ ကူးယူရန်' : 'Copy Setup'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickPreset('default')}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-300 transition-colors shadow-2xs"
+            title={language === 'my' ? 'ဤနိုင်ငံအတွက် မူလပုံသေသို့ ပြန်ထားမည်' : 'Reset this country to default policy'}
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+            <span>{language === 'my' ? 'မူလပုံသေသို့ ပြန်ထားမည်' : 'Reset Country'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => showFeedback(language === 'my' ? `[${selectedCountryFlag} ${selectedCountryName}] အတွက် မီနူးခွင့်ပြုချက်များကို သိမ်းဆည်းပြီး Turso Cloud နှင့် Sync လုပ်ပြီးပါပြီ` : `Saved and synced permissions for [${selectedCountryName}]`)}
             className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{language === 'my' ? 'သိမ်းဆည်းထားပြီး (Saved)' : 'Save Changes'}</span>
+            <span>{language === 'my' ? 'သိမ်းဆည်းမည် (Save)' : 'Save Changes'}</span>
           </button>
         </div>
       </div>
@@ -348,12 +444,282 @@ export const RoleMenuPermissionManager: React.FC = () => {
         </div>
       )}
 
-      {/* 4 Role Overview Cards */}
+      {/* Country Selection Header Bar */}
+      <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center space-x-2">
+            <Globe className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              {language === 'my' ? 'မီနူးခွင့်ပြုချက် ပြင်ဆင်မည့် နိုင်ငံရွေးချယ်ပါ (Select Target Country):' : 'Select Target Country to Configure:'}
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="text-slate-400">
+              {language === 'my' ? 'လက်ရှိ စီမံခန့်ခွဲသူ:' : 'Configuring Admin:'}
+            </span>
+            <span className="font-bold text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
+              👑 {currentUser.fullName} ({currentUser.role})
+            </span>
+            {currentUser.countryCode && (
+              <span className="text-[11px] text-slate-300 font-mono bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                Country: {currentUser.countryCode}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Country Selector Pills */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {db.countries.map((c) => {
+            const isSelected = selectedCountryCode === c.code;
+            const hasCustom = Boolean(countryRoleMenuPermissions && countryRoleMenuPermissions[c.code]);
+            const isUserHomeCountry = currentUser.countryCode === c.code;
+
+            return (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => setSelectedCountryCode(c.code)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50 scale-[1.02]'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                }`}
+              >
+                <span className="text-base leading-none">{c.flagEmoji}</span>
+                <span>{language === 'my' ? c.nameMm : c.nameEn} ({c.code})</span>
+                
+                {hasCustom ? (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? 'bg-emerald-400 text-slate-950' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                  }`}>
+                    Custom
+                  </span>
+                ) : (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono opacity-70 ${
+                    isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    Default
+                  </span>
+                )}
+
+                {isUserHomeCountry && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                    Home
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Country Status Info */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300 border-t border-slate-800/80">
+          <div className="flex items-center space-x-2">
+            <span className="text-base">{selectedCountryFlag}</span>
+            <span className="font-semibold text-white">
+              {language === 'my' ? `လက်ရှိ ရွေးချယ်ထားသော နိုင်ငံ: ${selectedCountryName} (${selectedCountryCode})` : `Active Configuration Country: ${selectedCountryName} (${selectedCountryCode})`}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${
+              isCustomizedForCountry 
+                ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700' 
+                : 'bg-slate-800 text-slate-400 border border-slate-700'
+            }`}>
+              {isCustomizedForCountry 
+                ? (language === 'my' ? '🟢 စိတ်ကြိုက် သီးသန့် မီနူးသတ်မှတ်ထားသည် (Custom Policy)' : '🟢 Custom Country Policy Active')
+                : (language === 'my' ? '⚪ မူလပုံသေ စနစ်သတ်မှတ်ချက် (Default Policy)' : '⚪ Standard Default Policy')}
+            </span>
+          </div>
+
+          {activeCountryCode !== selectedCountryCode && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCountryCode(selectedCountryCode);
+                showFeedback(language === 'my' ? `စနစ်တစ်ခုလုံး၏ Active Country ကို [${selectedCountryName}] သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Active system country set to [${selectedCountryName}]`);
+              }}
+              className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-2 flex items-center space-x-1"
+            >
+              <span>{language === 'my' ? `ဤနိုင်ငံ (${selectedCountryCode}) ကို စနစ်၏ Active Country အဖြစ် စမ်းသပ်သတ်မှတ်မည်` : `Switch App Active Context to ${selectedCountryCode}`}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Cross-Country Comparison Matrix (Accordion View) */}
+      {showMatrixView && (
+        <div className="bg-white border border-blue-200 rounded-xl overflow-hidden shadow-xs animate-in fade-in duration-200">
+          <div className="p-4 bg-blue-50/80 border-b border-blue-200 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Layers className="w-4 h-4 text-blue-700" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                {language === 'my' ? 'နိုင်ငံအားလုံး၏ Role Menu Permissions နှိုင်းယှဉ်ချက် ဇယား (Country Comparison Matrix)' : 'All Countries Role Menu Permissions Comparison Matrix'}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMatrixView(false)}
+              className="text-xs text-blue-700 hover:text-blue-900 font-semibold"
+            >
+              {language === 'my' ? 'ပိတ်မည်' : 'Close'}
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px]">
+                <tr>
+                  <th className="p-3">Country</th>
+                  <th className="p-3">Policy Status</th>
+                  <th className="p-3">Maker (Entry)</th>
+                  <th className="p-3">Checker (Approval)</th>
+                  <th className="p-3">Admin (Master Data)</th>
+                  <th className="p-3">Auditor (Oversight)</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {db.countries.map((c) => {
+                  const perms = getRoleMenuPermissionsForCountry(c.code);
+                  const isCurrentTarget = selectedCountryCode === c.code;
+                  const isCustom = Boolean(countryRoleMenuPermissions && countryRoleMenuPermissions[c.code]);
+                  const makerCount = (perms.MAKER || []).length;
+                  const checkerCount = (perms.CHECKER || []).length;
+                  const adminCount = (perms.ADMIN || []).length;
+                  const auditorCount = (perms.AUDITOR || []).length;
+
+                  return (
+                    <tr 
+                      key={c.code}
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        isCurrentTarget ? 'bg-blue-50/40 font-semibold' : ''
+                      }`}
+                    >
+                      <td className="p-3 flex items-center space-x-2">
+                        <span className="text-base">{c.flagEmoji}</span>
+                        <div>
+                          <span className="font-bold text-slate-900">{c.nameEn}</span>
+                          <span className="text-[10px] text-slate-500 block font-mono">Code: {c.code}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                          isCustom 
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {isCustom ? 'Custom Policy' : 'Default'}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-mono text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                          {makerCount} / {menuList.length}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5 truncate max-w-[140px]" title={(perms.MAKER || []).join(', ')}>
+                          {(perms.MAKER || []).join(', ')}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          {checkerCount} / {menuList.length}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5 truncate max-w-[140px]" title={(perms.CHECKER || []).join(', ')}>
+                          {(perms.CHECKER || []).join(', ')}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                          {adminCount} / {menuList.length}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {auditorCount} / {menuList.length}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCountryCode(c.code);
+                            setShowMatrixView(false);
+                          }}
+                          className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold"
+                        >
+                          {isCurrentTarget ? 'Editing' : 'Configure'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Setup Modal */}
+      {showCopyModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full border border-slate-200 p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+              <Copy className="w-5 h-5 text-blue-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                {language === 'my' ? 'မီနူးခွင့်ပြုချက်များ အခြားနိုင်ငံမှ ကူးယူရန်' : 'Copy Permissions from Another Country'}
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {language === 'my'
+                ? `ရွေးချယ်ထားသော မူရင်းနိုင်ငံမှ Role Menu Permissions အားလုံးကို လက်ရှိနိုင်ငံ [${selectedCountryFlag} ${selectedCountryName}] သို့ အပြည့်အစုံ ကူးယူထည့်သွင်းပါမည်။`
+                : `Copy all configured role menu permissions from the selected source country into [${selectedCountryName}] (${selectedCountryCode}).`}
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                {language === 'my' ? 'မူရင်းနိုင်ငံ ရွေးချယ်ပါ (Source Country):' : 'Select Source Country:'}
+              </label>
+              <select
+                value={copySourceCountry}
+                onChange={(e) => setCopySourceCountry(e.target.value)}
+                className="w-full text-xs font-semibold p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+              >
+                {db.countries.map((c) => (
+                  <option key={c.code} value={c.code} disabled={c.code === selectedCountryCode}>
+                    {c.flagEmoji} {c.nameEn} ({c.code}) {c.code === selectedCountryCode ? '(Current Target)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowCopyModal(false)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                {language === 'my' ? 'မလုပ်တော့ပါ' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyPermissions}
+                className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs flex items-center space-x-1.5"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'ကူးယူအတည်ပြုမည်' : 'Apply Copy'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4 Role Overview Cards for Selected Country */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {rolesConfig.map((item) => {
           const isSelected = selectedRole === item.role;
-          const allowedCount = (roleMenuPermissions[item.role] || DEFAULT_ROLE_MENU_PERMISSIONS[item.role] || []).length;
-          const usersInRole = db.users.filter(u => u.role === item.role).length;
+          const allowedCount = (activeCountryPermissions[item.role] || DEFAULT_ROLE_MENU_PERMISSIONS[item.role] || []).length;
+          const usersInRole = db.users.filter(u => u.role === item.role && (u.countryCode === selectedCountryCode || !u.countryCode)).length;
 
           return (
             <div
@@ -393,11 +759,11 @@ export const RoleMenuPermissionManager: React.FC = () => {
         })}
       </div>
 
-      {/* Role Selector & Fast Presets Bar */}
+      {/* Role Selector & Fast Presets Bar for Selected Country */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-2">
           <span className="text-xs font-bold text-slate-700">
-            {language === 'my' ? 'ရွေးချယ်ထားသော Role:' : 'Configuring Role:'}
+            {language === 'my' ? `[${selectedCountryFlag} ${selectedCountryCode}] ပြင်ဆင်မည့် Role:` : `[${selectedCountryFlag} ${selectedCountryCode}] Active Role:`}
           </span>
           <div className="flex items-center space-x-1">
             {(['MAKER', 'CHECKER', 'ADMIN', 'AUDITOR'] as UserRole[]).map((role) => (
@@ -417,7 +783,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
           </div>
         </div>
 
-        {/* Presets for active selected role */}
+        {/* Presets for active selected role in this country */}
         <div className="flex items-center space-x-2">
           <span className="text-[11px] text-slate-500 font-medium">
             {language === 'my' ? 'အမြန် သတ်မှတ်ရန်:' : 'Quick Presets:'}
@@ -455,7 +821,9 @@ export const RoleMenuPermissionManager: React.FC = () => {
         <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              {language === 'my' ? `${selectedRole} အတွက် မီနူးပြသမှု Checkbox များ` : `Menu Checkboxes for ${selectedRole}`}
+              {language === 'my' 
+                ? `[${selectedCountryFlag} ${selectedCountryName}] တွင် ${selectedRole} အတွက် မီနူးပြသမှု Checkbox များ` 
+                : `Menu Checkboxes for ${selectedRole} in [${selectedCountryName}]`}
             </h4>
             <span className="text-xs text-slate-500 font-medium">
               ({currentRoleMenus.length} / {menuList.length} {language === 'my' ? 'ခု ဖွင့်ထားသည်' : 'active'})
@@ -463,7 +831,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
           </div>
 
           <span className="text-[11px] text-slate-500">
-            {language === 'my' ? 'အမှန်ခြစ် (☑) ထားသော မီနူးများသည် Sidebar တွင် ပေါ်မည်ဖြစ်သည်' : 'Checked menus will display in Sidebar navigation'}
+            {language === 'my' ? 'အမှန်ခြစ် (☑) ထားသော မီနူးများသည် Sidebar တွင် ပေါ်မည်ဖြစ်သည်' : 'Checked menus will display in Sidebar navigation for this country'}
           </span>
         </div>
 
@@ -496,7 +864,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
                   <div className="pt-0.5 sm:pt-0">
                     <input
                       type="checkbox"
-                      id={`chk-${selectedRole}-${menu.id}`}
+                      id={`chk-${selectedCountryCode}-${selectedRole}-${menu.id}`}
                       checked={isChecked}
                       disabled={isLockedAdminOnly || isLockedForAdmin}
                       onChange={() => handleToggle(menu.id)}
@@ -515,7 +883,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                       <label 
-                        htmlFor={`chk-${selectedRole}-${menu.id}`}
+                        htmlFor={`chk-${selectedCountryCode}-${selectedRole}-${menu.id}`}
                         className={`text-xs font-bold cursor-pointer ${
                           isChecked ? 'text-slate-900' : 'text-slate-500'
                         }`}
@@ -594,32 +962,66 @@ export const RoleMenuPermissionManager: React.FC = () => {
           <div>
             <h5 className="text-xs font-bold text-blue-950">
               {language === 'my' 
-                ? 'မတူညီသော Role များဖြင့် မီနူးပြသမှုကို စမ်းသပ်ကြည့်ရှုရန် (Live Role Testing)' 
-                : 'Instant Live Role Preview & Verification'}
+                ? 'မတူညီသော နိုင်ငံနှင့် Role များဖြင့် မီနူးပြသမှုကို စမ်းသပ်ကြည့်ရှုရန် (Live Country & Role Testing)' 
+                : 'Instant Live Role & Country Context Verification'}
             </h5>
             <p className="text-[11px] text-blue-800/80">
               {language === 'my'
-                ? 'အောက်ပါ ခလုတ်များကို နှိပ်၍ Maker, Checker, Admin အကောင့်များသို့ ချက်ချင်း ပြောင်းလဲစမ်းသပ်နိုင်ပါသည်'
-                : 'Switch active user context to verify how the sidebar dynamically adapts per role permissions.'}
+                ? 'အောက်ပါ ခလုတ်များကို နှိပ်၍ မြန်မာ၊ ထိုင်း၊ စင်ကာပူ Maker/Admin အကောင့်များသို့ ချက်ချင်း ပြောင်းလဲစမ်းသပ်နိုင်ပါသည်'
+                : 'Switch between Myanmar, Thailand, or Singapore operators to immediately verify how the sidebar dynamically updates.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 shrink-0">
-          {makerUser && (
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          {mmMaker && (
             <button
               type="button"
               onClick={() => {
-                switchUser(makerUser.id);
-                showFeedback(language === 'my' ? `Maker (${makerUser.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to Maker (${makerUser.fullName})`);
+                switchUser(mmMaker.id);
+                showFeedback(language === 'my' ? `🇲🇲 Myanmar Maker (${mmMaker.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to MM Maker (${mmMaker.fullName})`);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                currentUser.role === 'MAKER'
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                currentUser.id === mmMaker.id
                   ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
                   : 'bg-white hover:bg-sky-50 text-sky-800 border-sky-300 shadow-2xs'
               }`}
             >
-              {language === 'my' ? 'Maker ဖြင့် စမ်းမည်' : 'Test as Maker'}
+              🇲🇲 MM Maker
+            </button>
+          )}
+
+          {thMaker && (
+            <button
+              type="button"
+              onClick={() => {
+                switchUser(thMaker.id);
+                showFeedback(language === 'my' ? `🇹🇭 Thailand Maker (${thMaker.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to TH Maker (${thMaker.fullName})`);
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                currentUser.id === thMaker.id
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                  : 'bg-white hover:bg-sky-50 text-sky-800 border-sky-300 shadow-2xs'
+              }`}
+            >
+              🇹🇭 TH Maker
+            </button>
+          )}
+
+          {sgMaker && (
+            <button
+              type="button"
+              onClick={() => {
+                switchUser(sgMaker.id);
+                showFeedback(language === 'my' ? `🇸🇬 Singapore Maker (${sgMaker.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to SG Maker (${sgMaker.fullName})`);
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                currentUser.id === sgMaker.id
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                  : 'bg-white hover:bg-sky-50 text-sky-800 border-sky-300 shadow-2xs'
+              }`}
+            >
+              🇸🇬 SG Maker
             </button>
           )}
 
@@ -630,30 +1032,30 @@ export const RoleMenuPermissionManager: React.FC = () => {
                 switchUser(checkerUser.id);
                 showFeedback(language === 'my' ? `Checker (${checkerUser.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to Checker (${checkerUser.fullName})`);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                 currentUser.role === 'CHECKER'
                   ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                   : 'bg-white hover:bg-amber-50 text-amber-800 border-amber-300 shadow-2xs'
               }`}
             >
-              {language === 'my' ? 'Checker ဖြင့် စမ်းမည်' : 'Test as Checker'}
+              Checker
             </button>
           )}
 
-          {adminUser && (
+          {superAdmin && (
             <button
               type="button"
               onClick={() => {
-                switchUser(adminUser.id);
-                showFeedback(language === 'my' ? `Admin (${adminUser.fullName}) သို့ ပြောင်းလဲလိုက်ပါပြီ` : `Switched to Admin (${adminUser.fullName})`);
+                switchUser(superAdmin.id);
+                showFeedback(language === 'my' ? `Super Admin (${superAdmin.fullName}) သို့ ပြန်ပြောင်းလိုက်ပါပြီ` : `Switched to Super Admin (${superAdmin.fullName})`);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                currentUser.role === 'ADMIN'
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                currentUser.id === superAdmin.id
                   ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
                   : 'bg-white hover:bg-purple-50 text-purple-800 border-purple-300 shadow-2xs'
               }`}
             >
-              {language === 'my' ? 'Admin သို့ ပြန်ပြောင်းမည်' : 'Back to Admin'}
+              Super Admin
             </button>
           )}
         </div>

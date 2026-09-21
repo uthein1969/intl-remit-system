@@ -486,6 +486,7 @@ export async function syncPushToTurso(data: {
   purposes?: any[];
   operatorProfile?: any;
   roleMenuPermissions?: any;
+  countryRoleMenuPermissions?: any;
   defaultStatusConfig?: any;
 }) {
   const client = initTursoClient();
@@ -1002,6 +1003,18 @@ export async function syncPushToTurso(data: {
       console.warn('Error saving roleMenuPermissions to Turso:', e?.message);
     }
   }
+  if (data.countryRoleMenuPermissions) {
+    try {
+      await client.execute({
+        sql: `INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)
+              ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`,
+        args: ['country_role_menu_permissions', JSON.stringify(data.countryRoleMenuPermissions), new Date().toISOString()]
+      });
+      settingsSaved++;
+    } catch (e: any) {
+      console.warn('Error saving countryRoleMenuPermissions to Turso:', e?.message);
+    }
+  }
   if (data.defaultStatusConfig) {
     try {
       await client.execute({
@@ -1302,12 +1315,19 @@ export async function syncPullFromTurso() {
   }
 
   let roleMenuPermissions: any = undefined;
+  let countryRoleMenuPermissions: any = undefined;
   let defaultStatusConfig: any = undefined;
   if (settsRes.rows && settsRes.rows.length > 0) {
     for (const row of settsRes.rows as any[]) {
       if (row.key === 'role_menu_permissions') {
         try {
           roleMenuPermissions = JSON.parse(row.value);
+        } catch {
+          // ignore
+        }
+      } else if (row.key === 'country_role_menu_permissions') {
+        try {
+          countryRoleMenuPermissions = JSON.parse(row.value);
         } catch {
           // ignore
         }
@@ -1337,6 +1357,7 @@ export async function syncPullFromTurso() {
       purposes,
       operatorProfile,
       roleMenuPermissions,
+      countryRoleMenuPermissions,
       defaultStatusConfig,
     }
   };
