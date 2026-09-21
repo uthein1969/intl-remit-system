@@ -390,6 +390,9 @@ export async function initTursoSchema(client?: Client) {
 
   // Ensure default system users are seeded if empty
   try {
+    // Delete any legacy timestamp duplicate branches
+    await cli.execute("DELETE FROM branches WHERE id LIKE 'BR-178%';").catch(() => {});
+
     const userCountRes = await cli.execute('SELECT COUNT(*) as cnt FROM system_users;');
     const userCount = Number(userCountRes.rows[0]?.cnt || 0);
     if (userCount === 0) {

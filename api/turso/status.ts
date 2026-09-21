@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       client.execute('SELECT COUNT(*) as cnt FROM exchange_rates;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM audit_logs;').catch(() => ({ rows: [{ cnt: 0 }] })),
-      client.execute('SELECT COUNT(*) as cnt FROM branches;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute("SELECT COUNT(*) as cnt FROM branches WHERE id NOT LIKE 'BR-178%';").catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM system_users;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM companies;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM currencies;').catch(() => ({ rows: [{ cnt: 0 }] })),
