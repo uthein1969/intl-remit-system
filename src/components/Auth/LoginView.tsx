@@ -97,7 +97,7 @@ export const LoginView: React.FC = () => {
         else if (lowerU.startsWith('sg-') || lowerU.includes('singapore')) country = 'SG';
       }
       if (!branchId || branchId === 'BR-001') {
-        if (country === 'TH' || lowerU.startsWith('th-')) branchId = 'BR-1789830806420';
+        if (country === 'TH' || lowerU.startsWith('th-')) branchId = 'BR-009';
         else if (country === 'SG' || lowerU.startsWith('sg-')) branchId = 'BR-008';
       }
       const b = db?.branches?.find(br => br.id === branchId);
@@ -197,7 +197,7 @@ export const LoginView: React.FC = () => {
       }
       let uBranch = matchedUser.branchId;
       if (!uBranch || uBranch === 'BR-001') {
-        if (uCountry === 'TH' || uname.startsWith('th-')) uBranch = 'BR-1789830806420';
+        if (uCountry === 'TH' || uname.startsWith('th-')) uBranch = 'BR-009';
         else if (uCountry === 'SG' || uname.startsWith('sg-')) uBranch = 'BR-008';
       }
       const b = db?.branches?.find(br => br.id === uBranch);
@@ -284,7 +284,7 @@ export const LoginView: React.FC = () => {
     let branchId = u.branchId;
     if (!branchId || branchId === 'BR-001') {
       if (country === 'TH' || uname.startsWith('th-')) {
-        branchId = 'BR-1789830806420';
+        branchId = 'BR-009';
       } else if (country === 'SG' || uname.startsWith('sg-')) {
         branchId = 'BR-008';
       } else {
@@ -877,7 +877,7 @@ export const LoginView: React.FC = () => {
                 }
                 let uBranchId = u.branchId;
                 if (!uBranchId || uBranchId === 'BR-001') {
-                  if (userCountryCode === 'TH' || uname.startsWith('th-')) uBranchId = 'BR-1789830806420';
+                  if (userCountryCode === 'TH' || uname.startsWith('th-')) uBranchId = 'BR-009';
                   else if (userCountryCode === 'SG' || uname.startsWith('sg-')) uBranchId = 'BR-008';
                 }
                 const branch = db?.branches?.find(b => b.id === uBranchId);

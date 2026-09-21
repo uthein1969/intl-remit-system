@@ -975,6 +975,20 @@ export async function tursoWebSyncPull(): Promise<{
       payoutMethod: String(r.payout_method || 'CASH_PICKUP'),
       payoutBankName: String(r.bank_name || ''),
       payoutAccountNumber: String(r.bank_account_no || ''),
+      sendingBranchId: String(
+        r.sending_branch_id || 
+        r.branch_id || 
+        (r.created_by && r.created_by.includes('Mandalay') ? 'BR-002' : 
+         r.from_country === 'TH' ? 'BR-009' : 
+         r.from_country === 'SG' ? 'BR-008' : 
+         r.from_country === 'MY' ? 'BR-001' : 'BR-001')
+      ),
+      payoutBranchId: String(
+        r.payout_branch_id || 
+        (r.to_country === 'TH' ? 'BR-009' : 
+         r.to_country === 'SG' ? 'BR-008' : 
+         r.to_country === 'MM' ? (r.created_by && r.created_by.includes('Mandalay') ? 'BR-002' : 'BR-001') : 'BR-001')
+      ),
       creatorName: String(r.created_by || ''),
       createdDate: String(r.created_date || r.created_at || ''),
       approverName: String(r.approved_by || ''),

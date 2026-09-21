@@ -26,7 +26,8 @@ import {
   Trash2,
   Sparkles,
   Receipt,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
@@ -70,19 +71,34 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
   
   const isAdmin = currentUser?.role === 'ADMIN';
   
+  // Login Form Scope: The country and branch selected/assigned at logon
+  const userLoginCountry = activeCountryCode || currentUser?.countryCode || 'MM';
+  const userLoginBranch = activeBranchId || currentUser?.branchId || 'BR-001';
+
   const [filterStatus, setFilterStatus] = useState<string>('PENDING_APPROVAL');
-  const [selectedCountry, setSelectedCountry] = useState('ALL');
-  const [selectedBranch, setSelectedBranch] = useState('ALL');
+  // Country Admin defaults to 'ALL' (can view all), while regular operators (Checker/Maker) are restricted to their login scope
+  const [selectedCountry, setSelectedCountry] = useState<string>(() => (isAdmin ? 'ALL' : userLoginCountry));
+  const [selectedBranch, setSelectedBranch] = useState<string>(() => (isAdmin ? 'ALL' : userLoginBranch));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTx, setSelectedTx] = useState<RemittanceTransaction | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // Sync filter when user context changes
+  useEffect(() => {
+    if (!isAdmin) {
+      setSelectedCountry(userLoginCountry);
+      setSelectedBranch(userLoginBranch);
+    }
+  }, [isAdmin, userLoginCountry, userLoginBranch]);
 
   useEffect(() => {
     if (initialTxId) {
       const tx = db.transactions.find(t => t.id === initialTxId && t.type === 'OUTWARD');
       if (tx) {
-        setSelectedBranch('ALL');
-        setSelectedCountry('ALL');
+        if (isAdmin) {
+          setSelectedBranch('ALL');
+          setSelectedCountry('ALL');
+        }
         setFilterStatus(tx.status || 'PENDING_APPROVAL');
         setSearchQuery(tx.transactionNo);
         setSelectedTx(tx);
@@ -93,7 +109,7 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
         }
       }
     }
-  }, [initialTxId, db.transactions, onClearInitialTxId]);
+  }, [initialTxId, db.transactions, onClearInitialTxId, isAdmin]);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalNote, setApprovalNote] = useState('');
@@ -116,18 +132,33 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
   const outwardTxs = db.transactions.filter(t => t.type === 'OUTWARD');
 
   // Location filter applied first so status tab counts match the selected country/branch
+  // Non-Admin: strictly show only data belonging to their login country & branch
+  // Country Admin: can see all data ('ALL') or filter by specific country & branch
   const locationFilteredTxs = outwardTxs.filter(tx => {
-    // Country Filter
+    const txSendingBranchId = tx.sendingBranchId || tx.branchId;
+    const branch = db.branches.find(b => b.id === txSendingBranchId);
+    const txCountry = branch?.countryCode || tx.senderCountryCode || (tx as any).from_country;
+
+    if (!isAdmin) {
+      // Non-Admin Checker/Maker: strictly match logged in country & branch
+      const matchBranch = txSendingBranchId === userLoginBranch || tx.branchId === userLoginBranch;
+      const matchCountry = txCountry === userLoginCountry || 
+        tx.senderCountryCode === userLoginCountry || 
+        (tx as any).from_country === userLoginCountry;
+      return matchBranch && matchCountry;
+    }
+
+    // Country Admin Role: Can view all or filter
     if (selectedCountry !== 'ALL') {
-      const branch = db.branches.find(b => b.id === (tx.sendingBranchId || tx.branchId));
-      const match = branch?.countryCode === selectedCountry || 
+      const match = txCountry === selectedCountry || 
         tx.senderCountryCode === selectedCountry || 
-        tx.receiverCountryCode === selectedCountry;
+        tx.receiverCountryCode === selectedCountry ||
+        (tx as any).from_country === selectedCountry;
       if (!match) return false;
     }
 
     // Branch Filter
-    if (selectedBranch !== 'ALL' && tx.sendingBranchId !== selectedBranch && tx.branchId !== selectedBranch) {
+    if (selectedBranch !== 'ALL' && txSendingBranchId !== selectedBranch && tx.branchId !== selectedBranch) {
       return false;
     }
     return true;
@@ -532,63 +563,90 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
             />
           </div>
 
-          {/* Country Filter */}
-          <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
-            <span className="text-[11px] text-slate-400 font-medium">
-              {language === 'my' ? 'နိုင်ငံ:' : 'Country:'}
-            </span>
-            <select
-              value={selectedCountry}
-              onChange={(e) => {
-                const c = e.target.value;
-                setSelectedCountry(c);
-                if (c !== 'ALL') {
-                  const b = db.branches.find(br => br.countryCode === c);
-                  if (b) setSelectedBranch(b.id);
-                  else setSelectedBranch('ALL');
-                } else {
-                  setSelectedBranch('ALL');
-                }
-              }}
-              className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
-            >
-              <option value="ALL" className="bg-slate-900 text-white">🌐 {language === 'my' ? 'နိုင်ငံအားလုံး' : 'All Countries'}</option>
-              {db.countries.map(c => (
-                <option key={c.id} value={c.code} className="bg-slate-900 text-white">
-                  {c.flagEmoji} {c.nameEn} ({c.code})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Country Admin Role Controls vs Regular User Scoped View */}
+          {isAdmin ? (
+            <>
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-xs text-emerald-300 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-semibold text-[11px]">
+                  {language === 'my' ? '👑 Country Admin (အကုန်ကြည့်ရှုခွင့်ရှိ)' : '👑 Country Admin (Full Access)'}
+                </span>
+              </div>
 
-          {/* Branch Filter */}
-          <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
-            <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-[11px] text-slate-400 font-medium">
-              {language === 'my' ? 'ဘဏ်ခွဲ:' : 'Branch:'}
-            </span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer max-w-[180px] truncate"
-            >
-              <option value="ALL" className="bg-slate-900 text-white">{language === 'my' ? 'ဘဏ်ခွဲအားလုံး' : 'All Branches'}</option>
-              {db.branches
-                .filter(b => selectedCountry === 'ALL' || b.countryCode === selectedCountry)
-                .map(b => (
-                  <option key={b.id} value={b.id} className="bg-slate-900 text-white">
-                    {b.code} - {b.nameEn}
-                  </option>
-                ))}
-            </select>
-          </div>
+              {/* Country Filter */}
+              <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {language === 'my' ? 'နိုင်ငံ:' : 'Country:'}
+                </span>
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => {
+                    const c = e.target.value;
+                    setSelectedCountry(c);
+                    if (c !== 'ALL') {
+                      const b = db.branches.find(br => br.countryCode === c);
+                      if (b) setSelectedBranch(b.id);
+                      else setSelectedBranch('ALL');
+                    } else {
+                      setSelectedBranch('ALL');
+                    }
+                  }}
+                  className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL" className="bg-slate-900 text-white">🌐 {language === 'my' ? 'နိုင်ငံအားလုံး' : 'All Countries'}</option>
+                  {db.countries.map(c => (
+                    <option key={c.id} value={c.code} className="bg-slate-900 text-white">
+                      {c.flagEmoji} {c.nameEn} ({c.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {(selectedCountry !== 'ALL' || selectedBranch !== 'ALL' || searchQuery) && (
+              {/* Branch Filter */}
+              <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1">
+                <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {language === 'my' ? 'ဘဏ်ခွဲ:' : 'Branch:'}
+                </span>
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer max-w-[180px] truncate"
+                >
+                  <option value="ALL" className="bg-slate-900 text-white">{language === 'my' ? 'ဘဏ်ခွဲအားလုံး' : 'All Branches'}</option>
+                  {db.branches
+                    .filter(b => selectedCountry === 'ALL' || b.countryCode === selectedCountry)
+                    .map(b => (
+                      <option key={b.id} value={b.id} className="bg-slate-900 text-white">
+                        {b.code} - {b.nameEn}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            /* Regular Operator (Checker/Maker): Locked to Login Country and Branch */
+            <div className="flex items-center space-x-2 bg-amber-950/60 border border-amber-500/40 rounded-lg px-2.5 py-1 text-xs">
+              <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-slate-400 text-[11px]">{language === 'my' ? 'လော့ဂ်အင်ဘဏ်ခွဲ:' : 'Login Branch:'}</span>
+              <span className="text-white font-semibold flex items-center gap-1.5">
+                <span>{db.countries.find(c => c.code === userLoginCountry)?.flagEmoji || '🌐'}</span>
+                <span>{db.branches.find(b => b.id === userLoginBranch)?.nameEn || userLoginBranch} ({db.branches.find(b => b.id === userLoginBranch)?.code || userLoginBranch})</span>
+              </span>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded px-1.5 py-0.5 font-medium">
+                {language === 'my' ? 'Login Scope သီးသန့်' : 'Login Scope Only'}
+              </span>
+            </div>
+          )}
+
+          {((isAdmin && (selectedCountry !== 'ALL' || selectedBranch !== 'ALL')) || searchQuery) && (
             <button
               type="button"
               onClick={() => {
-                setSelectedCountry('ALL');
-                setSelectedBranch('ALL');
+                if (isAdmin) {
+                  setSelectedCountry('ALL');
+                  setSelectedBranch('ALL');
+                }
                 setSearchQuery('');
               }}
               className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium px-1 cursor-pointer"
