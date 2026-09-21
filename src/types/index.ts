@@ -264,6 +264,12 @@ export interface RemittanceTransaction {
   taxAmount: number;
   totalPayableAmount: number;
   
+  // USD Base (Optional conversion for reports & vouchers)
+  isUsdBase?: boolean;
+  usdAmount?: number;
+  usdExchangeRate?: number;
+  usdServiceFee?: number;
+  
   // Processing info
   payoutMethod: PayoutMethod;
   payoutBankName?: string;

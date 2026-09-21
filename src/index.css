@@ -70,74 +70,40 @@
     padding: 0 !important;
   }
 
-  /* Hide app navigation, header, sidebar, toast, backdrop, and action buttons */
-  header,
-  nav,
-  aside,
-  .no-print,
-  [class*="no-print"] {
-    display: none !important;
+  /* When printing from the voucher modal, isolate #printable-voucher cleanly */
+  body.voucher-modal-open * {
+    visibility: hidden !important;
   }
 
-  /* Reset all React root and layout containers so they never clip or constrain print height */
-  #root,
-  #root > div,
-  .h-screen,
-  .flex-1,
-  main,
-  .overflow-hidden,
-  .overflow-y-auto {
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    position: static !important;
-    display: block !important;
-    transform: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  body.voucher-modal-open #printable-voucher,
+  body.voucher-modal-open #printable-voucher * {
+    visibility: visible !important;
   }
 
-  /* Neutralize modal backdrop & wrappers so the voucher flows naturally */
-  .fixed,
-  .fixed.inset-0,
-  .fixed.inset-0 > div {
-    position: static !important;
-    overflow: visible !important;
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    max-height: none !important;
-    height: auto !important;
-    transform: none !important;
-    display: block !important;
-    border: none !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* When modal is open, hide behind-the-modal page contents */
-  body.voucher-modal-open main > *:not(.fixed) {
-    display: none !important;
-  }
-
-  /* Printable voucher card styling */
-  #printable-voucher {
-    position: static !important;
+  body.voucher-modal-open #printable-voucher {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 4px 6px !important;
     background: white !important;
     color: #0f172a !important;
-    overflow: visible !important;
-    max-height: none !important;
-    height: auto !important;
     display: block !important;
     border: none !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
+  }
+
+  /* Hide headers, sidebars and no-print elements */
+  header,
+  nav,
+  aside,
+  .no-print,
+  [class*="no-print"] {
+    display: none !important;
+    visibility: hidden !important;
   }
 }
 

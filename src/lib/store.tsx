@@ -1561,6 +1561,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       taxAmount: Number(txData.taxAmount || 0),
       totalPayableAmount: Number(txData.totalPayableAmount || 0),
       
+      // USD Base
+      isUsdBase: !!txData.isUsdBase,
+      usdAmount: txData.usdAmount !== undefined ? Number(txData.usdAmount) : undefined,
+      usdExchangeRate: txData.usdExchangeRate !== undefined ? Number(txData.usdExchangeRate) : undefined,
+      usdServiceFee: txData.usdServiceFee !== undefined ? Number(txData.usdServiceFee) : undefined,
+      
       payoutMethod: txData.payoutMethod || 'CASH_PICKUP',
       payoutBankName: txData.payoutBankName,
       payoutAccountNumber: txData.payoutAccountNumber,

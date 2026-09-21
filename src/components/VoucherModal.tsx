@@ -69,33 +69,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
 
   const handlePrint = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-
-    setFeedbackMsg(
-      language === 'my' 
-        ? 'ပြေစာ ပုံနှိပ်နေပါသည် (Preparing Voucher Print)...' 
-        : 'Preparing voucher document...'
-    );
-
-    // Call document printer for maximum visual fidelity & isolation from app layout
-    const res = printVoucherDocument({
-      transaction,
-      branch,
-      partner,
-      operatorProfile,
-      language,
-    });
-
-    if (!res?.success) {
-      try {
-        window.print();
-      } catch (err) {
-        console.warn('Fallback window.print error:', err);
-      }
-    }
-
-    setTimeout(() => {
-      setFeedbackMsg(null);
-    }, 3500);
+    window.print();
   };
 
   const handleOpenNewTab = (e?: React.MouseEvent) => {
@@ -560,6 +534,33 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   {Number(transaction.receiveAmount || 0).toLocaleString()} {transaction.targetCurrency}
                 </span>
               </div>
+              {transaction.isUsdBase && (
+                <div className="px-4 py-3 flex justify-between bg-sky-50 text-sky-950 font-bold text-sm border-t border-sky-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-black uppercase tracking-wider">
+                        USD Base
+                      </span>
+                      <span>{language === 'my' ? 'ဒေါ်လာတန်ဖိုး ညီမျှချက် (USD Equivalent)' : 'USD Base Equivalent'}:</span>
+                    </div>
+                    {transaction.usdExchangeRate && (
+                      <span className="text-xs font-normal text-sky-700 font-mono">
+                        (1 USD = {transaction.usdExchangeRate} {transaction.targetCurrency})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono text-base font-black text-sky-900">
+                      $ {Number(transaction.usdAmount !== undefined ? transaction.usdAmount : (transaction.usdExchangeRate ? (transaction.receiveAmount || 0) / transaction.usdExchangeRate : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                    </span>
+                    {transaction.usdServiceFee !== undefined && transaction.usdServiceFee > 0 && (
+                      <span className="block text-[11px] font-mono text-sky-700 font-normal">
+                        {language === 'my' ? 'ဝန်ဆောင်ခ ဒေါ်လာ' : 'USD Fee'}: ${Number(transaction.usdServiceFee).toFixed(2)} USD
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

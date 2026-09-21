@@ -179,6 +179,9 @@ export const OutwardReportView: React.FC = () => {
     txCount: number;
     totalSendMMK: number;
     currencyTotals: Record<string, number>;
+    usdBaseCount: number;
+    usdBaseAmount: number;
+    usdBaseFee: number;
     totalFeesMMK: number;
     totalVolumeMMK: number;
   }
@@ -197,6 +200,9 @@ export const OutwardReportView: React.FC = () => {
           txCount: 0,
           totalSendMMK: 0,
           currencyTotals: {},
+          usdBaseCount: 0,
+          usdBaseAmount: 0,
+          usdBaseFee: 0,
           totalFeesMMK: 0,
           totalVolumeMMK: 0
         };
@@ -211,6 +217,13 @@ export const OutwardReportView: React.FC = () => {
         ? Number(tx.sendAmount || 0)
         : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
+
+      // Track USD Base conversions
+      if (tx.isUsdBase) {
+        row.usdBaseCount += 1;
+        row.usdBaseAmount += Number(tx.usdAmount || 0);
+        row.usdBaseFee += Number(tx.usdServiceFee || 0);
+      }
 
       const tCurr = tx.targetCurrency || 'THB';
       row.currencyTotals[tCurr] = (row.currencyTotals[tCurr] || 0) + Number(tx.receiveAmount || 0);
@@ -234,6 +247,9 @@ export const OutwardReportView: React.FC = () => {
       txCount: 0,
       totalSendMMK: 0,
       currencyTotals: {} as Record<string, number>,
+      usdBaseCount: 0,
+      usdBaseAmount: 0,
+      usdBaseFee: 0,
       totalFeesMMK: 0,
       totalVolumeMMK: 0
     };
@@ -243,6 +259,9 @@ export const OutwardReportView: React.FC = () => {
       summary.totalSendMMK += d.totalSendMMK;
       summary.totalFeesMMK += d.totalFeesMMK;
       summary.totalVolumeMMK += d.totalVolumeMMK;
+      summary.usdBaseCount += d.usdBaseCount;
+      summary.usdBaseAmount += d.usdBaseAmount;
+      summary.usdBaseFee += d.usdBaseFee;
 
       Object.entries(d.currencyTotals).forEach(([curr, amt]) => {
         summary.currencyTotals[curr] = (summary.currencyTotals[curr] || 0) + amt;
@@ -279,6 +298,8 @@ export const OutwardReportView: React.FC = () => {
         'Transaction Count',
         'Sent Amount (MMK)',
         ...targetCurrenciesList.map(c => `Receive Amount (${c})`),
+        'USD Base Amount ($ USD)',
+        'USD Base Fee ($ USD)',
         'Service & Comm Fees (MMK)',
         'Total Volume (MMK)'
       ];
@@ -289,6 +310,8 @@ export const OutwardReportView: React.FC = () => {
         d.txCount,
         d.totalSendMMK,
         ...targetCurrenciesList.map(c => d.currencyTotals[c] || 0),
+        d.usdBaseAmount ? Number(d.usdBaseAmount.toFixed(2)) : 0,
+        d.usdBaseFee ? Number(d.usdBaseFee.toFixed(2)) : 0,
         d.totalFeesMMK,
         d.totalVolumeMMK
       ]);
@@ -300,6 +323,8 @@ export const OutwardReportView: React.FC = () => {
         grandTotalSummary.txCount,
         grandTotalSummary.totalSendMMK,
         ...targetCurrenciesList.map(c => grandTotalSummary.currencyTotals[c] || 0),
+        grandTotalSummary.usdBaseAmount ? Number(grandTotalSummary.usdBaseAmount.toFixed(2)) : 0,
+        grandTotalSummary.usdBaseFee ? Number(grandTotalSummary.usdBaseFee.toFixed(2)) : 0,
         grandTotalSummary.totalFeesMMK,
         grandTotalSummary.totalVolumeMMK
       ]);
@@ -313,7 +338,30 @@ export const OutwardReportView: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } else {
-      const headers = ['Transaction No', 'MTCN', 'Date', 'Country', 'Branch', 'Sender Name', 'Sender NRC', 'Receiver Name', 'Destination', 'Send Amount', 'Currency', 'Exchange Rate', 'Receive Amount', 'Target Currency', 'Service Fee', 'Status', 'Operator / Maker', 'Approver / Checker'];
+      const headers = [
+        'Transaction No',
+        'MTCN',
+        'Date',
+        'Country',
+        'Branch',
+        'Sender Name',
+        'Sender NRC',
+        'Receiver Name',
+        'Destination',
+        'Send Amount',
+        'Currency',
+        'Exchange Rate',
+        'Receive Amount',
+        'Target Currency',
+        'USD Base (Yes/No)',
+        'USD Amount ($)',
+        'USD Rate',
+        'USD Service Fee ($)',
+        'Service Fee (MMK)',
+        'Status',
+        'Operator / Maker',
+        'Approver / Checker'
+      ];
       const rows = filteredTxs.map(tx => {
         const branch = db.branches.find(b => b.id === tx.sendingBranchId);
         const country = db.countries.find(c => c.code === (branch?.countryCode || tx.senderCountryCode || 'MM'));
@@ -332,6 +380,10 @@ export const OutwardReportView: React.FC = () => {
           tx.exchangeRate,
           tx.receiveAmount,
           tx.targetCurrency,
+          tx.isUsdBase ? 'YES' : 'NO',
+          tx.isUsdBase ? Number(tx.usdAmount || 0) : '-',
+          tx.isUsdBase ? tx.usdExchangeRate || '-' : '-',
+          tx.isUsdBase ? Number(tx.usdServiceFee || 0) : '-',
           tx.serviceFee,
           tx.status,
           `"${tx.creatorName || tx.creatorUserId || ''}"`,
@@ -715,6 +767,7 @@ export const OutwardReportView: React.FC = () => {
                       Total ({curr})
                     </th>
                   ))}
+                  <th className="px-4 py-3 text-right text-sky-400">USD Base ($ USD)</th>
                   <th className="px-4 py-3 text-right text-amber-400">Fees (MMK)</th>
                   <th className="px-4 py-3 text-right text-sky-400">Total Volume (MMK)</th>
                 </tr>
@@ -722,7 +775,7 @@ export const OutwardReportView: React.FC = () => {
               <tbody className="divide-y divide-slate-800 font-mono">
                 {dayByDayTotals.length === 0 ? (
                   <tr>
-                    <td colSpan={6 + targetCurrenciesList.length} className="text-center py-10 text-slate-500">
+                    <td colSpan={7 + targetCurrenciesList.length} className="text-center py-10 text-slate-500">
                       {t.noData} (No transactions found matching date and criteria)
                     </td>
                   </tr>
@@ -751,6 +804,18 @@ export const OutwardReportView: React.FC = () => {
                           </td>
                         );
                       })}
+                      <td className="px-4 py-3 text-right text-sky-300 font-semibold">
+                        {day.usdBaseAmount > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span>${day.usdBaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            {day.usdBaseCount > 0 && (
+                              <span className="text-[10px] text-sky-400 font-normal font-sans">({day.usdBaseCount} txs)</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-amber-300">
                         {day.totalFeesMMK.toLocaleString()}
                       </td>
@@ -787,6 +852,16 @@ export const OutwardReportView: React.FC = () => {
                         </td>
                       );
                     })}
+                    <td className="px-4 py-3 text-right text-sky-300 text-xs font-bold">
+                      {grandTotalSummary.usdBaseAmount > 0 ? (
+                        <div className="flex flex-col items-end">
+                          <span>${grandTotalSummary.usdBaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[10px] text-sky-400 font-normal font-sans">({grandTotalSummary.usdBaseCount} txs)</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-amber-300 text-xs">
                       {grandTotalSummary.totalFeesMMK.toLocaleString()}
                     </td>
@@ -815,6 +890,7 @@ export const OutwardReportView: React.FC = () => {
                   <th className="px-4 py-3">{t.receiverName}</th>
                   <th className="px-4 py-3">{t.sendAmount}</th>
                   <th className="px-4 py-3">{t.receiveAmount}</th>
+                  <th className="px-4 py-3 text-right">USD Base ($)</th>
                   <th className="px-4 py-3">User / Operator</th>
                   <th className="px-4 py-3">{t.status}</th>
                   <th className="px-4 py-3 text-right">{t.actions}</th>
@@ -823,7 +899,7 @@ export const OutwardReportView: React.FC = () => {
               <tbody className="divide-y divide-slate-800">
                 {filteredTxs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-10 text-slate-500">
+                    <td colSpan={11} className="text-center py-10 text-slate-500">
                       {t.noData}
                     </td>
                   </tr>
@@ -858,6 +934,23 @@ export const OutwardReportView: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-emerald-400">
                         {Number(tx.receiveAmount || 0).toLocaleString()} {tx.targetCurrency}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        {tx.isUsdBase ? (
+                          <div className="flex flex-col items-end">
+                            <span className="font-bold text-sky-400 text-xs">
+                              ${Number(tx.usdAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] text-amber-300">
+                              Fee: ${Number(tx.usdServiceFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[9px] text-emerald-400 font-sans">
+                              (1 USD = {Number(tx.usdExchangeRate || 0).toLocaleString()} {tx.targetCurrency || tx.sourceCurrency})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 text-[11px]">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-slate-200 text-[11px] flex items-center space-x-1">

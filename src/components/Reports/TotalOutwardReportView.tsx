@@ -231,6 +231,9 @@ export const TotalOutwardReportView: React.FC = () => {
     totalSendMMK: number;
     currencyTotals: Record<string, number>;
     currencyFees: Record<string, number>;
+    usdBaseCount: number;
+    usdBaseAmount: number;
+    usdBaseFee: number;
     totalFeesMMK: number;
     totalVolumeMMK: number;
     transactions: RemittanceTransaction[];
@@ -252,6 +255,9 @@ export const TotalOutwardReportView: React.FC = () => {
           totalSendMMK: 0,
           currencyTotals: {},
           currencyFees: {},
+          usdBaseCount: 0,
+          usdBaseAmount: 0,
+          usdBaseFee: 0,
           totalFeesMMK: 0,
           totalVolumeMMK: 0,
           transactions: []
@@ -268,6 +274,13 @@ export const TotalOutwardReportView: React.FC = () => {
         ? Number(tx.sendAmount || 0)
         : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
+
+      // Track USD Base conversions
+      if (tx.isUsdBase) {
+        row.usdBaseCount += 1;
+        row.usdBaseAmount += Number(tx.usdAmount || 0);
+        row.usdBaseFee += Number(tx.usdServiceFee || 0);
+      }
 
       // Populate respective country outward currency amounts & service fees (side-by-side)
       outwardCurrencyColumns.forEach(col => {
@@ -331,6 +344,9 @@ export const TotalOutwardReportView: React.FC = () => {
       totalSendMMK: 0,
       currencyTotals: {} as Record<string, number>,
       currencyFees: {} as Record<string, number>,
+      usdBaseCount: 0,
+      usdBaseAmount: 0,
+      usdBaseFee: 0,
       totalFeesMMK: 0,
       totalVolumeMMK: 0
     };
@@ -340,6 +356,9 @@ export const TotalOutwardReportView: React.FC = () => {
       summary.totalSendMMK += d.totalSendMMK;
       summary.totalFeesMMK += d.totalFeesMMK;
       summary.totalVolumeMMK += d.totalVolumeMMK;
+      summary.usdBaseCount += d.usdBaseCount;
+      summary.usdBaseAmount += d.usdBaseAmount;
+      summary.usdBaseFee += d.usdBaseFee;
 
       Object.entries(d.currencyTotals).forEach(([curr, amt]) => {
         summary.currencyTotals[curr] = (summary.currencyTotals[curr] || 0) + amt;
@@ -370,7 +389,15 @@ export const TotalOutwardReportView: React.FC = () => {
     return sum + (isNaN(feeVal) ? 0 : feeVal);
   }, 0);
 
-  // CSV Export with dd/mm/yyyy format and side-by-side foreign Amount & Fee
+  const totalUsdBaseAmount = filteredTxs.reduce((sum, tx) => {
+    return sum + (tx.isUsdBase ? Number(tx.usdAmount || 0) : 0);
+  }, 0);
+  const totalUsdBaseFee = filteredTxs.reduce((sum, tx) => {
+    return sum + (tx.isUsdBase ? Number(tx.usdServiceFee || 0) : 0);
+  }, 0);
+  const totalUsdBaseCount = filteredTxs.filter(tx => tx.isUsdBase).length;
+
+  // CSV Export with dd/mm/yyyy format and side-by-side foreign Amount & Fee, plus USD Base
   const exportCsv = () => {
     const headers = [
       'Date (dd/mm/yyyy)',
@@ -381,6 +408,8 @@ export const TotalOutwardReportView: React.FC = () => {
         `${col.countryNameEn} (${col.currency}) Amount`,
         `${col.countryNameEn} (${col.currency}) Service Fee`
       ]),
+      'USD Base Amount ($ USD)',
+      'USD Base Service Fee ($ USD)',
       'Total Service & Comm Fees (MMK)',
       'Total Net Volume (MMK)'
     ];
@@ -394,6 +423,8 @@ export const TotalOutwardReportView: React.FC = () => {
         d.currencyTotals[col.currency] ? Number(d.currencyTotals[col.currency].toFixed(2)) : 0,
         d.currencyFees[col.currency] ? Number(d.currencyFees[col.currency].toFixed(2)) : 0
       ]),
+      d.usdBaseAmount ? Number(d.usdBaseAmount.toFixed(2)) : 0,
+      d.usdBaseFee ? Number(d.usdBaseFee.toFixed(2)) : 0,
       d.totalFeesMMK,
       d.totalVolumeMMK
     ]);
@@ -408,6 +439,8 @@ export const TotalOutwardReportView: React.FC = () => {
         grandTotalSummary.currencyTotals[col.currency] ? Number(grandTotalSummary.currencyTotals[col.currency].toFixed(2)) : 0,
         grandTotalSummary.currencyFees[col.currency] ? Number(grandTotalSummary.currencyFees[col.currency].toFixed(2)) : 0
       ]),
+      grandTotalSummary.usdBaseAmount ? Number(grandTotalSummary.usdBaseAmount.toFixed(2)) : 0,
+      grandTotalSummary.usdBaseFee ? Number(grandTotalSummary.usdBaseFee.toFixed(2)) : 0,
       grandTotalSummary.totalFeesMMK,
       grandTotalSummary.totalVolumeMMK
     ]);
@@ -486,7 +519,7 @@ export const TotalOutwardReportView: React.FC = () => {
       </div>
 
       {/* KPI Highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">Total Volume (MMK)</span>
           <div className="text-2xl font-black text-white font-mono mt-1">
@@ -503,6 +536,17 @@ export const TotalOutwardReportView: React.FC = () => {
             {totalFeesMMK.toLocaleString()} <span className="text-xs font-bold">MMK</span>
           </div>
           <span className="text-xs text-slate-500 mt-1 block">Fees & Commission collected</span>
+        </div>
+
+        {/* USD Base Equivalent KPI */}
+        <div className="bg-slate-900 border border-sky-800/40 rounded-2xl p-5 bg-gradient-to-b from-sky-950/20 to-slate-900">
+          <span className="text-xs text-sky-400 uppercase font-bold tracking-wider">USD Base Volume ($)</span>
+          <div className="text-2xl font-black text-sky-300 font-mono mt-1">
+            ${totalUsdBaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <span className="text-xs text-slate-500 mt-1 block">
+            {totalUsdBaseCount} USD transfers (Fee: ${totalUsdBaseFee.toFixed(2)})
+          </span>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
@@ -820,6 +864,19 @@ export const TotalOutwardReportView: React.FC = () => {
                     </div>
                   </th>
                 ))}
+                {/* USD Base Equivalent Column Group */}
+                <th 
+                  colSpan={2} 
+                  className="px-4 py-2.5 text-center border-r border-slate-800 bg-sky-950/60 whitespace-nowrap"
+                >
+                  <div className="flex items-center justify-center space-x-1.5">
+                    <span className="text-sm">🇺🇸</span>
+                    <span className="font-semibold text-sky-200">
+                      {language === 'my' ? 'USD Base (ဒေါ်လာပြောင်းလဲမှု)' : 'USD Base Equivalent'}
+                    </span>
+                    <span className="font-mono font-bold text-sky-400">($ USD)</span>
+                  </div>
+                </th>
                 <th rowSpan={2} className="px-4 py-3.5 text-right text-amber-400 whitespace-nowrap align-middle border-r border-slate-800">
                   {language === 'my' ? 'ဝန်ဆောင်ခ စုစုပေါင်း (MMK)' : 'Total Fees (MMK)'}
                 </th>
@@ -828,7 +885,7 @@ export const TotalOutwardReportView: React.FC = () => {
                 </th>
               </tr>
 
-              {/* Row 2: Sub-headers for Currency Columns: Amount & Service Fee Side-by-Side */}
+              {/* Row 2: Sub-headers for Currency Columns & USD Base */}
               <tr className="border-t border-slate-800/80 bg-slate-950 text-[10px]">
                 {outwardCurrencyColumns.map(col => (
                   <React.Fragment key={col.currency}>
@@ -846,12 +903,25 @@ export const TotalOutwardReportView: React.FC = () => {
                     </th>
                   </React.Fragment>
                 ))}
+                {/* Sub-headers for USD Base: Amount & Fee */}
+                <th className="px-3 py-2 text-right text-sky-300 font-semibold border-r border-slate-800/60 whitespace-nowrap bg-sky-500/10">
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>{language === 'my' ? 'USD ပမာဏ' : 'USD Amount'}</span>
+                    <span className="font-mono text-sky-300">($)</span>
+                  </div>
+                </th>
+                <th className="px-3 py-2 text-right text-amber-300 font-semibold border-r border-slate-800 whitespace-nowrap bg-amber-500/10">
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>{language === 'my' ? 'USD ဝန်ဆောင်ခ' : 'USD Fee'}</span>
+                    <span className="font-mono text-amber-300">($)</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 font-mono">
               {dayByDayTotals.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + (outwardCurrencyColumns.length * 2)} className="text-center py-12 text-slate-500 font-sans">
+                  <td colSpan={8 + (outwardCurrencyColumns.length * 2)} className="text-center py-12 text-slate-500 font-sans">
                     No transactions found matching the selected date and criteria.
                   </td>
                 </tr>
@@ -903,6 +973,27 @@ export const TotalOutwardReportView: React.FC = () => {
                         </React.Fragment>
                       );
                     })}
+
+                    {/* USD Base Equivalent Columns (Amount & Fee) */}
+                    <td className="px-3 py-3.5 text-right text-sky-300 font-semibold border-r border-slate-800/60 bg-sky-500/[0.03]">
+                      {day.usdBaseAmount > 0 ? (
+                        <div className="flex flex-col items-end">
+                          <span>${day.usdBaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          {day.usdBaseCount > 0 && (
+                            <span className="text-[10px] text-sky-400/80 font-normal font-sans">({day.usdBaseCount} txs)</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3.5 text-right text-amber-300 font-semibold border-r border-slate-800 bg-amber-500/[0.03]">
+                      {day.usdBaseFee > 0 ? (
+                        <span>${day.usdBaseFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
 
                     <td className="px-4 py-3.5 text-right text-amber-300 border-r border-slate-800/60">
                       {day.totalFeesMMK.toLocaleString()}
@@ -959,6 +1050,24 @@ export const TotalOutwardReportView: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
+                  {/* USD Base Grand Totals */}
+                  <td className="px-3 py-4 text-right text-sky-300 text-sm font-bold border-r border-slate-800/60 bg-sky-500/[0.06]">
+                    {grandTotalSummary.usdBaseAmount > 0 ? (
+                      <div className="flex flex-col items-end">
+                        <span>${grandTotalSummary.usdBaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[10px] text-sky-400 font-normal font-sans">({grandTotalSummary.usdBaseCount} txs)</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-600">-</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-right text-amber-300 text-sm font-bold border-r border-slate-800 bg-amber-500/[0.06]">
+                    {grandTotalSummary.usdBaseFee > 0 ? (
+                      <span>${grandTotalSummary.usdBaseFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    ) : (
+                      <span className="text-slate-600">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-4 text-right text-amber-300 text-sm border-r border-slate-800/60">
                     {grandTotalSummary.totalFeesMMK.toLocaleString()}
                   </td>

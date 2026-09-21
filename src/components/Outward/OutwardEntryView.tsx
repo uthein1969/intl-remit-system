@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Send, 
   ShieldAlert, 
@@ -136,6 +136,62 @@ export const OutwardEntryView: React.FC = () => {
   });
   const [serviceFee, setServiceFee] = useState<number>(initialFees.service);
   const [commissionFee, setCommissionFee] = useState<number>(initialFees.commission);
+
+  // USD Base Conversion States
+  const [isUsdBase, setIsUsdBase] = useState<boolean>(false);
+  const [usdExchangeRate, setUsdExchangeRate] = useState<number>(34.05);
+
+  // Helper to determine default USD rate for a given target currency
+  const getUsdRateForCurrency = useCallback((curr: string): number => {
+    if (!curr || curr === 'USD') return 1;
+    if (curr === 'MMK') {
+      return getCorridorExchangeRate('USD', 'MMK') || 4580;
+    }
+    // Direct rate in exchange rates
+    const directUsd = db.exchangeRates.find(r => 
+      ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === 'USD') &&
+      ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === curr.toUpperCase())
+    );
+    if (directUsd) {
+      const val = Number((directUsd as any).transferRate || directUsd.buyRate || 0);
+      if (val > 0) return val;
+    }
+
+    const revUsd = db.exchangeRates.find(r => 
+      ((r.fromCurrency || (r as any).from_currency || '').toUpperCase() === curr.toUpperCase()) &&
+      ((r.toCurrency || (r as any).to_currency || '').toUpperCase() === 'USD')
+    );
+    if (revUsd) {
+      const val = Number((revUsd as any).transferRate || revUsd.buyRate || 0);
+      if (val > 0) return val >= 1 ? 1 / val : val;
+    }
+
+    // Cross-rate via MMK
+    const usdMmk = getCorridorExchangeRate('USD', 'MMK') || 4580;
+    const currMmk = getCorridorExchangeRate(curr, 'MMK');
+    if (currMmk && currMmk > 0) {
+      return Number((usdMmk / currMmk).toFixed(4));
+    }
+
+    // Fallbacks
+    switch (curr.toUpperCase()) {
+      case 'THB': return 34.05;
+      case 'SGD': return 1.31;
+      case 'MYR': return 4.32;
+      case 'EUR': return 0.92;
+      case 'GBP': return 0.77;
+      case 'JPY': return 155.0;
+      case 'CNY': return 7.25;
+      default: return 1;
+    }
+  }, [db.exchangeRates, getCorridorExchangeRate]);
+
+  // Synchronize USD rate when targetCurrency changes
+  useEffect(() => {
+    if (targetCurrency) {
+      setUsdExchangeRate(getUsdRateForCurrency(targetCurrency));
+    }
+  }, [targetCurrency, getUsdRateForCurrency]);
   
   // Track currency to auto-adjust default fees
   const prevSourceCurrencyRef = useRef(sourceCurrency);
@@ -357,6 +413,39 @@ export const OutwardEntryView: React.FC = () => {
     // Cross-currency
     return Number((amt * rate).toFixed(2));
   })();
+
+  // USD Base Calculations
+  const calculatedUsdAmount = useMemo(() => {
+    if (!isUsdBase) return 0;
+    const recv = Number(calculatedReceiveAmount || 0);
+    if (recv <= 0) return 0;
+    if (targetCurrency === 'USD') return Number(recv.toFixed(2));
+
+    if (targetCurrency === 'MMK') {
+      const rate = usdExchangeRate > 0 ? usdExchangeRate : 4580;
+      return Number((recv / rate).toFixed(2));
+    }
+
+    if (usdExchangeRate > 0) {
+      return Number((recv / usdExchangeRate).toFixed(2));
+    }
+    return 0;
+  }, [isUsdBase, calculatedReceiveAmount, targetCurrency, usdExchangeRate]);
+
+  const calculatedUsdServiceFee = useMemo(() => {
+    if (!isUsdBase) return 0;
+    const totalFee = Number(serviceFee || 0) + Number(commissionFee || 0);
+    if (totalFee <= 0) return 0;
+    if (sourceCurrency === 'USD') return Number(totalFee.toFixed(2));
+    if (sourceCurrency === 'MMK') {
+      const usdMmk = getCorridorExchangeRate('USD', 'MMK') || 4580;
+      return Number((totalFee / usdMmk).toFixed(2));
+    }
+    if (usdExchangeRate > 0) {
+      return Number((totalFee / usdExchangeRate).toFixed(2));
+    }
+    return 0;
+  }, [isUsdBase, serviceFee, commissionFee, sourceCurrency, usdExchangeRate, getCorridorExchangeRate]);
 
   const totalPayableAmount = Number(sendAmount) + Number(serviceFee) + Number(commissionFee);
 
@@ -840,6 +929,13 @@ export const OutwardEntryView: React.FC = () => {
         serviceFee: Number(serviceFee),
         commissionFee: Number(commissionFee),
         totalPayableAmount: Number(totalPayableAmount),
+
+        // USD Base payload
+        isUsdBase,
+        usdAmount: isUsdBase ? calculatedUsdAmount : undefined,
+        usdExchangeRate: isUsdBase ? Number(usdExchangeRate) : undefined,
+        usdServiceFee: isUsdBase ? calculatedUsdServiceFee : undefined,
+
         payoutMethod,
         payoutBankName,
         payoutAccountNumber,
@@ -2172,6 +2268,79 @@ export const OutwardEntryView: React.FC = () => {
               <span className="text-xl font-black text-white font-mono mt-1 block">
                 {totalPayableAmount.toLocaleString()} {sourceCurrency}
               </span>
+            </div>
+          </div>
+
+          {/* USD Base Checkbox & Conversion Row */}
+          <div className="pt-2 border-t border-slate-800/80">
+            <div className={`p-3.5 rounded-xl border transition-all ${
+              isUsdBase 
+                ? 'bg-sky-950/40 border-sky-600/70 shadow-md shadow-sky-950/30' 
+                : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <label className="flex items-start sm:items-center space-x-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isUsdBase}
+                    onChange={(e) => setIsUsdBase(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-600 bg-slate-800 border-slate-600 focus:ring-sky-500 mt-0.5 sm:mt-0 cursor-pointer"
+                  />
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-white text-xs sm:text-sm">
+                        {language === 'my' ? '"USD Base" တွက်ချက်မှု ထည့်သွင်းမည် (USD Base)' : '"USD Base" Conversion'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        isUsdBase ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        USD Base
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      {language === 'my' 
+                        ? `သက်ဆိုင်ရာနိုင်ငံ၏ Outward Currency (${targetCurrency}) ကို USD ဒေါ်လာတန်ဖိုးသို့ ပြောင်းလဲတွက်ချက်ပြီး Report နှင့် Voucher များတွင် ဖော်ပြပေးပါမည်` 
+                        : `Convert destination outward currency (${targetCurrency}) into USD equivalent for report columns and vouchers`}
+                    </span>
+                  </div>
+                </label>
+
+                {isUsdBase && (
+                  <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 border border-sky-700/60 p-2.5 rounded-xl text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-400 text-[11px]">
+                        {targetCurrency === 'USD' ? 'Rate:' : `1 USD =`}
+                      </span>
+                      <input
+                        type="number"
+                        step="any"
+                        value={usdExchangeRate}
+                        onChange={(e) => setUsdExchangeRate(Number(e.target.value))}
+                        className="w-24 bg-slate-950 border border-sky-500/80 rounded-lg px-2.5 py-1 text-sky-300 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-sky-400 text-center"
+                        title={`Exchange rate in ${targetCurrency} per 1 USD`}
+                      />
+                      <span className="text-slate-300 font-mono font-bold text-xs">{targetCurrency}</span>
+                      <button
+                        type="button"
+                        onClick={() => setUsdExchangeRate(getUsdRateForCurrency(targetCurrency))}
+                        className="text-[10px] text-sky-400 hover:text-sky-200 px-1.5 py-0.5 bg-sky-950 rounded border border-sky-800"
+                        title="Reset to default market rate"
+                      >
+                        ↺ Auto
+                      </button>
+                    </div>
+
+                    <div className="h-6 w-px bg-slate-700 hidden sm:block" />
+
+                    <div className="text-right">
+                      <span className="text-[10px] text-sky-400 block font-semibold">USD Equivalent (ဒေါ်လာတန်ဖိုး)</span>
+                      <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
+                        $ {calculatedUsdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
