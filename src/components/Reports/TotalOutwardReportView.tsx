@@ -230,6 +230,7 @@ export const TotalOutwardReportView: React.FC = () => {
     txCount: number;
     totalSendMMK: number;
     currencyTotals: Record<string, number>;
+    currencyFees: Record<string, number>;
     totalFeesMMK: number;
     totalVolumeMMK: number;
     transactions: RemittanceTransaction[];
@@ -250,6 +251,7 @@ export const TotalOutwardReportView: React.FC = () => {
           txCount: 0,
           totalSendMMK: 0,
           currencyTotals: {},
+          currencyFees: {},
           totalFeesMMK: 0,
           totalVolumeMMK: 0,
           transactions: []
@@ -267,17 +269,40 @@ export const TotalOutwardReportView: React.FC = () => {
         : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
 
-      // Populate respective country outward currency amounts
+      // Populate respective country outward currency amounts & service fees (side-by-side)
       outwardCurrencyColumns.forEach(col => {
         const c = col.currency;
         let amtInCurr = 0;
+        let feeInCurr = 0;
+        const totalFeeRaw = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
+
         if (tx.targetCurrency === c) {
           amtInCurr = Number(tx.receiveAmount || 0);
+          if (amtInCurr <= 0 && Number(tx.sendAmount || 0) > 0) {
+            const rate = Number(tx.exchangeRate || 0);
+            if (rate > 0) {
+              amtInCurr = rate >= 1 ? (Number(tx.sendAmount) / rate) : (Number(tx.sendAmount) * rate);
+            }
+          }
+
+          if (tx.sourceCurrency === c) {
+            feeInCurr = totalFeeRaw;
+          } else {
+            const rate = Number(tx.exchangeRate || 0);
+            if (rate > 0) {
+              feeInCurr = rate >= 1 ? (totalFeeRaw / rate) : (totalFeeRaw * rate);
+            }
+          }
         } else if (tx.sourceCurrency === c) {
           amtInCurr = Number(tx.sendAmount || 0);
+          feeInCurr = totalFeeRaw;
         }
+
         if (amtInCurr > 0) {
           row.currencyTotals[c] = (row.currencyTotals[c] || 0) + amtInCurr;
+        }
+        if (feeInCurr > 0) {
+          row.currencyFees[c] = (row.currencyFees[c] || 0) + feeInCurr;
         }
       });
 
@@ -305,6 +330,7 @@ export const TotalOutwardReportView: React.FC = () => {
       txCount: 0,
       totalSendMMK: 0,
       currencyTotals: {} as Record<string, number>,
+      currencyFees: {} as Record<string, number>,
       totalFeesMMK: 0,
       totalVolumeMMK: 0
     };
@@ -317,6 +343,9 @@ export const TotalOutwardReportView: React.FC = () => {
 
       Object.entries(d.currencyTotals).forEach(([curr, amt]) => {
         summary.currencyTotals[curr] = (summary.currencyTotals[curr] || 0) + amt;
+      });
+      Object.entries(d.currencyFees).forEach(([curr, fee]) => {
+        summary.currencyFees[curr] = (summary.currencyFees[curr] || 0) + fee;
       });
     });
 
@@ -341,15 +370,18 @@ export const TotalOutwardReportView: React.FC = () => {
     return sum + (isNaN(feeVal) ? 0 : feeVal);
   }, 0);
 
-  // CSV Export with dd/mm/yyyy format
+  // CSV Export with dd/mm/yyyy format and side-by-side foreign Amount & Fee
   const exportCsv = () => {
     const headers = [
       'Date (dd/mm/yyyy)',
       'Day',
       'Transaction Count',
       'Send Amount (MMK)',
-      ...outwardCurrencyColumns.map(col => `${col.countryNameEn} (${col.currency}) Total Amount`),
-      'Service & Comm Fees (MMK)',
+      ...outwardCurrencyColumns.flatMap(col => [
+        `${col.countryNameEn} (${col.currency}) Amount`,
+        `${col.countryNameEn} (${col.currency}) Service Fee`
+      ]),
+      'Total Service & Comm Fees (MMK)',
       'Total Net Volume (MMK)'
     ];
 
@@ -358,7 +390,10 @@ export const TotalOutwardReportView: React.FC = () => {
       d.dayOfWeek,
       d.txCount,
       d.totalSendMMK,
-      ...outwardCurrencyColumns.map(col => d.currencyTotals[col.currency] || 0),
+      ...outwardCurrencyColumns.flatMap(col => [
+        d.currencyTotals[col.currency] ? Number(d.currencyTotals[col.currency].toFixed(2)) : 0,
+        d.currencyFees[col.currency] ? Number(d.currencyFees[col.currency].toFixed(2)) : 0
+      ]),
       d.totalFeesMMK,
       d.totalVolumeMMK
     ]);
@@ -369,7 +404,10 @@ export const TotalOutwardReportView: React.FC = () => {
       '-',
       grandTotalSummary.txCount,
       grandTotalSummary.totalSendMMK,
-      ...outwardCurrencyColumns.map(col => grandTotalSummary.currencyTotals[col.currency] || 0),
+      ...outwardCurrencyColumns.flatMap(col => [
+        grandTotalSummary.currencyTotals[col.currency] ? Number(grandTotalSummary.currencyTotals[col.currency].toFixed(2)) : 0,
+        grandTotalSummary.currencyFees[col.currency] ? Number(grandTotalSummary.currencyFees[col.currency].toFixed(2)) : 0
+      ]),
       grandTotalSummary.totalFeesMMK,
       grandTotalSummary.totalVolumeMMK
     ]);
@@ -759,72 +797,114 @@ export const TotalOutwardReportView: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
+          <table className="w-full text-left text-xs text-slate-300 border-collapse">
             <thead className="bg-slate-950 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
+              {/* Row 1: Primary Dimensions & Grouped Currency Headers */}
               <tr>
-                <th className="px-4 py-3.5 whitespace-nowrap">Date (dd/mm/yyyy)</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Day</th>
-                <th className="px-4 py-3.5 text-center whitespace-nowrap">Tx Count</th>
-                <th className="px-4 py-3.5 text-right whitespace-nowrap">Send Amount (MMK)</th>
+                <th rowSpan={2} className="px-4 py-3.5 whitespace-nowrap align-middle border-r border-slate-800">Date (dd/mm/yyyy)</th>
+                <th rowSpan={2} className="px-4 py-3.5 whitespace-nowrap align-middle border-r border-slate-800">Day</th>
+                <th rowSpan={2} className="px-4 py-3.5 text-center whitespace-nowrap align-middle border-r border-slate-800">Tx Count</th>
+                <th rowSpan={2} className="px-4 py-3.5 text-right whitespace-nowrap align-middle border-r border-slate-800">Send Amount (MMK)</th>
                 {outwardCurrencyColumns.map(col => (
-                  <th key={col.currency} className="px-4 py-3.5 text-right text-emerald-400 whitespace-nowrap">
-                    <div className="flex items-center justify-end space-x-1.5">
-                      <span>{col.flag}</span>
-                      <span className="font-semibold text-slate-300">
+                  <th 
+                    key={col.currency} 
+                    colSpan={2} 
+                    className="px-4 py-2.5 text-center border-r border-slate-800 bg-slate-900/80 whitespace-nowrap"
+                  >
+                    <div className="flex items-center justify-center space-x-1.5">
+                      <span className="text-sm">{col.flag}</span>
+                      <span className="font-semibold text-slate-200">
                         {language === 'my' ? col.countryNameMm : col.countryNameEn}
                       </span>
-                      <span className="font-mono font-bold text-emerald-300">({col.currency})</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-sans font-normal text-right">
-                      {language === 'my' ? 'စုစုပေါင်း' : 'Total Amount'}
+                      <span className="font-mono font-bold text-sky-400">({col.currency})</span>
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-3.5 text-right text-amber-400 whitespace-nowrap">Service Fees (MMK)</th>
-                <th className="px-4 py-3.5 text-right text-blue-400 font-bold whitespace-nowrap">Total Net Volume (MMK)</th>
+                <th rowSpan={2} className="px-4 py-3.5 text-right text-amber-400 whitespace-nowrap align-middle border-r border-slate-800">
+                  {language === 'my' ? 'ဝန်ဆောင်ခ စုစုပေါင်း (MMK)' : 'Total Fees (MMK)'}
+                </th>
+                <th rowSpan={2} className="px-4 py-3.5 text-right text-blue-400 font-bold whitespace-nowrap align-middle">
+                  {language === 'my' ? 'စုစုပေါင်း ပမာဏ (MMK)' : 'Total Net Volume (MMK)'}
+                </th>
+              </tr>
+
+              {/* Row 2: Sub-headers for Currency Columns: Amount & Service Fee Side-by-Side */}
+              <tr className="border-t border-slate-800/80 bg-slate-950 text-[10px]">
+                {outwardCurrencyColumns.map(col => (
+                  <React.Fragment key={col.currency}>
+                    <th className="px-3 py-2 text-right text-emerald-400 font-semibold border-r border-slate-800/60 whitespace-nowrap bg-emerald-500/5">
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>{language === 'my' ? 'ငွေပမာဏ' : 'Amount'}</span>
+                        <span className="font-mono text-emerald-300">({col.currency})</span>
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-right text-amber-400 font-semibold border-r border-slate-800 whitespace-nowrap bg-amber-500/5">
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>{language === 'my' ? 'ဝန်ဆောင်ခ' : 'Service Fee'}</span>
+                        <span className="font-mono text-amber-300">({col.currency})</span>
+                      </div>
+                    </th>
+                  </React.Fragment>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 font-mono">
               {dayByDayTotals.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + outwardCurrencyColumns.length} className="text-center py-12 text-slate-500 font-sans">
+                  <td colSpan={6 + (outwardCurrencyColumns.length * 2)} className="text-center py-12 text-slate-500 font-sans">
                     No transactions found matching the selected date and criteria.
                   </td>
                 </tr>
               ) : (
                 dayByDayTotals.map((day) => (
                   <tr key={day.rawDate} className="hover:bg-slate-800/60 transition-colors">
-                    <td className="px-4 py-3.5 font-bold text-white flex items-center space-x-2 whitespace-nowrap">
+                    <td className="px-4 py-3.5 font-bold text-white flex items-center space-x-2 whitespace-nowrap border-r border-slate-800/60">
                       <span className="w-2 h-2 rounded-full bg-blue-500" />
                       <span>{day.formattedDate}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-400 font-sans whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-slate-400 font-sans whitespace-nowrap border-r border-slate-800/60">
                       {day.dayOfWeek}
                     </td>
-                    <td className="px-4 py-3.5 text-center">
+                    <td className="px-4 py-3.5 text-center border-r border-slate-800/60">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold">
                         {day.txCount}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right text-slate-200 font-medium">
+                    <td className="px-4 py-3.5 text-right text-slate-200 font-medium border-r border-slate-800/60">
                       {day.totalSendMMK.toLocaleString()}
                     </td>
+
+                    {/* Paired Columns: Amount and Service Fee in Respective Country Currency */}
                     {outwardCurrencyColumns.map(col => {
                       const amt = day.currencyTotals[col.currency] || 0;
+                      const fee = day.currencyFees[col.currency] || 0;
                       return (
-                        <td key={col.currency} className="px-4 py-3.5 text-right text-emerald-300 font-bold">
-                          {amt > 0 ? (
-                            <span>
-                              {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              <span className="text-[10px] text-emerald-500 ml-1 font-mono">{col.currency}</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-600">-</span>
-                          )}
-                        </td>
+                        <React.Fragment key={col.currency}>
+                          {/* Amount in Country Currency */}
+                          <td className="px-3 py-3.5 text-right text-emerald-300 font-bold border-r border-slate-800/60">
+                            {amt > 0 ? (
+                              <span>
+                                {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600">-</span>
+                            )}
+                          </td>
+                          {/* Service Fee in Country Currency */}
+                          <td className="px-3 py-3.5 text-right text-amber-300 font-semibold border-r border-slate-800 bg-amber-500/[0.02]">
+                            {fee > 0 ? (
+                              <span>
+                                {fee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600">-</span>
+                            )}
+                          </td>
+                        </React.Fragment>
                       );
                     })}
-                    <td className="px-4 py-3.5 text-right text-amber-300">
+
+                    <td className="px-4 py-3.5 text-right text-amber-300 border-r border-slate-800/60">
                       {day.totalFeesMMK.toLocaleString()}
                     </td>
                     <td className="px-4 py-3.5 text-right font-black text-blue-300 font-sans text-sm">
@@ -839,36 +919,47 @@ export const TotalOutwardReportView: React.FC = () => {
             {dayByDayTotals.length > 0 && (
               <tfoot className="bg-slate-950 font-mono font-bold text-white border-t-2 border-slate-700">
                 <tr>
-                  <td className="px-4 py-4 font-sans uppercase tracking-wider text-blue-400">
+                  <td className="px-4 py-4 font-sans uppercase tracking-wider text-blue-400 border-r border-slate-800/60">
                     GRAND TOTAL
                   </td>
-                  <td className="px-4 py-4 font-sans text-slate-500">
+                  <td className="px-4 py-4 font-sans text-slate-500 border-r border-slate-800/60">
                     {dayByDayTotals.length} Days
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center border-r border-slate-800/60">
                     <span className="inline-flex items-center px-3 py-0.5 rounded-full bg-blue-600 text-white text-xs">
                       {grandTotalSummary.txCount}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right text-slate-100 text-sm">
+                  <td className="px-4 py-4 text-right text-slate-100 text-sm border-r border-slate-800/60">
                     {grandTotalSummary.totalSendMMK.toLocaleString()}
                   </td>
                   {outwardCurrencyColumns.map(col => {
                     const totalAmt = grandTotalSummary.currencyTotals[col.currency] || 0;
+                    const totalFee = grandTotalSummary.currencyFees[col.currency] || 0;
                     return (
-                      <td key={col.currency} className="px-4 py-4 text-right text-emerald-300 text-sm font-bold">
-                        {totalAmt > 0 ? (
-                          <span>
-                            {totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            <span className="text-xs text-emerald-400 ml-1 font-mono">{col.currency}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-600">-</span>
-                        )}
-                      </td>
+                      <React.Fragment key={col.currency}>
+                        <td className="px-3 py-4 text-right text-emerald-300 text-sm font-bold border-r border-slate-800/60">
+                          {totalAmt > 0 ? (
+                            <span>
+                              {totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-4 text-right text-amber-300 text-sm font-bold border-r border-slate-800 bg-amber-500/[0.03]">
+                          {totalFee > 0 ? (
+                            <span>
+                              {totalFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                      </React.Fragment>
                     );
                   })}
-                  <td className="px-4 py-4 text-right text-amber-300 text-sm">
+                  <td className="px-4 py-4 text-right text-amber-300 text-sm border-r border-slate-800/60">
                     {grandTotalSummary.totalFeesMMK.toLocaleString()}
                   </td>
                   <td className="px-4 py-4 text-right text-base text-blue-300 font-black">
