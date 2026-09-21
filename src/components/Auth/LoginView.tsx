@@ -92,18 +92,31 @@ export const LoginView: React.FC = () => {
       let country = matched.countryCode;
       let branchId = matched.branchId;
       const lowerU = matched.username.toLowerCase();
+      const lowerF = (matched.fullName || '').toLowerCase();
       if (!country || country === 'MM') {
         if (lowerU.startsWith('th-') || lowerU.includes('thai')) country = 'TH';
         else if (lowerU.startsWith('sg-') || lowerU.includes('singapore')) country = 'SG';
       }
       if (!branchId || branchId === 'BR-001') {
-        if (country === 'TH' || lowerU.startsWith('th-')) branchId = 'BR-009';
+        if (lowerU.startsWith('sg-maker1') || lowerU.startsWith('sg-checker1') || lowerU.startsWith('sg-admin1') || lowerF.includes('changi')) branchId = 'BR-010';
+        else if (lowerU.startsWith('th-maker2') || lowerU.startsWith('th-checker2') || lowerF.includes('pathum')) branchId = 'BR-011';
+        else if (country === 'TH' || lowerU.startsWith('th-')) branchId = 'BR-009';
         else if (country === 'SG' || lowerU.startsWith('sg-')) branchId = 'BR-008';
       }
       const b = db?.branches?.find(br => br.id === branchId);
       if (b?.countryCode) country = b.countryCode;
       if (country) setSelectedCountryCode(country);
       if (branchId) setSelectedBranchId(branchId);
+    } else if (trimmed.startsWith('sg-maker1') || trimmed.startsWith('sg-checker1') || trimmed.startsWith('sg-admin1')) {
+      setSelectedCountryCode('SG');
+      const changiBranch = db?.branches?.find(b => b.id === 'BR-010' || b.nameEn?.toLowerCase().includes('changi'));
+      if (changiBranch) setSelectedBranchId(changiBranch.id);
+      else setSelectedBranchId('BR-010');
+    } else if (trimmed.startsWith('th-maker2') || trimmed.startsWith('th-checker2')) {
+      setSelectedCountryCode('TH');
+      const pathumBranch = db?.branches?.find(b => b.id === 'BR-011' || b.nameEn?.toLowerCase().includes('pathum'));
+      if (pathumBranch) setSelectedBranchId(pathumBranch.id);
+      else setSelectedBranchId('BR-011');
     } else if (trimmed.startsWith('th-') || trimmed.includes('thai')) {
       setSelectedCountryCode('TH');
       const thBranch = db?.branches?.find(b => b.countryCode === 'TH');
@@ -197,20 +210,32 @@ export const LoginView: React.FC = () => {
       }
       let uBranch = matchedUser.branchId;
       if (!uBranch || uBranch === 'BR-001') {
-        if (uCountry === 'TH' || uname.startsWith('th-')) uBranch = 'BR-009';
+        if (uname.startsWith('sg-maker1') || uname.startsWith('sg-checker1') || uname.startsWith('sg-admin1') || fname.includes('changi')) uBranch = 'BR-010';
+        else if (uname.startsWith('th-maker2') || uname.startsWith('th-checker2') || fname.includes('pathum')) uBranch = 'BR-011';
+        else if (uCountry === 'TH' || uname.startsWith('th-')) uBranch = 'BR-009';
         else if (uCountry === 'SG' || uname.startsWith('sg-')) uBranch = 'BR-008';
       }
       const b = db?.branches?.find(br => br.id === uBranch);
       if (b?.countryCode) uCountry = b.countryCode;
 
-      if (uCountry && uCountry !== 'MM' && effectiveCountry === 'MM') {
+      if (uCountry && uCountry !== 'MM') {
         effectiveCountry = uCountry;
         setSelectedCountryCode(uCountry);
       }
-      if (uBranch && uBranch !== 'BR-001' && effectiveBranch === 'BR-001') {
+      if (uBranch && uBranch !== 'BR-001') {
         effectiveBranch = uBranch;
         setSelectedBranchId(uBranch);
       }
+    } else if (trimmedU.startsWith('sg-maker1') || trimmedU.startsWith('sg-checker1') || trimmedU.startsWith('sg-admin1')) {
+      effectiveCountry = 'SG';
+      setSelectedCountryCode('SG');
+      effectiveBranch = 'BR-010';
+      setSelectedBranchId('BR-010');
+    } else if (trimmedU.startsWith('th-maker2') || trimmedU.startsWith('th-checker2')) {
+      effectiveCountry = 'TH';
+      setSelectedCountryCode('TH');
+      effectiveBranch = 'BR-011';
+      setSelectedBranchId('BR-011');
     } else if (trimmedU.startsWith('th-') && effectiveCountry === 'MM') {
       effectiveCountry = 'TH';
       setSelectedCountryCode('TH');
@@ -283,7 +308,11 @@ export const LoginView: React.FC = () => {
 
     let branchId = u.branchId;
     if (!branchId || branchId === 'BR-001') {
-      if (country === 'TH' || uname.startsWith('th-')) {
+      if (uname.startsWith('sg-maker1') || uname.startsWith('sg-checker1') || uname.startsWith('sg-admin1') || fname.includes('changi')) {
+        branchId = 'BR-010';
+      } else if (uname.startsWith('th-maker2') || uname.startsWith('th-checker2') || fname.includes('pathum')) {
+        branchId = 'BR-011';
+      } else if (country === 'TH' || uname.startsWith('th-')) {
         branchId = 'BR-009';
       } else if (country === 'SG' || uname.startsWith('sg-')) {
         branchId = 'BR-008';

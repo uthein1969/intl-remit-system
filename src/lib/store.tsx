@@ -539,6 +539,17 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       senderFatherName: tx.senderFatherName || '',
       senderOccupation: tx.senderOccupation || '',
       senderDateOfBirth: tx.senderDateOfBirth || '',
+      sendingBranchId: tx.sendingBranchId || tx.branchId || (
+        (tx.creatorName && (tx.creatorName.includes('Changi') || tx.creatorName.includes('sg-maker1') || tx.creatorName.includes('sg-checker1'))) ? 'BR-010' : ''
+      ),
+      payoutBranchId: tx.payoutBranchId || '',
+      branchId: tx.branchId || tx.sendingBranchId || '',
+      partnerCompanyId: tx.partnerCompanyId || '',
+      purposeId: tx.purposeId || '',
+      senderCountryCode: tx.senderCountryCode || (tx as any).fromCountry || '',
+      receiverCountryCode: tx.receiverCountryCode || (tx as any).toCountry || '',
+      senderPassbook: tx.senderPassbook || '',
+      receiverPassbook: tx.receiverPassbook || '',
     };
   };
 
@@ -3285,7 +3296,11 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       let userBranchId = authenticatedUser!.branchId || localUser?.branchId;
       if (!userBranchId || userBranchId === 'BR-001') {
-        if (userCountryCode === 'TH' || uname.startsWith('th-')) {
+        if (uname.startsWith('sg-maker1') || uname.startsWith('sg-checker1') || uname.startsWith('sg-admin1') || fname.includes('changi')) {
+          userBranchId = 'BR-010';
+        } else if (uname.startsWith('th-maker2') || uname.startsWith('th-checker2') || fname.includes('pathum')) {
+          userBranchId = 'BR-011';
+        } else if (userCountryCode === 'TH' || uname.startsWith('th-')) {
           const thBranch = db.branches.find(b => b.countryCode === 'TH' || b.id === 'BR-009' || b.id === 'BR-1789830806420');
           userBranchId = thBranch?.id || 'BR-009';
         } else if (userCountryCode === 'SG' || uname.startsWith('sg-')) {
@@ -3308,11 +3323,19 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Auto-align if untouched default MM/BR-001 was passed for non-MM operator
       let effectiveCountry = selectedCountryCode;
       let effectiveBranch = selectedBranchId;
-      if (userCountryCode !== 'MM' && selectedCountryCode === 'MM') {
+      if (userCountryCode !== 'MM' && (selectedCountryCode === 'MM' || !selectedCountryCode)) {
         effectiveCountry = userCountryCode;
       }
-      if (userBranchId !== 'BR-001' && selectedBranchId === 'BR-001') {
-        effectiveBranch = userBranchId;
+      if (userBranchId !== 'BR-001') {
+        if (selectedBranchId === 'BR-001' || !selectedBranchId) {
+          effectiveBranch = userBranchId;
+        } else if (userBranchId === 'BR-010' && selectedBranchId === 'BR-008') {
+          // Auto-align Changi user if previous default Peninsula Plaza branch was selected
+          effectiveBranch = 'BR-010';
+        } else if (userBranchId === 'BR-011' && selectedBranchId === 'BR-009') {
+          // Auto-align Pathum Thani user if previous default Bangkok branch was selected
+          effectiveBranch = 'BR-011';
+        }
       }
 
       // MANDATORY COUNTRY & BRANCH VALIDATION ("Country and Branch ကိုရွေးပြီး မှန်မှ Application ကိုပေးသုံးပါမယ်")

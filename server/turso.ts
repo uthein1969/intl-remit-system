@@ -608,7 +608,27 @@ export async function syncPushToTurso(data: {
             tx.senderFatherName || '',
             tx.senderOccupation || '',
             tx.senderDateOfBirth || '',
-            tx.sendingBranchId || tx.sending_branch_id || tx.branchId || (tx.fromCountry === 'TH' ? 'BR-009' : tx.fromCountry === 'SG' ? 'BR-008' : 'BR-001'),
+            (() => {
+              const cLower = String(tx.createdBy || tx.created_by || tx.creatorName || '').toLowerCase();
+              if (cLower.includes('maker 1') || cLower.includes('maker1') || cLower.includes('checker 1') || cLower.includes('checker1') || cLower.includes('admin 1') || cLower.includes('admin1') || cLower.includes('changi') || cLower.includes('usr-014') || cLower.includes('usr-015') || cLower.includes('usr-013')) {
+                return 'BR-010';
+              }
+              if (cLower.includes('maker 2') || cLower.includes('maker2') || cLower.includes('checker 2') || cLower.includes('checker2') || cLower.includes('admin 2') || cLower.includes('admin2') || cLower.includes('peninsula') || cLower.includes('usr-010') || cLower.includes('usr-011') || cLower.includes('usr-012')) {
+                return 'BR-008';
+              }
+              if (cLower.includes('th-maker2') || cLower.includes('th-checker2') || cLower.includes('pathum') || cLower.includes('usr-016') || cLower.includes('usr-017')) {
+                return 'BR-011';
+              }
+              if (cLower.includes('mandalay') || cLower.includes('usr-005')) {
+                return 'BR-002';
+              }
+              if (tx.sendingBranchId && tx.sendingBranchId !== 'BR-001') return tx.sendingBranchId;
+              if (tx.sending_branch_id && tx.sending_branch_id !== 'BR-001') return tx.sending_branch_id;
+              if (tx.branchId && tx.branchId !== 'BR-001') return tx.branchId;
+              if (tx.fromCountry === 'TH') return 'BR-009';
+              if (tx.fromCountry === 'SG') return 'BR-008';
+              return tx.sendingBranchId || tx.sending_branch_id || tx.branchId || 'BR-001';
+            })(),
             tx.payoutBranchId || tx.payout_branch_id || (tx.type === 'INWARD' ? (tx.branchId || (tx.toCountry === 'TH' ? 'BR-009' : tx.toCountry === 'SG' ? 'BR-008' : 'BR-001')) : ''),
             tx.branchId || tx.sendingBranchId || 'BR-001'
           ]
@@ -1122,13 +1142,30 @@ export async function syncPullFromTurso() {
     senderFatherName: String(row.sender_father_name || ''),
     senderOccupation: String(row.sender_occupation || ''),
     senderDateOfBirth: String(row.sender_date_of_birth || ''),
-    sendingBranchId: String(
-      row.sending_branch_id ||
-      row.branch_id ||
-      (row.created_by && row.created_by.includes('Mandalay') ? 'BR-002' :
-       row.from_country === 'TH' ? 'BR-009' :
-       row.from_country === 'SG' ? 'BR-008' : 'BR-001')
-    ),
+    sendingBranchId: (() => {
+      const cLower = String(row.created_by || '').toLowerCase();
+      if (cLower.includes('maker 1') || cLower.includes('maker1') || cLower.includes('checker 1') || cLower.includes('checker1') || cLower.includes('admin 1') || cLower.includes('admin1') || cLower.includes('changi') || cLower.includes('usr-014') || cLower.includes('usr-015') || cLower.includes('usr-013')) {
+        return 'BR-010';
+      }
+      if (cLower.includes('maker 2') || cLower.includes('maker2') || cLower.includes('checker 2') || cLower.includes('checker2') || cLower.includes('admin 2') || cLower.includes('admin2') || cLower.includes('peninsula') || cLower.includes('usr-010') || cLower.includes('usr-011') || cLower.includes('usr-012')) {
+        return 'BR-008';
+      }
+      if (cLower.includes('th-maker2') || cLower.includes('th-checker2') || cLower.includes('pathum') || cLower.includes('usr-016') || cLower.includes('usr-017')) {
+        return 'BR-011';
+      }
+      if (cLower.includes('mandalay') || cLower.includes('usr-005')) {
+        return 'BR-002';
+      }
+      if (row.sending_branch_id && String(row.sending_branch_id) !== 'BR-001') {
+        return String(row.sending_branch_id);
+      }
+      if (row.branch_id && String(row.branch_id) !== 'BR-001') {
+        return String(row.branch_id);
+      }
+      if (row.from_country === 'TH') return 'BR-009';
+      if (row.from_country === 'SG') return 'BR-008';
+      return String(row.sending_branch_id || row.branch_id || 'BR-001');
+    })(),
     payoutBranchId: String(
       row.payout_branch_id ||
       (row.to_country === 'TH' ? 'BR-009' :

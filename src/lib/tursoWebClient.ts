@@ -464,7 +464,27 @@ export async function tursoWebSyncPush(data: {
               tx.senderNrcAttachment || tx.sender_nrc_attachment || '', tx.senderNrcFrontAttachment || tx.sender_nrc_front_attachment || '', tx.senderNrcBackAttachment || tx.sender_nrc_back_attachment || '', tx.senderPassportAttachment || tx.sender_passport_attachment || '',
               tx.proofDocumentUrl || tx.proof_document_url || '', tx.proofDocumentName || tx.proof_document_name || '', tx.proofDocCategory || tx.proof_doc_category || '',
               tx.senderFatherName || tx.sender_father_name || '', tx.senderOccupation || tx.sender_occupation || '', tx.senderDateOfBirth || tx.sender_date_of_birth || '',
-              tx.sendingBranchId || tx.sending_branch_id || tx.branchId || (tx.fromCountry === 'TH' ? 'BR-009' : tx.fromCountry === 'SG' ? 'BR-008' : 'BR-001'),
+              (() => {
+                const cLower = String(tx.createdBy || tx.created_by || tx.creatorName || '').toLowerCase();
+                if (cLower.includes('maker 1') || cLower.includes('maker1') || cLower.includes('checker 1') || cLower.includes('checker1') || cLower.includes('admin 1') || cLower.includes('admin1') || cLower.includes('changi') || cLower.includes('usr-014') || cLower.includes('usr-015') || cLower.includes('usr-013')) {
+                  return 'BR-010';
+                }
+                if (cLower.includes('maker 2') || cLower.includes('maker2') || cLower.includes('checker 2') || cLower.includes('checker2') || cLower.includes('admin 2') || cLower.includes('admin2') || cLower.includes('peninsula') || cLower.includes('usr-010') || cLower.includes('usr-011') || cLower.includes('usr-012')) {
+                  return 'BR-008';
+                }
+                if (cLower.includes('th-maker2') || cLower.includes('th-checker2') || cLower.includes('pathum') || cLower.includes('usr-016') || cLower.includes('usr-017')) {
+                  return 'BR-011';
+                }
+                if (cLower.includes('mandalay') || cLower.includes('usr-005')) {
+                  return 'BR-002';
+                }
+                if (tx.sendingBranchId && tx.sendingBranchId !== 'BR-001') return tx.sendingBranchId;
+                if (tx.sending_branch_id && tx.sending_branch_id !== 'BR-001') return tx.sending_branch_id;
+                if (tx.branchId && tx.branchId !== 'BR-001') return tx.branchId;
+                if (tx.fromCountry === 'TH') return 'BR-009';
+                if (tx.fromCountry === 'SG') return 'BR-008';
+                return tx.sendingBranchId || tx.sending_branch_id || tx.branchId || 'BR-001';
+              })(),
               tx.payoutBranchId || tx.payout_branch_id || (tx.type === 'INWARD' ? (tx.branchId || (tx.toCountry === 'TH' ? 'BR-009' : tx.toCountry === 'SG' ? 'BR-008' : 'BR-001')) : ''),
               tx.branchId || tx.sendingBranchId || 'BR-001'
             ]
@@ -1018,14 +1038,30 @@ export async function tursoWebSyncPull(): Promise<{
       payoutMethod: String(r.payout_method || 'CASH_PICKUP'),
       payoutBankName: String(r.bank_name || ''),
       payoutAccountNumber: String(r.bank_account_no || ''),
-      sendingBranchId: String(
-        r.sending_branch_id || 
-        r.branch_id || 
-        (r.created_by && r.created_by.includes('Mandalay') ? 'BR-002' : 
-         r.from_country === 'TH' ? 'BR-009' : 
-         r.from_country === 'SG' ? 'BR-008' : 
-         r.from_country === 'MY' ? 'BR-001' : 'BR-001')
-      ),
+      sendingBranchId: (() => {
+        const cLower = String(r.created_by || '').toLowerCase();
+        if (cLower.includes('maker 1') || cLower.includes('maker1') || cLower.includes('checker 1') || cLower.includes('checker1') || cLower.includes('admin 1') || cLower.includes('admin1') || cLower.includes('changi') || cLower.includes('usr-014') || cLower.includes('usr-015') || cLower.includes('usr-013')) {
+          return 'BR-010';
+        }
+        if (cLower.includes('maker 2') || cLower.includes('maker2') || cLower.includes('checker 2') || cLower.includes('checker2') || cLower.includes('admin 2') || cLower.includes('admin2') || cLower.includes('peninsula') || cLower.includes('usr-010') || cLower.includes('usr-011') || cLower.includes('usr-012')) {
+          return 'BR-008';
+        }
+        if (cLower.includes('th-maker2') || cLower.includes('th-checker2') || cLower.includes('pathum') || cLower.includes('usr-016') || cLower.includes('usr-017')) {
+          return 'BR-011';
+        }
+        if (cLower.includes('mandalay') || cLower.includes('usr-005')) {
+          return 'BR-002';
+        }
+        if (r.sending_branch_id && String(r.sending_branch_id) !== 'BR-001') {
+          return String(r.sending_branch_id);
+        }
+        if (r.branch_id && String(r.branch_id) !== 'BR-001') {
+          return String(r.branch_id);
+        }
+        if (r.from_country === 'TH') return 'BR-009';
+        if (r.from_country === 'SG') return 'BR-008';
+        return String(r.sending_branch_id || r.branch_id || 'BR-001');
+      })(),
       payoutBranchId: String(
         r.payout_branch_id || 
         (r.to_country === 'TH' ? 'BR-009' : 
