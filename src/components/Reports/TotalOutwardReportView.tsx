@@ -221,16 +221,23 @@ export const TotalOutwardReportView: React.FC = () => {
       row.txCount += 1;
       row.transactions.push(tx);
       
-      const sendMMK = tx.sourceCurrency === 'MMK' ? Number(tx.sendAmount || 0) : Number(tx.totalPayableAmount || 0);
+      const sendMMK = tx.targetCurrency === 'MMK'
+        ? Number(tx.receiveAmount || 0)
+        : tx.sourceCurrency === 'MMK'
+        ? Number(tx.sendAmount || 0)
+        : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
 
       const tCurr = tx.targetCurrency || 'THB';
       row.currencyTotals[tCurr] = (row.currencyTotals[tCurr] || 0) + Number(tx.receiveAmount || 0);
 
-      const fees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
-      row.totalFeesMMK += fees;
+      const rawFees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
+      const feesMMK = tx.sourceCurrency === 'MMK'
+        ? rawFees
+        : rawFees * Number(tx.exchangeRate || 1);
+      row.totalFeesMMK += feesMMK;
 
-      row.totalVolumeMMK += (sendMMK + fees);
+      row.totalVolumeMMK += sendMMK;
     });
 
     // Sequential Date Ordering
@@ -267,8 +274,22 @@ export const TotalOutwardReportView: React.FC = () => {
   }, [dayByDayTotals]);
 
   // KPI highlights
-  const totalVolumeMMK = filteredTxs.reduce((sum, tx) => sum + (tx.sourceCurrency === 'MMK' ? tx.sendAmount : tx.totalPayableAmount), 0);
-  const totalFeesMMK = filteredTxs.reduce((sum, tx) => sum + tx.serviceFee + tx.commissionFee, 0);
+  const totalVolumeMMK = filteredTxs.reduce((sum, tx) => {
+    const val = tx.targetCurrency === 'MMK'
+      ? Number(tx.receiveAmount || 0)
+      : tx.sourceCurrency === 'MMK'
+      ? Number(tx.sendAmount || 0)
+      : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  const totalFeesMMK = filteredTxs.reduce((sum, tx) => {
+    const rawFees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
+    const feeVal = tx.sourceCurrency === 'MMK'
+      ? rawFees
+      : rawFees * Number(tx.exchangeRate || 1);
+    return sum + (isNaN(feeVal) ? 0 : feeVal);
+  }, 0);
 
   // CSV Export with dd/mm/yyyy format
   const exportCsv = () => {
@@ -770,8 +791,8 @@ export const TotalOutwardReportView: React.FC = () => {
                                       <th className="py-2 px-3">MTCN</th>
                                       <th className="py-2 px-3">Sender</th>
                                       <th className="py-2 px-3">Receiver</th>
-                                      <th className="py-2 px-3 text-right">Send MMK</th>
-                                      <th className="py-2 px-3 text-right">Payout Currency</th>
+                                      <th className="py-2 px-3 text-right">Send Amount</th>
+                                      <th className="py-2 px-3 text-right">Receive Amount</th>
                                       <th className="py-2 px-3">User / Operator</th>
                                       <th className="py-2 px-3">Status</th>
                                       <th className="py-2 px-3 text-right">Action</th>
@@ -784,7 +805,7 @@ export const TotalOutwardReportView: React.FC = () => {
                                         <td className="py-2 px-3 text-amber-400">{t.mtcn}</td>
                                         <td className="py-2 px-3 font-sans text-slate-200">{t.senderName}</td>
                                         <td className="py-2 px-3 font-sans text-slate-200">{t.receiverName} ({t.receiverCountryCode})</td>
-                                        <td className="py-2 px-3 text-right text-slate-100">{Number(t.sendAmount).toLocaleString()} MMK</td>
+                                        <td className="py-2 px-3 text-right text-slate-100 font-medium">{Number(t.sendAmount).toLocaleString()} {t.sourceCurrency}</td>
                                         <td className="py-2 px-3 text-right text-emerald-400 font-bold">{Number(t.receiveAmount).toLocaleString()} {t.targetCurrency}</td>
                                         <td className="py-2 px-3 font-sans">
                                           <div className="text-slate-200 text-[11px] flex items-center space-x-1">

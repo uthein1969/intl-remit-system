@@ -59,7 +59,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const inwardTxs = (db?.transactions || []).filter(t => t?.type === 'INWARD');
   
   const totalOutwardMMK = outwardTxs.reduce((sum, tx) => {
-    const amt = Number(tx.sourceCurrency === 'MMK' ? tx.sendAmount : tx.totalPayableAmount);
+    const amt = Number(
+      tx.targetCurrency === 'MMK'
+        ? tx.receiveAmount
+        : tx.sourceCurrency === 'MMK'
+        ? tx.sendAmount
+        : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0)
+    );
     return sum + (isNaN(amt) ? 0 : amt);
   }, 0);
 

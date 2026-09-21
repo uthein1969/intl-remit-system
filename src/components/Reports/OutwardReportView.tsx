@@ -205,16 +205,23 @@ export const OutwardReportView: React.FC = () => {
       const row = dayMap[dateStr];
       row.txCount += 1;
       
-      const sendMMK = tx.sourceCurrency === 'MMK' ? Number(tx.sendAmount || 0) : Number(tx.totalPayableAmount || 0);
+      const sendMMK = tx.targetCurrency === 'MMK'
+        ? Number(tx.receiveAmount || 0)
+        : tx.sourceCurrency === 'MMK'
+        ? Number(tx.sendAmount || 0)
+        : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
 
       const tCurr = tx.targetCurrency || 'THB';
       row.currencyTotals[tCurr] = (row.currencyTotals[tCurr] || 0) + Number(tx.receiveAmount || 0);
 
-      const fees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
-      row.totalFeesMMK += fees;
+      const rawFees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
+      const feesMMK = tx.sourceCurrency === 'MMK'
+        ? rawFees
+        : rawFees * Number(tx.exchangeRate || 1);
+      row.totalFeesMMK += feesMMK;
 
-      row.totalVolumeMMK += (sendMMK + fees);
+      row.totalVolumeMMK += sendMMK;
     });
 
     // Sort descending by date
@@ -246,8 +253,22 @@ export const OutwardReportView: React.FC = () => {
   }, [dayByDayTotals]);
 
   // KPI highlights
-  const totalVolumeMMK = filteredTxs.reduce((sum, tx) => sum + (tx.sourceCurrency === 'MMK' ? tx.sendAmount : tx.totalPayableAmount), 0);
-  const totalFeesMMK = filteredTxs.reduce((sum, tx) => sum + tx.serviceFee + tx.commissionFee, 0);
+  const totalVolumeMMK = filteredTxs.reduce((sum, tx) => {
+    const val = tx.targetCurrency === 'MMK'
+      ? Number(tx.receiveAmount || 0)
+      : tx.sourceCurrency === 'MMK'
+      ? Number(tx.sendAmount || 0)
+      : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  const totalFeesMMK = filteredTxs.reduce((sum, tx) => {
+    const rawFees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
+    const feeVal = tx.sourceCurrency === 'MMK'
+      ? rawFees
+      : rawFees * Number(tx.exchangeRate || 1);
+    return sum + (isNaN(feeVal) ? 0 : feeVal);
+  }, 0);
 
   // CSV Export: Detailed vs Day-by-Day
   const exportCsv = () => {
