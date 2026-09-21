@@ -782,12 +782,14 @@ export function printVoucherDocument(params: {
     iframe = document.createElement('iframe');
     iframe.id = frameId;
     iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '-9999px';
-    iframe.style.width = '1024px';
-    iframe.style.height = '768px';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '210mm';
+    iframe.style.height = '297mm';
     iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
+    iframe.style.opacity = '0.01'; // Imperceptible to human eye, but 100% visible to browser print engine
+    iframe.style.zIndex = '-99999';
+    iframe.style.pointerEvents = 'none';
     document.body.appendChild(iframe);
 
     const frameDoc = iframe.contentWindow?.document || iframe.contentDocument;
@@ -800,7 +802,7 @@ export function printVoucherDocument(params: {
     frameDoc.write(html);
     frameDoc.close();
 
-    // Trigger print cleanly after rendering
+    // Trigger print cleanly after iframe rendering
     setTimeout(() => {
       try {
         iframe?.contentWindow?.focus();
@@ -813,7 +815,7 @@ export function printVoucherDocument(params: {
           openVoucherInNewTab(params);
         }
       }
-    }, 150);
+    }, 300);
 
     return { success: true };
   } catch (err) {
@@ -833,8 +835,8 @@ export function printVoucherDocument(params: {
 }
 
 /**
- * Opens the voucher in a dedicated tab without using blob: URL.
- * Uses window.open('', '_blank') and direct document.write so it is NEVER blank or blocked in Chrome.
+ * Opens the voucher in a dedicated tab.
+ * Uses window.open and direct document.write so it is never blank or blocked.
  */
 export function openVoucherInNewTab(params: {
   transaction: RemittanceTransaction;
@@ -845,15 +847,23 @@ export function openVoucherInNewTab(params: {
 }): void {
   try {
     const html = generateVoucherHtml(params);
-    const win = window.open('', '_blank');
+    let win = window.open('', '_blank');
+    if (!win) {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      win = window.open(url, '_blank');
+    }
     if (win) {
       win.document.open();
       win.document.write(html);
       win.document.close();
       win.focus();
+    } else {
+      downloadVoucherHtml(params);
     }
   } catch (err) {
-    console.error('Failed to open voucher in new tab:', err);
+    console.error('Failed to open voucher in new tab, downloading instead:', err);
+    downloadVoucherHtml(params);
   }
 }
 

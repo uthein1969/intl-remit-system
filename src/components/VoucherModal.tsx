@@ -45,6 +45,17 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('voucher-modal-open');
+    } else {
+      document.body.classList.remove('voucher-modal-open');
+    }
+    return () => {
+      document.body.classList.remove('voucher-modal-open');
+    };
+  }, [isOpen]);
+
   const branch = transaction ? (db.branches.find(b => b.id === transaction.sendingBranchId) || db.branches[0]) : db.branches[0];
   const partner = transaction ? db.companies.find(c => c.id === transaction.partnerCompanyId) : undefined;
 
@@ -61,25 +72,30 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
 
     setFeedbackMsg(
       language === 'my' 
-        ? 'ပုံနှိပ်စာမျက်နှာ ဖွင့်လှစ်နေပါသည် (Printing Voucher)...' 
-        : 'Opening print box dialog...'
+        ? 'ပြေစာ ပုံနှိပ်နေပါသည် (Preparing Voucher Print)...' 
+        : 'Preparing voucher document...'
     );
 
-    // Call window.print() directly so browser Print Box appears immediately
-    try {
-      window.print();
-    } catch (err) {
-      console.warn('Direct window.print encountered an error, trying document printer:', err);
-      printVoucherDocument({
-        transaction,
-        branch,
-        partner,
-        operatorProfile,
-        language,
-      });
+    // Call document printer for maximum visual fidelity & isolation from app layout
+    const res = printVoucherDocument({
+      transaction,
+      branch,
+      partner,
+      operatorProfile,
+      language,
+    });
+
+    if (!res?.success) {
+      try {
+        window.print();
+      } catch (err) {
+        console.warn('Fallback window.print error:', err);
+      }
     }
 
-    setTimeout(() => setFeedbackMsg(null), 3500);
+    setTimeout(() => {
+      setFeedbackMsg(null);
+    }, 3500);
   };
 
   const handleOpenNewTab = (e?: React.MouseEvent) => {
@@ -205,7 +221,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
 
         {/* Printable Voucher Paper - Scrollable body with smooth up/down scrolling */}
         <div 
-          className="p-6 sm:p-8 space-y-6 print:p-4 overflow-y-auto flex-1 overscroll-contain" 
+          className="p-6 sm:p-8 space-y-6 print:p-2 print:overflow-visible print:h-auto print:max-h-none overflow-y-auto flex-1 overscroll-contain" 
           id="printable-voucher"
         >
           {/* Voucher Title & Reference Header */}
