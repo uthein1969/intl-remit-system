@@ -15,15 +15,12 @@ import {
   BarChart3,
   X,
   ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
   Building2,
   Globe,
   User as UserIcon
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import { RemittanceTransaction } from '../../types';
-import { VoucherModal } from '../VoucherModal';
 import { formatToDDMMYYYY } from '../../lib/dateUtils';
 
 export const TotalOutwardReportView: React.FC = () => {
@@ -43,11 +40,6 @@ export const TotalOutwardReportView: React.FC = () => {
   // Sort Order: 'DESC' (Newest date first) | 'ASC' (Chronological ascending - Oldest first)
   const [sortOrder, setSortOrder] = useState<'DESC' | 'ASC'>('DESC');
   
-  // Expanded Days for viewing underlying transactions
-  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
-
-  const [selectedVoucherTx, setSelectedVoucherTx] = useState<RemittanceTransaction | null>(null);
-
   const outwardTxs = db.transactions.filter(t => t.type === 'OUTWARD');
 
   // Distinct users for User Filter
@@ -100,13 +92,6 @@ export const TotalOutwardReportView: React.FC = () => {
     setActiveDatePreset('CUSTOM');
     if (type === 'START') setStartDate(value);
     if (type === 'END') setEndDate(value);
-  };
-
-  const toggleDateExpand = (dateStr: string) => {
-    setExpandedDates(prev => ({
-      ...prev,
-      [dateStr]: !prev[dateStr]
-    }));
   };
 
   const filteredTxs = useMemo(() => {
@@ -169,11 +154,53 @@ export const TotalOutwardReportView: React.FC = () => {
     });
   }, [outwardTxs, selectedUser, distinctUsers, selectedCurrency, selectedStatus, selectedCountry, selectedBranch, startDate, endDate, searchQuery, db.branches]);
 
-  // Distinct target currencies present in filtered transactions
-  const targetCurrenciesList = useMemo(() => {
-    const list = Array.from(new Set(filteredTxs.map(tx => tx.targetCurrency || 'THB')));
-    const priority = ['THB', 'USD', 'SGD', 'MYR', 'EUR', 'JPY', 'CNY', 'AED'];
-    return list.sort((a, b) => {
+  // Distinct outward currencies & respective countries for dynamic columns
+  interface OutwardCurrencyColumn {
+    currency: string;
+    countryCode: string;
+    countryNameEn: string;
+    countryNameMm: string;
+    flag: string;
+  }
+
+  const outwardCurrencyColumns = useMemo<OutwardCurrencyColumn[]>(() => {
+    // If a specific foreign currency is filtered
+    if (selectedCurrency !== 'ALL' && selectedCurrency !== 'MMK') {
+      const country = db.countries.find(c => c.currencyCode === selectedCurrency && !c.isDomestic) ||
+                      db.countries.find(c => c.currencyCode === selectedCurrency);
+      return [{
+        currency: selectedCurrency,
+        countryCode: country?.code || '',
+        countryNameEn: country?.nameEn || selectedCurrency,
+        countryNameMm: country?.nameMm || selectedCurrency,
+        flag: country?.flagEmoji || '🌐',
+      }];
+    }
+
+    // Currencies from all filtered transactions (excluding domestic MMK)
+    const activeCurrenciesInTxs = new Set<string>();
+    filteredTxs.forEach(tx => {
+      if (tx.targetCurrency && tx.targetCurrency !== 'MMK') {
+        activeCurrenciesInTxs.add(tx.targetCurrency);
+      }
+      if (tx.sourceCurrency && tx.sourceCurrency !== 'MMK') {
+        activeCurrenciesInTxs.add(tx.sourceCurrency);
+      }
+    });
+
+    // Baseline primary partner corridors for outward remittance
+    const primaryCorridors = ['THB', 'SGD', 'MYR', 'USD'];
+    const combinedSet = new Set<string>();
+
+    primaryCorridors.forEach(c => {
+      if (activeCurrenciesInTxs.has(c) || db.countries.some(country => country.currencyCode === c && !country.isDomestic)) {
+        combinedSet.add(c);
+      }
+    });
+    activeCurrenciesInTxs.forEach(c => combinedSet.add(c));
+
+    const priority = ['THB', 'SGD', 'MYR', 'USD', 'JPY', 'KRW', 'CNY', 'AED', 'EUR', 'GBP'];
+    const sorted = Array.from(combinedSet).sort((a, b) => {
       const idxA = priority.indexOf(a);
       const idxB = priority.indexOf(b);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -181,7 +208,19 @@ export const TotalOutwardReportView: React.FC = () => {
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [filteredTxs]);
+
+    return sorted.map(curr => {
+      const country = db.countries.find(c => c.currencyCode === curr && !c.isDomestic) ||
+                      db.countries.find(c => c.currencyCode === curr);
+      return {
+        currency: curr,
+        countryCode: country?.code || '',
+        countryNameEn: country?.nameEn || curr,
+        countryNameMm: country?.nameMm || curr,
+        flag: country?.flagEmoji || '🌐',
+      };
+    });
+  }, [filteredTxs, selectedCurrency, db.countries]);
 
   // Day by Day Aggregation (User Request: Date အလိုက် အစဉ်လိုက်ပြပေးပါ)
   interface DaySummary {
@@ -228,8 +267,19 @@ export const TotalOutwardReportView: React.FC = () => {
         : Number(tx.receiveAmount || (Number(tx.sendAmount || 0) * Number(tx.exchangeRate || 1)) || 0);
       row.totalSendMMK += sendMMK;
 
-      const tCurr = tx.targetCurrency || 'THB';
-      row.currencyTotals[tCurr] = (row.currencyTotals[tCurr] || 0) + Number(tx.receiveAmount || 0);
+      // Populate respective country outward currency amounts
+      outwardCurrencyColumns.forEach(col => {
+        const c = col.currency;
+        let amtInCurr = 0;
+        if (tx.targetCurrency === c) {
+          amtInCurr = Number(tx.receiveAmount || 0);
+        } else if (tx.sourceCurrency === c) {
+          amtInCurr = Number(tx.sendAmount || 0);
+        }
+        if (amtInCurr > 0) {
+          row.currencyTotals[c] = (row.currencyTotals[c] || 0) + amtInCurr;
+        }
+      });
 
       const rawFees = Number(tx.serviceFee || 0) + Number(tx.commissionFee || 0);
       const feesMMK = tx.sourceCurrency === 'MMK'
@@ -247,7 +297,7 @@ export const TotalOutwardReportView: React.FC = () => {
       }
       return b.rawDate.localeCompare(a.rawDate);
     });
-  }, [filteredTxs, sortOrder]);
+  }, [filteredTxs, sortOrder, outwardCurrencyColumns]);
 
   // Grand Total for Total Outward Report
   const grandTotalSummary = useMemo(() => {
@@ -297,8 +347,8 @@ export const TotalOutwardReportView: React.FC = () => {
       'Date (dd/mm/yyyy)',
       'Day',
       'Transaction Count',
-      'Sent Amount (MMK)',
-      ...targetCurrenciesList.map(c => `Receive Amount (${c})`),
+      'Send Amount (MMK)',
+      ...outwardCurrencyColumns.map(col => `${col.countryNameEn} (${col.currency}) Total Amount`),
       'Service & Comm Fees (MMK)',
       'Total Net Volume (MMK)'
     ];
@@ -308,7 +358,7 @@ export const TotalOutwardReportView: React.FC = () => {
       d.dayOfWeek,
       d.txCount,
       d.totalSendMMK,
-      ...targetCurrenciesList.map(c => d.currencyTotals[c] || 0),
+      ...outwardCurrencyColumns.map(col => d.currencyTotals[col.currency] || 0),
       d.totalFeesMMK,
       d.totalVolumeMMK
     ]);
@@ -319,7 +369,7 @@ export const TotalOutwardReportView: React.FC = () => {
       '-',
       grandTotalSummary.txCount,
       grandTotalSummary.totalSendMMK,
-      ...targetCurrenciesList.map(c => grandTotalSummary.currencyTotals[c] || 0),
+      ...outwardCurrencyColumns.map(col => grandTotalSummary.currencyTotals[col.currency] || 0),
       grandTotalSummary.totalFeesMMK,
       grandTotalSummary.totalVolumeMMK
     ]);
@@ -688,162 +738,100 @@ export const TotalOutwardReportView: React.FC = () => {
       {/* Main Table: Sequential Day by Day Total Report with Currency Columns */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-4 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <Calendar className="w-4 h-4 text-blue-400" />
             <h3 className="text-sm font-bold text-white">
-              {language === 'my' ? 'ရက်စွဲအလိုက် စုစုပေါင်း ငွေလွှဲပို့မှု စာရင်း' : 'Sequential Day by Day Outward Summary Table'}
+              {language === 'my' ? 'ရက်စွဲအလိုက် စုစုပေါင်း ငွေလွှဲပို့မှု စာရင်း (Total Outward Report)' : 'Sequential Day by Day Outward Summary Table'}
             </h3>
             <span className="px-2 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-300 font-mono">
               dd/mm/yyyy
             </span>
           </div>
-          <span className="text-xs text-slate-400">
-            {dayByDayTotals.length} Day(s) Listed | {filteredTxs.length} Transactions
-          </span>
+          <div className="flex items-center space-x-3">
+            <span className="text-xs text-slate-400">
+              {dayByDayTotals.length} Day(s) Listed | {filteredTxs.length} Transactions
+            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-800 text-[11px] text-sky-300 border border-slate-700">
+              <FileText className="w-3.5 h-3.5 mr-1 text-sky-400" />
+              {language === 'my' ? 'ငွေလွှဲအသေးစိတ်များကို Daily Report တွင် ကြည့်ရှုနိုင်ပါသည်' : 'View transaction details in Daily Outward Report'}
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">Date (dd/mm/yyyy)</th>
-                <th className="px-4 py-3.5">Day</th>
-                <th className="px-4 py-3.5 text-center">Tx Count</th>
-                <th className="px-4 py-3.5 text-right">Send Amount (MMK)</th>
-                {targetCurrenciesList.map(curr => (
-                  <th key={curr} className="px-4 py-3.5 text-right text-emerald-400">
-                    Total ({curr})
+                <th className="px-4 py-3.5 whitespace-nowrap">Date (dd/mm/yyyy)</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Day</th>
+                <th className="px-4 py-3.5 text-center whitespace-nowrap">Tx Count</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap">Send Amount (MMK)</th>
+                {outwardCurrencyColumns.map(col => (
+                  <th key={col.currency} className="px-4 py-3.5 text-right text-emerald-400 whitespace-nowrap">
+                    <div className="flex items-center justify-end space-x-1.5">
+                      <span>{col.flag}</span>
+                      <span className="font-semibold text-slate-300">
+                        {language === 'my' ? col.countryNameMm : col.countryNameEn}
+                      </span>
+                      <span className="font-mono font-bold text-emerald-300">({col.currency})</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-sans font-normal text-right">
+                      {language === 'my' ? 'စုစုပေါင်း' : 'Total Amount'}
+                    </div>
                   </th>
                 ))}
-                <th className="px-4 py-3.5 text-right text-amber-400">Service Fees (MMK)</th>
-                <th className="px-4 py-3.5 text-right text-blue-400">Total Net Volume (MMK)</th>
-                <th className="px-4 py-3.5 text-center">Details</th>
+                <th className="px-4 py-3.5 text-right text-amber-400 whitespace-nowrap">Service Fees (MMK)</th>
+                <th className="px-4 py-3.5 text-right text-blue-400 font-bold whitespace-nowrap">Total Net Volume (MMK)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 font-mono">
               {dayByDayTotals.length === 0 ? (
                 <tr>
-                  <td colSpan={7 + targetCurrenciesList.length} className="text-center py-12 text-slate-500">
+                  <td colSpan={6 + outwardCurrencyColumns.length} className="text-center py-12 text-slate-500 font-sans">
                     No transactions found matching the selected date and criteria.
                   </td>
                 </tr>
               ) : (
-                dayByDayTotals.map((day) => {
-                  const isExpanded = !!expandedDates[day.rawDate];
-                  return (
-                    <React.Fragment key={day.rawDate}>
-                      <tr className="hover:bg-slate-800/60 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-white flex items-center space-x-2">
-                          <span className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span>{day.formattedDate}</span>
+                dayByDayTotals.map((day) => (
+                  <tr key={day.rawDate} className="hover:bg-slate-800/60 transition-colors">
+                    <td className="px-4 py-3.5 font-bold text-white flex items-center space-x-2 whitespace-nowrap">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span>{day.formattedDate}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-400 font-sans whitespace-nowrap">
+                      {day.dayOfWeek}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold">
+                        {day.txCount}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right text-slate-200 font-medium">
+                      {day.totalSendMMK.toLocaleString()}
+                    </td>
+                    {outwardCurrencyColumns.map(col => {
+                      const amt = day.currencyTotals[col.currency] || 0;
+                      return (
+                        <td key={col.currency} className="px-4 py-3.5 text-right text-emerald-300 font-bold">
+                          {amt > 0 ? (
+                            <span>
+                              {amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              <span className="text-[10px] text-emerald-500 ml-1 font-mono">{col.currency}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-400 font-sans">
-                          {day.dayOfWeek}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold">
-                            {day.txCount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right text-slate-200 font-medium">
-                          {day.totalSendMMK.toLocaleString()}
-                        </td>
-                        {targetCurrenciesList.map(curr => {
-                          const amt = day.currencyTotals[curr] || 0;
-                          return (
-                            <td key={curr} className="px-4 py-3.5 text-right text-emerald-300 font-bold">
-                              {amt > 0 ? amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                            </td>
-                          );
-                        })}
-                        <td className="px-4 py-3.5 text-right text-amber-300">
-                          {day.totalFeesMMK.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-black text-blue-300 font-sans text-sm">
-                          {day.totalVolumeMMK.toLocaleString()} <span className="text-[10px] text-blue-400 font-mono">MMK</span>
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-sans">
-                          <button
-                            type="button"
-                            onClick={() => toggleDateExpand(day.rawDate)}
-                            className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                            title={isExpanded ? 'Collapse' : 'Expand Transactions'}
-                          >
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* Sub-rows: Expanded Day Transactions */}
-                      {isExpanded && (
-                        <tr className="bg-slate-950/80">
-                          <td colSpan={7 + targetCurrenciesList.length} className="p-4">
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-                              <div className="text-xs font-bold text-white mb-2 flex items-center justify-between">
-                                <span>Transactions on {day.formattedDate} ({day.dayOfWeek}):</span>
-                                <span className="text-slate-400">{day.transactions.length} transfer(s)</span>
-                              </div>
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-left text-[11px] text-slate-300">
-                                  <thead className="text-slate-500 uppercase border-b border-slate-800">
-                                    <tr>
-                                      <th className="py-2 px-3">Tx No</th>
-                                      <th className="py-2 px-3">MTCN</th>
-                                      <th className="py-2 px-3">Sender</th>
-                                      <th className="py-2 px-3">Receiver</th>
-                                      <th className="py-2 px-3 text-right">Send Amount</th>
-                                      <th className="py-2 px-3 text-right">Receive Amount</th>
-                                      <th className="py-2 px-3">User / Operator</th>
-                                      <th className="py-2 px-3">Status</th>
-                                      <th className="py-2 px-3 text-right">Action</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-800/60 font-mono">
-                                    {day.transactions.map(t => (
-                                      <tr key={t.id} className="hover:bg-slate-800/40">
-                                        <td className="py-2 px-3 text-white font-bold">{t.transactionNo}</td>
-                                        <td className="py-2 px-3 text-amber-400">{t.mtcn}</td>
-                                        <td className="py-2 px-3 font-sans text-slate-200">{t.senderName}</td>
-                                        <td className="py-2 px-3 font-sans text-slate-200">{t.receiverName} ({t.receiverCountryCode})</td>
-                                        <td className="py-2 px-3 text-right text-slate-100 font-medium">{Number(t.sendAmount).toLocaleString()} {t.sourceCurrency}</td>
-                                        <td className="py-2 px-3 text-right text-emerald-400 font-bold">{Number(t.receiveAmount).toLocaleString()} {t.targetCurrency}</td>
-                                        <td className="py-2 px-3 font-sans">
-                                          <div className="text-slate-200 text-[11px] flex items-center space-x-1">
-                                            <UserIcon className="w-3 h-3 text-blue-400 shrink-0" />
-                                            <span className="truncate max-w-[120px]">{t.creatorName || 'Staff'}</span>
-                                          </div>
-                                          {t.approverName && (
-                                            <div className="text-[10px] text-emerald-400 truncate max-w-[120px]">
-                                              ✓ {t.approverName}
-                                            </div>
-                                          )}
-                                        </td>
-                                        <td className="py-2 px-3 font-sans">
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-300 font-bold">
-                                            {t.status}
-                                          </span>
-                                        </td>
-                                        <td className="py-2 px-3 text-right font-sans">
-                                          <button
-                                            onClick={() => setSelectedVoucherTx(t)}
-                                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer"
-                                            title="Print Voucher"
-                                          >
-                                            <Printer className="w-3.5 h-3.5" />
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
+                      );
+                    })}
+                    <td className="px-4 py-3.5 text-right text-amber-300">
+                      {day.totalFeesMMK.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-black text-blue-300 font-sans text-sm">
+                      {day.totalVolumeMMK.toLocaleString()} <span className="text-[10px] text-blue-400 font-mono">MMK</span>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
 
@@ -865,11 +853,18 @@ export const TotalOutwardReportView: React.FC = () => {
                   <td className="px-4 py-4 text-right text-slate-100 text-sm">
                     {grandTotalSummary.totalSendMMK.toLocaleString()}
                   </td>
-                  {targetCurrenciesList.map(curr => {
-                    const totalAmt = grandTotalSummary.currencyTotals[curr] || 0;
+                  {outwardCurrencyColumns.map(col => {
+                    const totalAmt = grandTotalSummary.currencyTotals[col.currency] || 0;
                     return (
-                      <td key={curr} className="px-4 py-4 text-right text-emerald-300 text-sm">
-                        {totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <td key={col.currency} className="px-4 py-4 text-right text-emerald-300 text-sm font-bold">
+                        {totalAmt > 0 ? (
+                          <span>
+                            {totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className="text-xs text-emerald-400 ml-1 font-mono">{col.currency}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
                       </td>
                     );
                   })}
@@ -879,20 +874,12 @@ export const TotalOutwardReportView: React.FC = () => {
                   <td className="px-4 py-4 text-right text-base text-blue-300 font-black">
                     {grandTotalSummary.totalVolumeMMK.toLocaleString()} <span className="text-xs text-blue-400">MMK</span>
                   </td>
-                  <td></td>
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
       </div>
-
-      {/* Voucher Modal */}
-      <VoucherModal
-        isOpen={!!selectedVoucherTx}
-        transaction={selectedVoucherTx}
-        onClose={() => setSelectedVoucherTx(null)}
-      />
     </div>
   );
 };
