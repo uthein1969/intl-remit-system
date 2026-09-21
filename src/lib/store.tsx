@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { 
   AppDatabase, 
   Branch, 
@@ -535,6 +535,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   };
 
+  // Ref tracking current db state at all times for intervals, beforeunload, and logout
+  const dbRef = useRef(db);
+  useEffect(() => {
+    dbRef.current = db;
+  }, [db]);
+
   const checkTursoStatus = async (): Promise<boolean> => {
     try {
       const { ok, data } = await safeFetchJson('/api/turso/status');
@@ -822,12 +828,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       }
 
-      // 1. Pull latest from Turso Cloud first (so any changes on Vercel appear here immediately)
+      // 1. Pull latest from Turso Cloud first
       const pullRes = await fetchDataFromTurso();
 
-      // 2. Push any local transactions & audit logs to Turso Cloud
-      const txPayload = (db.transactions || []).map(mapTransactionToTursoPayload);
-      const auditPayload = (db.auditLogs || []).slice(0, 100).map(l => ({
+      // 2. Push all fresh local transactions & audit logs to Turso Cloud from dbRef
+      const currentDb = dbRef.current;
+      const txPayload = (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+      const auditPayload = (currentDb.auditLogs || []).slice(0, 100).map(l => ({
         id: l.id,
         timestamp: l.timestamp,
         userId: l.userId,
@@ -838,15 +845,25 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         details: l.details,
       }));
 
+      const syncPayload = {
+        transactions: txPayload,
+        auditLogs: auditPayload,
+        exchangeRates: currentDb.exchangeRates,
+        customers: currentDb.customers,
+        branches: currentDb.branches,
+        users: currentDb.users,
+      };
+
       const { ok } = await safeFetchJson('/api/turso/sync-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions: txPayload, auditLogs: auditPayload })
+        body: JSON.stringify(syncPayload)
       });
       if (!ok) {
-        await tursoWebSyncPush({ transactions: txPayload, auditLogs: auditPayload });
+        await tursoWebSyncPush(syncPayload);
       }
 
+      setLastTursoSyncTime(new Date().toLocaleTimeString());
       setIsSyncingTurso(false);
       return {
         success: true,
@@ -859,23 +876,24 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setIsSyncingTurso(false);
       return { success: false, message: err?.message || 'Sync failed' };
     }
-  }, [db.activeLanguage, db.transactions, db.auditLogs, fetchDataFromTurso]);
+  }, [db.activeLanguage, fetchDataFromTurso]);
 
-  // Continuous Bidirectional Synchronization with Turso Cloud
-  // (Mount sync, 20s interval polling, and window focus re-sync)
+  // Continuous 5-Minute Auto-Sync with Turso Cloud
+  // (Mount sync, 5-minute periodic interval, focus re-sync, and browser close sync)
   useEffect(() => {
     let isMounted = true;
 
-    const performSync = async () => {
+    const performSync = async (reason = 'auto-interval') => {
       try {
         const isConnected = await checkTursoStatus();
         if (isConnected && isMounted) {
           await fetchTursoBranches();
           await fetchDataFromTurso();
 
-          // Push any unsynced local records & audit logs if present
-          const txPayload = (db.transactions || []).map(mapTransactionToTursoPayload);
-          const auditPayload = (db.auditLogs || []).slice(0, 100).map(l => ({
+          // Push fresh local Outward and Inward records & audit logs from dbRef
+          const currentDb = dbRef.current;
+          const txPayload = (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+          const auditPayload = (currentDb.auditLogs || []).slice(0, 100).map(l => ({
             id: l.id,
             timestamp: l.timestamp,
             userId: l.userId,
@@ -886,38 +904,106 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             details: l.details,
           }));
 
+          const syncPayload = {
+            transactions: txPayload,
+            auditLogs: auditPayload,
+            exchangeRates: currentDb.exchangeRates,
+            customers: currentDb.customers,
+            branches: currentDb.branches,
+            users: currentDb.users,
+          };
+
           const { ok } = await safeFetchJson('/api/turso/sync-push', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transactions: txPayload, auditLogs: auditPayload })
+            body: JSON.stringify(syncPayload)
           });
           if (!ok) {
-            await tursoWebSyncPush({ transactions: txPayload, auditLogs: auditPayload });
+            await tursoWebSyncPush(syncPayload);
+          }
+
+          if (isMounted) {
+            setLastTursoSyncTime(new Date().toLocaleTimeString());
           }
         }
       } catch (err) {
-        console.warn('Auto Turso sync check error:', err);
+        console.warn('Auto Turso 5-minute sync check error:', err);
       }
     };
 
     // Run immediately on component mount
-    performSync();
+    performSync('initial-mount');
 
-    // Auto-sync polling every 20 seconds
+    // Auto-sync polling every 5 minutes (5 * 60 * 1000 = 300,000 ms)
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
     const intervalId = setInterval(() => {
-      if (isMounted) performSync();
-    }, 20000);
+      if (isMounted) performSync('5-minute-interval');
+    }, FIVE_MINUTES_MS);
 
     // Auto-sync whenever user focuses back on the window/tab
     const handleFocus = () => {
-      if (isMounted) performSync();
+      if (isMounted) performSync('window-focus');
     };
     window.addEventListener('focus', handleFocus);
+
+    // Browser close & tab unload sync (beforeunload / pagehide)
+    const handleBeforeUnload = () => {
+      try {
+        const currentDb = dbRef.current;
+        if (!currentDb || !currentDb.transactions) return;
+
+        persistDatabaseSafely(currentDb);
+
+        const txPayload = (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+        const auditPayload = (currentDb.auditLogs || []).slice(0, 50).map(l => ({
+          id: l.id,
+          timestamp: l.timestamp,
+          userId: l.userId,
+          userName: l.userName,
+          action: l.action,
+          entityType: l.entityType,
+          entityId: l.entityId,
+          details: l.details,
+        }));
+
+        const payloadStr = JSON.stringify({
+          transactions: txPayload,
+          auditLogs: auditPayload,
+          exchangeRates: currentDb.exchangeRates,
+          customers: currentDb.customers,
+          branches: currentDb.branches,
+          users: currentDb.users
+        });
+
+        // 1. Fetch with keepalive
+        if (typeof fetch !== 'undefined') {
+          fetch('/api/turso/sync-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payloadStr,
+            keepalive: true
+          }).catch(() => {});
+        }
+
+        // 2. Beacon fallback
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          const blob = new Blob([payloadStr], { type: 'application/json' });
+          navigator.sendBeacon('/api/turso/sync-beacon', blob);
+        }
+      } catch (e) {
+        console.warn('Error during beforeunload sync:', e);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
     };
   }, [fetchDataFromTurso]);
 
@@ -2968,7 +3054,48 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    setIsSyncingTurso(true);
+    try {
+      // 1. Push all latest Outward, Inward transactions and data to Turso Cloud before logging out
+      const currentDb = dbRef.current;
+      if (currentDb && currentDb.transactions) {
+        const txPayload = (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+        const auditPayload = (currentDb.auditLogs || []).slice(0, 100).map(l => ({
+          id: l.id,
+          timestamp: l.timestamp,
+          userId: l.userId,
+          userName: l.userName,
+          action: l.action,
+          entityType: l.entityType,
+          entityId: l.entityId,
+          details: l.details,
+        }));
+
+        const syncPayload = {
+          transactions: txPayload,
+          auditLogs: auditPayload,
+          exchangeRates: currentDb.exchangeRates,
+          customers: currentDb.customers,
+          branches: currentDb.branches,
+          users: currentDb.users,
+        };
+
+        const { ok } = await safeFetchJson('/api/turso/sync-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(syncPayload)
+        });
+        if (!ok) {
+          await tursoWebSyncPush(syncPayload);
+        }
+      }
+    } catch (err) {
+      console.warn('[Logout Sync] Turso push error before logout:', err);
+    } finally {
+      setIsSyncingTurso(false);
+    }
+
     try {
       sessionStorage.removeItem('REMITTANCE_AUTH_SESSION');
       localStorage.removeItem('REMITTANCE_AUTH_SESSION');
@@ -2976,7 +3103,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       sessionStorage.setItem('REMITTANCE_EXPLICIT_LOGOUT', 'true');
     } catch (e) {}
     setIsAuthenticated(false);
-    logActionDirect('LOGIN', 'SYSTEM', currentUser.id, `User ${currentUser.fullName} logged out`);
+    logActionDirect('LOGIN', 'SYSTEM', currentUser.id, `User ${currentUser.fullName} logged out (Data synced to Turso)`);
   };
 
   const fetchSupabaseUsers = async (): Promise<{ success: boolean; users?: User[]; message?: string }> => {

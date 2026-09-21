@@ -87,12 +87,20 @@ app.post('/api/turso/init', async (req, res) => {
   }
 });
 
-app.post('/api/turso/sync-push', async (req, res) => {
+app.post(['/api/turso/sync-push', '/api/turso/sync-beacon'], async (req, res) => {
   try {
-    const result = await syncPushToTurso(req.body || {});
+    let payload = req.body || {};
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload);
+      } catch (err) {
+        console.warn('Failed to parse text body in sync-push/beacon:', err);
+      }
+    }
+    const result = await syncPushToTurso(payload);
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error?.message || 'Turso sync push failed' });
+    res.status(500).json({ success: false, error: error?.message || 'Turso sync push/beacon failed' });
   }
 });
 

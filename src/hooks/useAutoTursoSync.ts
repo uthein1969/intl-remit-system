@@ -32,12 +32,12 @@ export function useAutoTursoSync() {
     }
   };
 
-  // ၁။ ၁၀ မိနစ်ခြားတစ်ကြိမ် (Interval Push: 10 minutes = 600,000 ms)
+  // ၁။ ၅ မိနစ်ခြားတစ်ကြိမ် (Interval Push: 5 minutes = 300,000 ms)
   useEffect(() => {
-    const TEN_MINUTES = 10 * 60 * 1000;
+    const FIVE_MINUTES = 5 * 60 * 1000;
     const timer = setInterval(() => {
-      triggerPush('10-minute-interval');
-    }, TEN_MINUTES);
+      triggerPush('5-minute-interval');
+    }, FIVE_MINUTES);
 
     return () => clearInterval(timer);
   }, []);
@@ -46,7 +46,7 @@ export function useAutoTursoSync() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       const currentData = dbRef.current;
-      if (!currentData) return;
+      if (!currentData || !currentData.transactions) return;
 
       const payload = JSON.stringify({
         transactions: currentData.transactions,
@@ -57,13 +57,28 @@ export function useAutoTursoSync() {
         branches: currentData.branches
       });
 
-      // Browser ပိတ်သွားသည့်အခါ connection မပြတ်ဘဲ နောက်ကွယ်မှ ပို့နိုင်ရန် sendBeacon အသုံးပြုခြင်း
-      const blob = new Blob([payload], { type: 'application/json' });
-      navigator.sendBeacon('/api/turso/sync-push', blob);
+      // Browser ပိတ်သွားသည့်အခါ connection မပြတ်ဘဲ နောက်ကွယ်မှ ပို့နိုင်ရန် keepalive နှင့် sendBeacon အသုံးပြုခြင်း
+      try {
+        fetch('/api/turso/sync-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true
+        }).catch(() => {});
+      } catch {}
+
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon('/api/turso/sync-beacon', blob);
+      }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
   }, []);
 
   return { triggerPush };

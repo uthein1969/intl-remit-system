@@ -298,6 +298,29 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
+        {/* Turso Cloud 5-Min Auto-Sync Status & Trigger */}
+        <button
+          onClick={() => syncTursoBidirectional()}
+          disabled={isSyncingTurso}
+          className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors cursor-pointer active:scale-95 ${
+            isSyncingTurso
+              ? 'bg-blue-50 border-blue-200 text-blue-700'
+              : isTursoConnected
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+              : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+          }`}
+          title={language === 'my' ? 'Turso Cloud 5-Min Auto Sync (နှိပ်၍ ချက်ချင်း Sync လုပ်နိုင်သည်)' : 'Turso Cloud 5-Min Auto Sync (Click to sync now)'}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncingTurso ? 'animate-spin text-blue-600' : 'text-emerald-600'}`} />
+          <span className="font-mono text-[11px]">
+            {isSyncingTurso 
+              ? (language === 'my' ? 'Syncing...' : 'Syncing...') 
+              : lastTursoSyncTime 
+              ? `Turso: ${lastTursoSyncTime}` 
+              : '5-Min Sync'}
+          </span>
+        </button>
+
         {/* Quick Backup Action */}
         <button
           onClick={onOpenBackup}
@@ -310,12 +333,21 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logout Action */}
         <button
           type="button"
+          disabled={isSyncingTurso}
           onClick={() => logout()}
-          className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition-colors cursor-pointer active:scale-95"
-          title={language === 'my' ? 'စနစ်မှ ထွက်မည် (Logout)' : 'Sign out'}
+          className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition-colors cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          title={language === 'my' ? 'စနစ်မှ ထွက်မည် (Logout - Cloud သို့ အချက်အလက်များ သိမ်းဆည်းပေးမည်)' : 'Sign out (Syncs all transactions to Turso Cloud)'}
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{language === 'my' ? 'ထွက်မည် (Logout)' : 'Logout'}</span>
+          {isSyncingTurso ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+          ) : (
+            <LogOut className="w-3.5 h-3.5" />
+          )}
+          <span className="hidden sm:inline">
+            {isSyncingTurso 
+              ? (language === 'my' ? 'Syncing...' : 'Syncing...') 
+              : (language === 'my' ? 'ထွက်မည် (Logout)' : 'Logout')}
+          </span>
         </button>
       </div>
 

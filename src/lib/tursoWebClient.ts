@@ -352,6 +352,27 @@ export async function tursoWebSyncPush(data: {
 
     // 1. Transactions
     if (data.transactions && Array.isArray(data.transactions)) {
+      const extraCols = [
+        'sender_nrc_attachment TEXT',
+        'sender_nrc_front_attachment TEXT',
+        'sender_nrc_back_attachment TEXT',
+        'sender_passport_attachment TEXT',
+        'proof_document_url TEXT',
+        'proof_document_name TEXT',
+        'proof_doc_category TEXT',
+        'sender_father_name TEXT',
+        'sender_occupation TEXT',
+        'sender_date_of_birth TEXT',
+        'sending_branch_id TEXT',
+        'payout_branch_id TEXT',
+        'branch_id TEXT'
+      ];
+      for (const col of extraCols) {
+        try {
+          await client.execute(`ALTER TABLE remittance_transactions ADD COLUMN ${col};`);
+        } catch {}
+      }
+
       for (const tx of data.transactions) {
         try {
           await client.execute({
@@ -366,7 +387,8 @@ export async function tursoWebSyncPush(data: {
               source_of_funds, remittance_type, created_date,
               sender_nrc_attachment, sender_nrc_front_attachment, sender_nrc_back_attachment, sender_passport_attachment,
               proof_document_url, proof_document_name, proof_doc_category,
-              sender_father_name, sender_occupation, sender_date_of_birth
+              sender_father_name, sender_occupation, sender_date_of_birth,
+              sending_branch_id, payout_branch_id, branch_id
             ) VALUES (
               ?, ?, ?, ?, ?,
               ?, ?, ?, ?, ?, ?,
@@ -377,6 +399,7 @@ export async function tursoWebSyncPush(data: {
               ?, ?, ?, ?, ?,
               ?, ?, ?,
               ?, ?, ?, ?,
+              ?, ?, ?,
               ?, ?, ?,
               ?, ?, ?
             )
@@ -424,7 +447,10 @@ export async function tursoWebSyncPush(data: {
               proof_doc_category=excluded.proof_doc_category,
               sender_father_name=excluded.sender_father_name,
               sender_occupation=excluded.sender_occupation,
-              sender_date_of_birth=excluded.sender_date_of_birth;`,
+              sender_date_of_birth=excluded.sender_date_of_birth,
+              sending_branch_id=excluded.sending_branch_id,
+              payout_branch_id=excluded.payout_branch_id,
+              branch_id=excluded.branch_id;`,
             args: [
               tx.id, tx.transactionNo || tx.transaction_no, tx.mtcn || '', tx.type || 'OUTWARD', tx.status || 'PENDING_APPROVAL',
               tx.senderName || tx.sender_name || '', tx.senderNameMm || tx.sender_name_mm || '', tx.senderNrc || tx.sender_nrc || '', tx.senderPhone || tx.sender_phone || '', tx.senderAddress || tx.sender_address || '', tx.senderPassport || tx.sender_passport || '',
@@ -436,7 +462,10 @@ export async function tursoWebSyncPush(data: {
               tx.sourceOfFunds || tx.source_of_funds || tx.senderSourceOfFund || '', tx.remittanceType || tx.remittance_type || tx.scope || 'OUTWARD', tx.createdDate || tx.created_date || '',
               tx.senderNrcAttachment || tx.sender_nrc_attachment || '', tx.senderNrcFrontAttachment || tx.sender_nrc_front_attachment || '', tx.senderNrcBackAttachment || tx.sender_nrc_back_attachment || '', tx.senderPassportAttachment || tx.sender_passport_attachment || '',
               tx.proofDocumentUrl || tx.proof_document_url || '', tx.proofDocumentName || tx.proof_document_name || '', tx.proofDocCategory || tx.proof_doc_category || '',
-              tx.senderFatherName || tx.sender_father_name || '', tx.senderOccupation || tx.sender_occupation || '', tx.senderDateOfBirth || tx.sender_date_of_birth || ''
+              tx.senderFatherName || tx.sender_father_name || '', tx.senderOccupation || tx.sender_occupation || '', tx.senderDateOfBirth || tx.sender_date_of_birth || '',
+              tx.sendingBranchId || tx.sending_branch_id || tx.branchId || (tx.fromCountry === 'TH' ? 'BR-009' : tx.fromCountry === 'SG' ? 'BR-008' : 'BR-001'),
+              tx.payoutBranchId || tx.payout_branch_id || (tx.type === 'INWARD' ? (tx.branchId || (tx.toCountry === 'TH' ? 'BR-009' : tx.toCountry === 'SG' ? 'BR-008' : 'BR-001')) : ''),
+              tx.branchId || tx.sendingBranchId || 'BR-001'
             ]
           });
           txCount++;

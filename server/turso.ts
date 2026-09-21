@@ -306,6 +306,9 @@ export async function initTursoSchema(client?: Client) {
     'sender_father_name TEXT',
     'sender_occupation TEXT',
     'sender_date_of_birth TEXT',
+    'sending_branch_id TEXT',
+    'payout_branch_id TEXT',
+    'branch_id TEXT',
   ];
   for (const col of extraColumns) {
     try {
@@ -519,7 +522,8 @@ export async function syncPushToTurso(data: {
             source_of_funds, remittance_type, created_date,
             sender_nrc_attachment, sender_nrc_front_attachment, sender_nrc_back_attachment,
             sender_passport_attachment, proof_document_url, proof_document_name,
-            proof_doc_category, sender_father_name, sender_occupation, sender_date_of_birth
+            proof_doc_category, sender_father_name, sender_occupation, sender_date_of_birth,
+            sending_branch_id, payout_branch_id, branch_id
           ) VALUES (
             ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
@@ -580,7 +584,10 @@ export async function syncPushToTurso(data: {
             proof_doc_category=excluded.proof_doc_category,
             sender_father_name=excluded.sender_father_name,
             sender_occupation=excluded.sender_occupation,
-            sender_date_of_birth=excluded.sender_date_of_birth;`,
+            sender_date_of_birth=excluded.sender_date_of_birth,
+            sending_branch_id=excluded.sending_branch_id,
+            payout_branch_id=excluded.payout_branch_id,
+            branch_id=excluded.branch_id;`,
           args: [
             tx.id, tx.transactionNo, tx.mtcn || '', tx.type || 'OUTWARD', tx.status || 'PENDING_APPROVAL',
             tx.senderName || '', tx.senderNameMm || '', tx.senderNrc || '', tx.senderPhone || '', tx.senderAddress || '', tx.senderPassport || '',
@@ -599,7 +606,10 @@ export async function syncPushToTurso(data: {
             tx.proofDocCategory || '',
             tx.senderFatherName || '',
             tx.senderOccupation || '',
-            tx.senderDateOfBirth || ''
+            tx.senderDateOfBirth || '',
+            tx.sendingBranchId || tx.sending_branch_id || tx.branchId || (tx.fromCountry === 'TH' ? 'BR-009' : tx.fromCountry === 'SG' ? 'BR-008' : 'BR-001'),
+            tx.payoutBranchId || tx.payout_branch_id || (tx.type === 'INWARD' ? (tx.branchId || (tx.toCountry === 'TH' ? 'BR-009' : tx.toCountry === 'SG' ? 'BR-008' : 'BR-001')) : ''),
+            tx.branchId || tx.sendingBranchId || 'BR-001'
           ]
         });
         txSaved++;
@@ -1099,6 +1109,19 @@ export async function syncPullFromTurso() {
     senderFatherName: String(row.sender_father_name || ''),
     senderOccupation: String(row.sender_occupation || ''),
     senderDateOfBirth: String(row.sender_date_of_birth || ''),
+    sendingBranchId: String(
+      row.sending_branch_id ||
+      row.branch_id ||
+      (row.created_by && row.created_by.includes('Mandalay') ? 'BR-002' :
+       row.from_country === 'TH' ? 'BR-009' :
+       row.from_country === 'SG' ? 'BR-008' : 'BR-001')
+    ),
+    payoutBranchId: String(
+      row.payout_branch_id ||
+      (row.to_country === 'TH' ? 'BR-009' :
+       row.to_country === 'SG' ? 'BR-008' :
+       row.to_country === 'MM' ? (row.created_by && row.created_by.includes('Mandalay') ? 'BR-002' : 'BR-001') : 'BR-001')
+    ),
   }));
 
   const exchangeRates = rateRes.rows.map((row: any) => ({
