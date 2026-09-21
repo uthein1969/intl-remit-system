@@ -77,6 +77,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
   const [isNew, setIsNew] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showCompanyProfileModal, setShowCompanyProfileModal] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   // Security Check: "Admin Setup ကို Admin Role ကဘဲလုပ်ခွင့်ရှိပါမယ်"
   if (currentUser.role !== 'ADMIN') {
@@ -268,10 +269,13 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
 
     if (modalType === 'branch') {
       saveBranch(editingItem);
+      setSaveNotice(language === 'my' ? `ဘဏ်ခွဲ "${editingItem.code || editingItem.nameEn}" ကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။` : `Branch "${editingItem.code || editingItem.nameEn}" saved successfully.`);
     } else if (modalType === 'user') {
       saveUser(editingItem);
+      setSaveNotice(language === 'my' ? `အသုံးပြုသူ "${editingItem.username}" (Role: ${editingItem.role}) ကို Turso Cloud & Local Database ထဲသို့ အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။` : `User "${editingItem.username}" (Role: ${editingItem.role}) saved to Database.`);
     } else if (modalType === 'company') {
       saveCompany(editingItem);
+      setSaveNotice(language === 'my' ? `ကုမ္ပဏီ အချက်အလက်ကို သိမ်းဆည်းပြီးပါပြီ။` : `Company saved.`);
     } else if (modalType === 'currency') {
       saveCurrency(editingItem);
     } else if (modalType === 'country') {
@@ -285,6 +289,8 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     } else if (modalType === 'customer') {
       saveCustomer(editingItem);
     }
+
+    setTimeout(() => setSaveNotice(null), 5000);
 
     setModalType(null);
     setEditingItem(null);
@@ -345,6 +351,16 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
 
   return (
     <div className="space-y-5">
+      {saveNotice && (
+        <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs">
+          <div className="flex items-center space-x-2">
+            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
+            <span>{saveNotice}</span>
+          </div>
+          <button type="button" onClick={() => setSaveNotice(null)} className="text-emerald-700 hover:text-emerald-950 font-bold px-2 py-0.5 cursor-pointer">✕</button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -32,7 +32,11 @@ import {
   tursoWebFetchUsers, 
   tursoWebFetchBranches,
   tursoWebSyncPush, 
-  tursoWebSyncPull 
+  tursoWebSyncPull,
+  tursoWebSaveUser,
+  tursoWebDeleteUser,
+  tursoWebSaveBranch,
+  tursoWebDeleteBranch
 } from './tursoWebClient';
 import { 
   persistDatabaseSafely, 
@@ -260,6 +264,43 @@ const sanitizeTransactionsList = (txList: any[]): RemittanceTransaction[] => {
   });
 };
 
+export const sanitizeUsersList = (userList: any[]): User[] => {
+  if (!Array.isArray(userList)) return [];
+  return userList.map((u: any) => {
+    if (!u || typeof u !== 'object') return u;
+    let role = u.role;
+    let email = u.email;
+    let branchId = u.branchId;
+    let countryCode = u.countryCode;
+
+    // Correct known TH users swapped roles
+    if (u.username === 'th-admin' && (role === 'MAKER' || role === 'CHECKER')) {
+      role = 'ADMIN';
+      if (!email || email.includes('sg.')) email = 'th-admin@remitmyanmar.com';
+      branchId = 'BR-009';
+      countryCode = 'TH';
+    } else if (u.username === 'th-maker' && (role === 'CHECKER' || role === 'ADMIN')) {
+      role = 'MAKER';
+      if (!email || email.includes('sg.')) email = 'th-maker@remitmyanmar.com';
+      branchId = 'BR-009';
+      countryCode = 'TH';
+    } else if (u.username === 'th-checker' && (role === 'ADMIN' || role === 'MAKER')) {
+      role = 'CHECKER';
+      if (!email || email.includes('sg.')) email = 'th-checker@remitmyanmar.com';
+      branchId = 'BR-009';
+      countryCode = 'TH';
+    }
+
+    return {
+      ...u,
+      role: role || 'MAKER',
+      email: email || `${u.username}@remitmyanmar.com`,
+      branchId: branchId || 'BR-001',
+      countryCode: countryCode || (branchId === 'BR-009' ? 'TH' : (branchId === 'BR-008' || branchId === 'BR-010' ? 'SG' : 'MM'))
+    };
+  });
+};
+
 export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [db, setDb] = useState<AppDatabase>(() => {
     const metaEnv = (import.meta as any)?.env || {};
@@ -313,7 +354,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ...(envUrl ? { url: envUrl, anonKey: envKey } : {})
             },
             branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : initialDatabase.branches,
-            users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : initialDatabase.users,
+            users: Array.isArray(parsed.users) && parsed.users.length > 0 ? sanitizeUsersList(parsed.users) : initialDatabase.users,
             transactions: Array.isArray(parsed.transactions) ? sanitizeTransactionsList(parsed.transactions) : initialDatabase.transactions,
             currencies: Array.isArray(parsed.currencies) && parsed.currencies.length > 0 ? parsed.currencies : initialDatabase.currencies,
             countries: Array.isArray(parsed.countries) && parsed.countries.length > 0 ? parsed.countries : initialDatabase.countries,
@@ -355,6 +396,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             return {
               ...prev,
               ...idbDb,
+              users: Array.isArray(idbDb.users) ? sanitizeUsersList(idbDb.users) : prev.users,
               transactions: sanitizeTransactionsList(idbDb.transactions),
               operatorProfile: {
                 ...prev.operatorProfile,
@@ -1773,6 +1815,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       branch.code,
       `${isNew ? 'Added new' : 'Updated'} branch ${branch.code} - ${branch.nameEn} (${branch.city})`
     );
+
+    // Immediate background sync to Turso database (works seamlessly on Vercel as well)
+    tursoWebSaveBranch(branch).catch(err => {
+      console.warn('[Turso] Save branch background error:', err);
+    });
+    safeFetchJson('/api/turso/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(branch)
+    }).catch(() => {});
   };
 
   const deleteBranch = (id: string) => {
@@ -1781,6 +1833,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (item) {
       logActionDirect('DELETE', 'BRANCH', item.code, `Deleted branch ${item.code} (${item.nameEn})`);
     }
+
+    tursoWebDeleteBranch(id).catch(err => {
+      console.warn('[Turso] Delete branch background error:', err);
+    });
+    safeFetchJson(`/api/turso/branches?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
   };
 
   // 2. User
@@ -1802,6 +1861,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       user.username,
       `${isNew ? 'Created user' : 'Updated user'} ${user.username} (${user.fullName}, Role: ${user.role}, Country: ${countryCode}, Branch: ${branch?.nameEn || user.branchId})`
     );
+
+    // Immediate background sync to Turso database (works seamlessly on Vercel as well)
+    tursoWebSaveUser(enrichedUser).catch(err => {
+      console.warn('[Turso] Save user background error:', err);
+    });
+    safeFetchJson('/api/turso/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(enrichedUser)
+    }).catch(() => {});
   };
 
   const deleteUser = (id: string) => {
@@ -1810,6 +1879,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (item) {
       logActionDirect('DELETE', 'USER', item.username, `Deleted user account ${item.username} (${item.fullName})`);
     }
+
+    tursoWebDeleteUser(id).catch(err => {
+      console.warn('[Turso] Delete user background error:', err);
+    });
+    safeFetchJson(`/api/turso/users?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
   };
 
   // Operator Company Profile

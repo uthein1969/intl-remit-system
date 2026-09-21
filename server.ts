@@ -16,6 +16,10 @@ import {
   loginTursoUser,
   seedTursoSystemUsers,
   getTursoBranches,
+  saveTursoUser,
+  deleteTursoUser,
+  saveTursoBranch,
+  deleteTursoBranch,
   TURSO_SCHEMA_SQL 
 } from './server/turso.js';
 
@@ -128,12 +132,50 @@ app.get('/api/turso/users', async (req, res) => {
   }
 });
 
+app.post('/api/turso/users', async (req, res) => {
+  try {
+    const result = await saveTursoUser(req.body);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to save Turso user' });
+  }
+});
+
+app.delete('/api/turso/users', async (req, res) => {
+  try {
+    const id = String(req.query.id || req.body?.id || '');
+    const result = await deleteTursoUser(id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to delete Turso user' });
+  }
+});
+
 app.get('/api/turso/branches', async (req, res) => {
   try {
     const result = await getTursoBranches();
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || 'Failed to fetch Turso branches' });
+  }
+});
+
+app.post('/api/turso/branches', async (req, res) => {
+  try {
+    const result = await saveTursoBranch(req.body);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to save Turso branch' });
+  }
+});
+
+app.delete('/api/turso/branches', async (req, res) => {
+  try {
+    const id = String(req.query.id || req.body?.id || '');
+    const result = await deleteTursoBranch(id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to delete Turso branch' });
   }
 });
 

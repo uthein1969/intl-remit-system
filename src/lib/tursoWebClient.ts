@@ -2,7 +2,7 @@
 // Provides instant, zero-server database connectivity directly from the browser (e.g. on Vercel, Netlify, Static Hosting).
 
 import { createClient, Client } from '@libsql/client/web';
-import { User, UserRole, RemittanceTransaction } from '../types';
+import { User, UserRole, RemittanceTransaction, Branch } from '../types';
 
 const TURSO_URL = 'https://remittance-db-uthein.turso.io';
 const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTczMTQsImlkIjoiMDFhMDhmYTYtZTYwMS03MzQ2LTk5YTYtYjAxNGNiZDU5YTI4Iiwia2lkIjoidU1rSk9uS0Rqcl9wRkNWOEtEQ3dDUFFtM2FacHlBTjNOVmZkaE9UeFV1OCIsInJpZCI6IjE3OTZkMDNiLTA4OGItNGZhMC04Yjk0LTAwZjliYWI1YjI3ZSJ9.1cgPOor1F3S55DoxEQ9IzWxvmxkxcy8Bq2EvMjmz6j5SzONju6fFIGKImCSB6vQjdnJbSTNQpYO8JzwHWUV6Cg';
@@ -1294,5 +1294,133 @@ export async function tursoWebCleanLongIds(): Promise<{ success: boolean; messag
       success: false,
       message: err?.message || 'Turso IDs ပြင်ဆင်မှု မအောင်မြင်ပါ'
     };
+  }
+}
+
+export async function tursoWebSaveUser(user: User): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    const username = String(user.username || '').trim().replace(/^@/, '');
+    if (!username) return { success: false, message: 'Invalid username' };
+    const branchId = user.branchId || 'BR-001';
+    const countryCode = user.countryCode || 'MM';
+
+    // Pre-resolve username conflict with other IDs
+    await client.execute({
+      sql: 'DELETE FROM system_users WHERE username = ? AND id != ?;',
+      args: [username, user.id]
+    }).catch(() => {});
+
+    await client.execute({
+      sql: `INSERT INTO system_users (
+        id, username, full_name, role, branch_id, is_active, email, password_hash, phone, status, created_at, last_login, country_code, default_status_enabled
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        username=excluded.username,
+        full_name=excluded.full_name,
+        role=excluded.role,
+        branch_id=excluded.branch_id,
+        is_active=excluded.is_active,
+        email=excluded.email,
+        password_hash=excluded.password_hash,
+        phone=excluded.phone,
+        status=excluded.status,
+        last_login=coalesce(excluded.last_login, system_users.last_login),
+        country_code=excluded.country_code,
+        default_status_enabled=excluded.default_status_enabled;`,
+      args: [
+        user.id,
+        username,
+        user.fullName || username,
+        user.role || 'MAKER',
+        branchId,
+        user.status === 'INACTIVE' ? 0 : 1,
+        user.email || `${username}@remitmyanmar.com`,
+        user.password || 'password123',
+        user.phone || '',
+        user.status || 'ACTIVE',
+        user.createdAt || new Date().toISOString(),
+        user.lastLogin || null,
+        countryCode,
+        user.defaultStatusEnabled !== false ? 1 : 0
+      ]
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to save user:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebDeleteUser(id: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    await client.execute({
+      sql: 'DELETE FROM system_users WHERE id = ?;',
+      args: [id]
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to delete user:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebSaveBranch(b: Branch): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    const branchCode = b.code || (b as any).branchCode || b.id;
+    await client.execute({
+      sql: 'DELETE FROM branches WHERE code = ? AND id != ?;',
+      args: [branchCode, b.id]
+    }).catch(() => {});
+
+    await client.execute({
+      sql: `INSERT INTO branches (
+        id, code, name_en, name_mm, city, phone, address, manager_name, status, country_code, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        code=excluded.code,
+        name_en=excluded.name_en,
+        name_mm=excluded.name_mm,
+        city=excluded.city,
+        phone=excluded.phone,
+        address=excluded.address,
+        manager_name=excluded.manager_name,
+        status=excluded.status,
+        country_code=excluded.country_code;`,
+      args: [
+        b.id,
+        branchCode,
+        b.nameEn || b.nameMm || 'Branch',
+        b.nameMm || b.nameEn || '',
+        b.city || 'Yangon',
+        b.phone || '',
+        b.address || '',
+        b.managerName || '',
+        b.status || 'ACTIVE',
+        b.countryCode || 'MM',
+        b.createdAt || new Date().toISOString()
+      ]
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to save branch:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebDeleteBranch(id: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    await client.execute({
+      sql: 'DELETE FROM branches WHERE id = ?;',
+      args: [id]
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to delete branch:', err);
+    return { success: false, message: err?.message };
   }
 }

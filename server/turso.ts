@@ -1674,4 +1674,120 @@ export async function getTursoBranches() {
   return { success: true, branches };
 }
 
+export async function saveTursoUser(user: any) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const username = String(user.username || '').trim().replace(/^@/, '');
+  if (!username) return { success: false, error: 'Username is required' };
+  const branchId = user.branchId || 'BR-001';
+  let countryCode = user.countryCode;
+  if (!countryCode) {
+    if (branchId.startsWith('BR-009') || username.startsWith('th-') || username.includes('bkk')) countryCode = 'TH';
+    else if (branchId.startsWith('BR-007') || branchId.startsWith('BR-008') || branchId.startsWith('BR-010') || username.startsWith('sg-')) countryCode = 'SG';
+    else countryCode = 'MM';
+  }
+
+  await client.execute({
+    sql: 'DELETE FROM system_users WHERE username = ? AND id != ?;',
+    args: [username, user.id]
+  }).catch(() => {});
+
+  await client.execute({
+    sql: `INSERT INTO system_users (
+      id, username, full_name, role, branch_id, is_active, email, password_hash, phone, status, created_at, last_login, country_code, default_status_enabled
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      username=excluded.username,
+      full_name=excluded.full_name,
+      role=excluded.role,
+      branch_id=excluded.branch_id,
+      is_active=excluded.is_active,
+      email=excluded.email,
+      password_hash=excluded.password_hash,
+      phone=excluded.phone,
+      status=excluded.status,
+      last_login=coalesce(excluded.last_login, system_users.last_login),
+      country_code=excluded.country_code,
+      default_status_enabled=excluded.default_status_enabled;`,
+    args: [
+      user.id,
+      username,
+      user.fullName || username,
+      user.role || 'MAKER',
+      branchId,
+      user.status === 'INACTIVE' ? 0 : 1,
+      user.email || `${username}@remitmyanmar.com`,
+      user.password || 'password123',
+      user.phone || '',
+      user.status || 'ACTIVE',
+      user.createdAt || new Date().toISOString(),
+      user.lastLogin || null,
+      countryCode,
+      user.defaultStatusEnabled !== false ? 1 : 0
+    ]
+  });
+
+  return { success: true };
+}
+
+export async function deleteTursoUser(id: string) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  await client.execute({
+    sql: 'DELETE FROM system_users WHERE id = ?;',
+    args: [id]
+  });
+  return { success: true };
+}
+
+export async function saveTursoBranch(b: any) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const branchCode = b.code || b.branchCode || b.id;
+  await client.execute({
+    sql: 'DELETE FROM branches WHERE code = ? AND id != ?;',
+    args: [branchCode, b.id]
+  }).catch(() => {});
+
+  await client.execute({
+    sql: `INSERT INTO branches (
+      id, code, name_en, name_mm, city, phone, address, manager_name, status, country_code, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      code=excluded.code,
+      name_en=excluded.name_en,
+      name_mm=excluded.name_mm,
+      city=excluded.city,
+      phone=excluded.phone,
+      address=excluded.address,
+      manager_name=excluded.manager_name,
+      status=excluded.status,
+      country_code=excluded.country_code;`,
+    args: [
+      b.id,
+      branchCode,
+      b.nameEn || b.nameMm || 'Branch',
+      b.nameMm || b.nameEn || '',
+      b.city || 'Yangon',
+      b.phone || '',
+      b.address || '',
+      b.managerName || '',
+      b.status || 'ACTIVE',
+      b.countryCode || 'MM',
+      b.createdAt || new Date().toISOString()
+    ]
+  });
+  return { success: true };
+}
+
+export async function deleteTursoBranch(id: string) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  await client.execute({
+    sql: 'DELETE FROM branches WHERE id = ?;',
+    args: [id]
+  });
+  return { success: true };
+}
+
 
