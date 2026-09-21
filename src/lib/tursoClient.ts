@@ -45,10 +45,11 @@ async function safeFetchJson(url: string, options?: RequestInit): Promise<{ ok: 
 export async function fetchTursoStatus(): Promise<TursoStatusResponse> {
   try {
     const { ok, data } = await safeFetchJson('/api/turso/status');
-    if (ok && data && data.connected) {
+    const totalCount = data?.counts ? (Object.values(data.counts) as any[]).reduce((a: number, b: any) => a + (Number(b) || 0), 0) : 0;
+    if (ok && data && data.connected && totalCount > 0 && data.counts?.exchangeRates !== undefined) {
       return data;
     }
-    // Direct Web fallback (e.g. for Vercel static deployment)
+    // Direct Web fallback (e.g. for Vercel static deployment or when serverless env lacks token)
     const webStatus = await tursoWebCheckStatus();
     return {
       success: webStatus.connected,
@@ -58,6 +59,16 @@ export async function fetchTursoStatus(): Promise<TursoStatusResponse> {
       counts: webStatus.counts || { transactions: 0, customers: 0, exchangeRates: 0, auditLogs: 0 }
     };
   } catch {
+    const webStatus = await tursoWebCheckStatus().catch(() => null);
+    if (webStatus) {
+      return {
+        success: webStatus.connected,
+        connected: webStatus.connected,
+        isRemote: true,
+        url: webStatus.url,
+        counts: webStatus.counts || { transactions: 0, customers: 0, exchangeRates: 0, auditLogs: 0 }
+      };
+    }
     return {
       success: false,
       connected: false,
@@ -117,7 +128,7 @@ export async function pushDataToTurso(dbData: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dbData),
     });
-    if (ok && data) {
+    if (ok && data && data.success) {
       return data;
     }
     // Direct Web fallback
@@ -133,7 +144,7 @@ export async function pullDataFromTurso() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    if (ok && data) {
+    if (ok && data && data.success && data.data && Object.keys(data.data).length >= 10) {
       return data;
     }
     // Direct Web fallback

@@ -618,43 +618,137 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             );
           }
 
+          // Merge branches if present
+          let mergedBranches = prev.branches;
+          if (extraData?.branches && Array.isArray(extraData.branches) && extraData.branches.length > 0) {
+            const bMap = new Map<string, Branch>();
+            for (const b of prev.branches) {
+              if (b.id) bMap.set(b.id, b);
+            }
+            for (const b of extraData.branches) {
+              if (b.id && b.id !== 'BR-1789788738927') {
+                const existing = bMap.get(b.id);
+                bMap.set(b.id, { ...(existing || {} as Branch), ...b });
+              }
+            }
+            mergedBranches = Array.from(bMap.values());
+          }
+
+          // Merge users if present
+          let mergedUsers = prev.users;
+          if (extraData?.users && Array.isArray(extraData.users) && extraData.users.length > 0) {
+            const uMap = new Map<string, User>();
+            for (const u of prev.users) {
+              if (u.id) uMap.set(u.id, u);
+              if (u.username) uMap.set(u.username, u);
+            }
+            for (const u of extraData.users) {
+              if (u.id || u.username) {
+                const key = u.id || u.username;
+                const existing = (u.id ? uMap.get(u.id) : undefined) || (u.username ? uMap.get(u.username) : undefined);
+                const mergedU = { ...(existing || {} as User), ...u };
+                uMap.set(key, mergedU);
+              }
+            }
+            const uniqueUsers: User[] = [];
+            const seen = new Set<string>();
+            for (const u of uMap.values()) {
+              if (u.id && !seen.has(u.id)) {
+                seen.add(u.id);
+                uniqueUsers.push(u);
+              }
+            }
+            mergedUsers = uniqueUsers;
+          }
+
           return {
             ...prev,
             transactions: uniqueList,
+            branches: mergedBranches,
+            users: mergedUsers,
             ...(extraData?.exchangeRates?.length ? { exchangeRates: extraData.exchangeRates } : {}),
             ...(extraData?.customers?.length ? { customers: extraData.customers } : {}),
             auditLogs: updatedAuditLogs,
           };
         });
-      } else if (extraData?.auditLogs && Array.isArray(extraData.auditLogs) && extraData.auditLogs.length > 0) {
+      } else if (extraData && (extraData.auditLogs || extraData.branches || extraData.users)) {
         setDb(prev => {
-          const auditMap = new Map<string, AuditRecord>();
-          for (const l of prev.auditLogs) {
-            if (l.id) auditMap.set(l.id, l);
-          }
-          for (const r of extraData.auditLogs) {
-            if (r.id) {
-              auditMap.set(r.id, {
-                id: r.id,
-                timestamp: r.timestamp || new Date().toISOString(),
-                userId: r.userId || r.user_id || 'system',
-                userName: r.userName || r.user_name || 'System',
-                userRole: (r.userRole || r.user_role || 'ADMIN') as UserRole,
-                action: r.action,
-                entityType: r.entityType || r.entity_type,
-                entityId: r.entityId || r.entity_id,
-                details: typeof r.details === 'string' ? r.details : JSON.stringify(r.details || ''),
-                previousValue: r.previousValue || r.previous_value,
-                newValue: r.newValue || r.new_value,
-              });
+          let updatedAuditLogs = prev.auditLogs;
+          if (extraData.auditLogs && Array.isArray(extraData.auditLogs) && extraData.auditLogs.length > 0) {
+            const auditMap = new Map<string, AuditRecord>();
+            for (const l of prev.auditLogs) {
+              if (l.id) auditMap.set(l.id, l);
             }
+            for (const r of extraData.auditLogs) {
+              if (r.id) {
+                auditMap.set(r.id, {
+                  id: r.id,
+                  timestamp: r.timestamp || new Date().toISOString(),
+                  userId: r.userId || r.user_id || 'system',
+                  userName: r.userName || r.user_name || 'System',
+                  userRole: (r.userRole || r.user_role || 'ADMIN') as UserRole,
+                  action: r.action,
+                  entityType: r.entityType || r.entity_type,
+                  entityId: r.entityId || r.entity_id,
+                  details: typeof r.details === 'string' ? r.details : JSON.stringify(r.details || ''),
+                  previousValue: r.previousValue || r.previous_value,
+                  newValue: r.newValue || r.new_value,
+                });
+              }
+            }
+            updatedAuditLogs = Array.from(auditMap.values()).sort(
+              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
           }
-          const updatedAuditLogs = Array.from(auditMap.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
+
+          let mergedBranches = prev.branches;
+          if (extraData.branches && Array.isArray(extraData.branches) && extraData.branches.length > 0) {
+            const bMap = new Map<string, Branch>();
+            for (const b of prev.branches) {
+              if (b.id) bMap.set(b.id, b);
+            }
+            for (const b of extraData.branches) {
+              if (b.id && b.id !== 'BR-1789788738927') {
+                const existing = bMap.get(b.id);
+                bMap.set(b.id, { ...(existing || {} as Branch), ...b });
+              }
+            }
+            mergedBranches = Array.from(bMap.values());
+          }
+
+          let mergedUsers = prev.users;
+          if (extraData.users && Array.isArray(extraData.users) && extraData.users.length > 0) {
+            const uMap = new Map<string, User>();
+            for (const u of prev.users) {
+              if (u.id) uMap.set(u.id, u);
+              if (u.username) uMap.set(u.username, u);
+            }
+            for (const u of extraData.users) {
+              if (u.id || u.username) {
+                const key = u.id || u.username;
+                const existing = (u.id ? uMap.get(u.id) : undefined) || (u.username ? uMap.get(u.username) : undefined);
+                const mergedU = { ...(existing || {} as User), ...u };
+                uMap.set(key, mergedU);
+              }
+            }
+            const uniqueUsers: User[] = [];
+            const seen = new Set<string>();
+            for (const u of uMap.values()) {
+              if (u.id && !seen.has(u.id)) {
+                seen.add(u.id);
+                uniqueUsers.push(u);
+              }
+            }
+            mergedUsers = uniqueUsers;
+          }
+
           return {
             ...prev,
             auditLogs: updatedAuditLogs,
+            branches: mergedBranches,
+            users: mergedUsers,
+            ...(extraData.exchangeRates?.length ? { exchangeRates: extraData.exchangeRates } : {}),
+            ...(extraData.customers?.length ? { customers: extraData.customers } : {}),
           };
         });
       }
@@ -3216,6 +3310,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           transactions: txPayload,
           exchangeRates: ratesPayload,
           customers: customersPayload,
+          branches: db.branches,
+          users: db.users,
+          companies: db.companies,
           auditLogs: db.auditLogs.slice(0, 100).map(l => ({
             id: l.id,
             timestamp: l.timestamp,
@@ -3231,12 +3328,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       if (ok && data?.success) {
         const txSaved = data.saved?.transactions ?? txPayload.length;
+        const branchSaved = data.saved?.branches ?? db.branches.length;
         return {
           success: true,
           count: txSaved,
           message: language === 'my'
-            ? `Local မှ Transaction ${txSaved} ခုနှင့် အချက်အလက်များကို Turso Cloud သို့ အောင်မြင်စွာ Sync လုပ်ပြီးပါပြီ။`
-            : `Successfully synced ${txSaved} transactions & data to Turso Cloud.`
+            ? `Local မှ Transaction ${txSaved} ခု၊ Branch ${branchSaved} ခုနှင့် အချက်အလက်များကို Turso Cloud သို့ အောင်မြင်စွာ Sync လုပ်ပြီးပါပြီ။`
+            : `Successfully synced ${txSaved} transactions, ${branchSaved} branches & data to Turso Cloud.`
         };
       }
 
@@ -3256,6 +3354,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         transactions: txPayload,
         exchangeRates: ratesPayload,
         customers: customersPayload,
+        branches: db.branches,
+        users: db.users,
+        companies: db.companies,
         auditLogs: auditPayload
       });
 

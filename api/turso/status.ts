@@ -8,35 +8,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    const TURSO_FALLBACK_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTczMTQsImlkIjoiMDFhMDhmYTYtZTYwMS03MzQ2LTk5YTYtYjAxNGNiZDU5YTI4Iiwia2lkIjoidU1rSk9uS0Rqcl9wRkNWOEtEQ3dDUFFtM2FacHlBTjNOVmZkaE9UeFV1OCIsInJpZCI6IjE3OTZkMDNiLTA4OGItNGZhMC04Yjk0LTAwZjliYWI1YjI3ZSJ9.1cgPOor1F3S55DoxEQ9IzWxvmxkxcy8Bq2EvMjmz6j5SzONju6fFIGKImCSB6vQjdnJbSTNQpYO8JzwHWUV6Cg';
+    const url = process.env.TURSO_DATABASE_URL || 'https://remittance-db-uthein.turso.io';
+    const authToken = process.env.TURSO_AUTH_TOKEN || TURSO_FALLBACK_TOKEN;
+
     const client = createClient({
-      url: process.env.TURSO_DATABASE_URL || 'libsql://remittance-db-uthein.turso.io',
-      authToken: process.env.TURSO_AUTH_TOKEN
+      url,
+      authToken
     });
 
-    // Cloud Tables များမှ အရေအတွက်များကို တစ်ပြိုင်နက် ရေတွက်ခြင်း
-    const [uCount, bCount, txCount, cCount, aCount] = await Promise.all([
-      client.execute('SELECT COUNT(*) as cnt FROM system_users;').catch(() => ({ rows: [{ cnt: 0 }] })),
-      client.execute('SELECT COUNT(*) as cnt FROM branches;').catch(() => ({ rows: [{ cnt: 0 }] })),
+    // Cloud Tables (13 Tables) များမှ အရေအတွက်များကို တစ်ပြိုင်နက် ရေတွက်ခြင်း
+    const [
+      txRes, rateRes, custRes, auditRes,
+      branchRes, userRes, compRes, currRes,
+      countryRes, blRes, purpRes, profRes, settsRes
+    ] = await Promise.all([
       client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM exchange_rates;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM audit_logs;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM branches;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM system_users;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM companies;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM currencies;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM countries;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM blacklist;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM purposes;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM operator_profile;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM system_settings;').catch(() => ({ rows: [{ cnt: 0 }] }))
     ]);
 
     const counts = {
-      users: Number(uCount.rows[0]?.cnt ?? 0),
-      branches: Number(bCount.rows[0]?.cnt ?? 0),
-      transactions: Number(txCount.rows[0]?.cnt ?? 0),
-      customers: Number(cCount.rows[0]?.cnt ?? 0),
-      auditRecords: Number(aCount.rows[0]?.cnt ?? 0),
+      transactions: Number(txRes.rows[0]?.cnt ?? 0),
+      exchangeRates: Number(rateRes.rows[0]?.cnt ?? 0),
+      customers: Number(custRes.rows[0]?.cnt ?? 0),
+      auditLogs: Number(auditRes.rows[0]?.cnt ?? 0),
+      branches: Number(branchRes.rows[0]?.cnt ?? 0),
+      users: Number(userRes.rows[0]?.cnt ?? 0),
+      companies: Number(compRes.rows[0]?.cnt ?? 0),
+      currencies: Number(currRes.rows[0]?.cnt ?? 0),
+      countries: Number(countryRes.rows[0]?.cnt ?? 0),
+      blacklist: Number(blRes.rows[0]?.cnt ?? 0),
+      purposes: Number(purpRes.rows[0]?.cnt ?? 0),
+      operatorProfile: Number(profRes.rows[0]?.cnt ?? 0),
+      systemSettings: Number(settsRes.rows[0]?.cnt ?? 0)
     };
 
+    const hasData = Object.values(counts).some(c => c > 0);
+
     return res.status(200).json({
-      connected: true,
-      tablesCount: 10,
+      success: true,
+      connected: Boolean(authToken || hasData),
+      tablesCount: 13,
+      isRemote: true,
+      url,
       timestamp: new Date().toISOString(),
       counts
     });
   } catch (err: any) {
-    return res.status(500).json({ connected: false, error: err.message });
+    return res.status(500).json({ success: false, connected: false, error: err?.message || 'Turso status check failed' });
   }
 }

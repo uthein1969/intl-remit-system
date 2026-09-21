@@ -23,7 +23,7 @@ const _filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath
 const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_filename);
 
 const app = express();
-const PORT = process.env.PORT || 5050;
+const PORT = 3000;
 
 // Body parser with 25MB limit for high-resolution NRC images
 app.use(express.json({ limit: '25mb' }));

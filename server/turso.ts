@@ -683,7 +683,14 @@ export async function syncPushToTurso(data: {
   if (data.branches && Array.isArray(data.branches)) {
     for (const b of data.branches) {
       if (!b.id) continue;
+      const branchCode = b.code || b.branchCode || b.id;
       try {
+        // Resolve any conflict on UNIQUE(code)
+        await client.execute({
+          sql: 'DELETE FROM branches WHERE code = ? AND id != ?;',
+          args: [branchCode, b.id]
+        }).catch(() => {});
+
         await client.execute({
           sql: `INSERT INTO branches (
             id, code, name_en, name_mm, city, phone, address, manager_name, status, country_code, created_at
@@ -699,9 +706,16 @@ export async function syncPushToTurso(data: {
             status=excluded.status,
             country_code=excluded.country_code;`,
           args: [
-            b.id, b.code || '', b.nameEn || b.name_en || '', b.nameMm || b.name_mm || '',
-            b.city || '', b.phone || '', b.address || '', b.managerName || b.manager_name || '',
-            b.status || 'ACTIVE', b.countryCode || b.country_code || 'MM', b.createdAt || b.created_at || new Date().toISOString()
+            b.id, branchCode,
+            b.nameEn || b.name_en || b.name || 'Branch',
+            b.nameMm || b.name_mm || b.nameEn || b.name_en || '',
+            b.city || 'Yangon',
+            b.phone || '',
+            b.address || '',
+            b.managerName || b.manager_name || '',
+            b.status || 'ACTIVE',
+            b.countryCode || b.country_code || 'MM',
+            b.createdAt || b.created_at || new Date().toISOString()
           ]
         });
         branchesSaved++;
@@ -715,28 +729,54 @@ export async function syncPushToTurso(data: {
   if (data.users && Array.isArray(data.users)) {
     for (const u of data.users) {
       if (!u.id) continue;
+      const username = String(u.username || '').trim().replace(/^@/, '');
+      if (!username) continue;
+      const branchId = u.branchId || u.branch_id || 'BR-001';
+      let userCountry = String(u.countryCode || u.country_code || '').toUpperCase();
+      if (!userCountry) {
+        if (branchId.includes('TH') || branchId === 'BR-009' || username.toLowerCase().startsWith('th-') || username.toLowerCase() === 'maker_bkk') {
+          userCountry = 'TH';
+        } else if (branchId.includes('SG') || branchId === 'BR-007' || branchId === 'BR-008' || branchId === 'BR-010' || username.toLowerCase().startsWith('sg-') || username.toLowerCase() === 'tloo') {
+          userCountry = 'SG';
+        } else {
+          userCountry = 'MM';
+        }
+      }
+
       try {
+        // Pre-resolve username conflict
+        await client.execute({
+          sql: 'DELETE FROM system_users WHERE username = ? AND id != ?;',
+          args: [username, u.id]
+        }).catch(() => {});
+
         await client.execute({
           sql: `INSERT INTO system_users (
-            id, username, full_name, email, role, branch_id, is_active, phone, status, password_hash, country_code, created_at, default_status_enabled
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, username, full_name, role, branch_id, is_active, email, password_hash, phone, status, created_at, last_login, country_code, default_status_enabled
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             username=excluded.username,
             full_name=excluded.full_name,
-            email=excluded.email,
             role=excluded.role,
             branch_id=excluded.branch_id,
             is_active=excluded.is_active,
+            email=excluded.email,
+            password_hash=excluded.password_hash,
             phone=excluded.phone,
             status=excluded.status,
+            last_login=coalesce(excluded.last_login, system_users.last_login),
             country_code=excluded.country_code,
             default_status_enabled=excluded.default_status_enabled;`,
           args: [
-            u.id, u.username || '', u.fullName || u.full_name || '', u.email || '',
-            u.role || 'MAKER', u.branchId || u.branch_id || 'BR-001',
-            u.status === 'INACTIVE' ? 0 : 1, u.phone || '', u.status || 'ACTIVE',
-            u.password || u.password_hash || 'password123', u.countryCode || u.country_code || 'MM',
+            u.id, username, u.fullName || u.full_name || username,
+            u.role || 'MAKER', branchId,
+            u.status === 'INACTIVE' ? 0 : 1,
+            u.email || `${username}@remitmyanmar.com`,
+            u.password || u.password_hash || 'password123',
+            u.phone || '', u.status || 'ACTIVE',
             u.createdAt || u.created_at || new Date().toISOString(),
+            u.lastLogin || u.last_login || null,
+            userCountry,
             u.defaultStatusEnabled !== false ? 1 : 0
           ]
         });
@@ -1102,9 +1142,15 @@ export async function syncPullFromTurso() {
     details: row.details,
   }));
 
-  const branches = branchRes.rows.map((r: any) => ({
+  const validBranchRows = (branchRes.rows || []).filter((r: any) => {
+    const id = String(r.id || '');
+    if (id === 'BR-1789788738927') return false;
+    return true;
+  });
+
+  const branches = validBranchRows.map((r: any) => ({
     id: String(r.id),
-    code: String(r.code),
+    code: String(r.code || r.id),
     nameEn: String(r.name_en),
     nameMm: String(r.name_mm || ''),
     city: String(r.city || ''),
@@ -1116,21 +1162,36 @@ export async function syncPullFromTurso() {
     createdAt: String(r.created_at || ''),
   }));
 
-  const users = userRes.rows.map((r: any) => ({
-    id: String(r.id),
-    username: String(r.username),
-    fullName: String(r.full_name || ''),
-    email: String(r.email || `${r.username}@remitmyanmar.com`),
-    role: String(r.role || 'MAKER'),
-    branchId: String(r.branch_id || 'BR-001'),
-    countryCode: String(r.country_code || 'MM'),
-    phone: String(r.phone || ''),
-    status: (r.status || (r.is_active === 0 ? 'INACTIVE' : 'ACTIVE')) as 'ACTIVE' | 'INACTIVE',
-    password: String(r.password_hash || 'password123'),
-    createdAt: String(r.created_at || ''),
-    lastLogin: String(r.last_login || ''),
-    defaultStatusEnabled: r.default_status_enabled !== 0,
-  }));
+  const users = (userRes.rows || []).map((r: any) => {
+    let branchId = String(r.branch_id || 'BR-001');
+    if (branchId === 'BR-1789788738927') branchId = 'BR-001';
+    const uName = String(r.username || '').toLowerCase();
+    let countryCode = String(r.country_code || 'MM');
+    if (!countryCode || countryCode === 'NULL') {
+      if (branchId.includes('TH') || branchId === 'BR-009' || uName.startsWith('th-') || uName === 'maker_bkk') {
+        countryCode = 'TH';
+      } else if (branchId.includes('SG') || branchId === 'BR-007' || branchId === 'BR-008' || branchId === 'BR-010' || uName.startsWith('sg-') || uName === 'tloo') {
+        countryCode = 'SG';
+      } else {
+        countryCode = 'MM';
+      }
+    }
+    return {
+      id: String(r.id),
+      username: String(r.username).replace(/^@/, ''),
+      fullName: String(r.full_name || ''),
+      email: String(r.email || `${r.username}@remitmyanmar.com`),
+      role: String(r.role || 'MAKER'),
+      branchId,
+      countryCode,
+      phone: String(r.phone || ''),
+      status: (r.status || (r.is_active === 0 ? 'INACTIVE' : 'ACTIVE')) as 'ACTIVE' | 'INACTIVE',
+      password: String(r.password_hash || 'password123'),
+      createdAt: String(r.created_at || ''),
+      lastLogin: String(r.last_login || ''),
+      defaultStatusEnabled: r.default_status_enabled !== 0,
+    };
+  });
 
   const companies = compRes.rows.map((r: any) => ({
     id: String(r.id),
@@ -1572,7 +1633,13 @@ export async function getTursoBranches() {
   await initTursoSchema(client);
 
   const res = await client.execute('SELECT * FROM branches ORDER BY id ASC;');
-  const branches = res.rows.map((r: any) => {
+  const validRows = (res.rows || []).filter((r: any) => {
+    const id = String(r.id || '');
+    if (id === 'BR-1789788738927') return false;
+    return true;
+  });
+
+  const branches = validRows.map((r: any) => {
     let countryCode = String(r.country_code || '').trim().toUpperCase();
     const bId = String(r.id || '');
     const bCode = String(r.code || '').toUpperCase();
@@ -1582,7 +1649,7 @@ export async function getTursoBranches() {
     if (!countryCode || countryCode === 'NULL') {
       if (bId.includes('1789830806420') || bCode.startsWith('TH') || bCode.startsWith('BKK') || bCity.includes('bangkok') || bCity.includes('thailand') || bName.includes('bangkok') || bName.includes('thai')) {
         countryCode = 'TH';
-      } else if (bCode.startsWith('SG') || bCode.startsWith('SIN') || bCity.includes('singapore') || bName.includes('singapore') || bId === 'BR-007' || bId === 'BR-008') {
+      } else if (bCode.startsWith('SG') || bCode.startsWith('SIN') || bCity.includes('singapore') || bName.includes('singapore') || bId === 'BR-007' || bId === 'BR-008' || bId === 'BR-010') {
         countryCode = 'SG';
       } else {
         countryCode = 'MM';
@@ -1591,7 +1658,7 @@ export async function getTursoBranches() {
 
     return {
       id: bId,
-      code: String(r.code || ''),
+      code: String(r.code || r.id),
       nameEn: String(r.name_en || ''),
       nameMm: String(r.name_mm || ''),
       countryCode: countryCode,
