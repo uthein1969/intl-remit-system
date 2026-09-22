@@ -27,7 +27,13 @@ import {
   Info,
   History,
   Edit3,
-  CheckSquare
+  CheckSquare,
+  Save,
+  Check,
+  RefreshCw,
+  Sparkles,
+  SlidersHorizontal,
+  ArrowUpDown
 } from 'lucide-react';
 import { useRemittance, getNextCleanId } from '../../lib/store';
 import { SetupSubTab } from '../Sidebar';
@@ -78,6 +84,24 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showCompanyProfileModal, setShowCompanyProfileModal] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  // Exchange Rate Inline Edit & Batch Update states
+  const [inlineEditingRateId, setInlineEditingRateId] = useState<string | null>(null);
+  const [inlineRateDraft, setInlineRateDraft] = useState<{
+    buyRate: number | string;
+    sellRate: number | string;
+    transferRate: number | string;
+    note?: string;
+  }>({ buyRate: 0, sellRate: 0, transferRate: 0, note: '' });
+  
+  const [isBatchEditRates, setIsBatchEditRates] = useState(false);
+  const [batchRateDrafts, setBatchRateDrafts] = useState<Record<string, {
+    buyRate: number | string;
+    sellRate: number | string;
+    transferRate: number | string;
+  }>>({});
+  const [rateSuccessMessage, setRateSuccessMessage] = useState<string | null>(null);
+  const [showPresetConfirmModal, setShowPresetConfirmModal] = useState(false);
 
   // Security Check: "Admin Setup ကို Admin Role ကဘဲလုပ်ခွင့်ရှိပါမယ်"
   if (currentUser.role !== 'ADMIN') {
@@ -308,6 +332,159 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     else if (type === 'customer') deleteCustomer(id);
 
     setDeleteConfirmId(null);
+  };
+
+  // --- Exchange Rate Update Handlers ---
+  const handleStartInlineEdit = (rate: ExchangeRate) => {
+    setInlineEditingRateId(rate.id);
+    setInlineRateDraft({
+      buyRate: rate.buyRate,
+      sellRate: rate.sellRate,
+      transferRate: rate.transferRate,
+      note: rate.note || ''
+    });
+  };
+
+  const handleSaveInlineRate = (rate: ExchangeRate) => {
+    const buy = Number(inlineRateDraft.buyRate) > 0 ? Number(inlineRateDraft.buyRate) : rate.buyRate;
+    const sell = Number(inlineRateDraft.sellRate) > 0 ? Number(inlineRateDraft.sellRate) : rate.sellRate;
+    const transfer = Number(inlineRateDraft.transferRate) > 0 ? Number(inlineRateDraft.transferRate) : rate.transferRate;
+
+    const today = new Date().toISOString().split('T')[0];
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const updated: ExchangeRate = {
+      ...rate,
+      buyRate: buy,
+      sellRate: sell,
+      transferRate: transfer,
+      effectiveDate: today,
+      effectiveTime: nowTime,
+      updatedBy: currentUser.fullName,
+      note: inlineRateDraft.note !== undefined ? inlineRateDraft.note : rate.note
+    };
+
+    saveExchangeRate(updated);
+    setInlineEditingRateId(null);
+    setRateSuccessMessage(
+      language === 'my'
+        ? `${rate.fromCurrency}/${rate.toCurrency} - Buy Rate: ${buy.toLocaleString()} MMK, Sell Rate: ${sell.toLocaleString()} MMK သို့ အောင်မြင်စွာ ပြင်ဆင်သိမ်းဆည်းပြီးပါပြီ။`
+        : `${rate.fromCurrency}/${rate.toCurrency} - Buy Rate: ${buy.toLocaleString()} MMK, Sell Rate: ${sell.toLocaleString()} MMK updated successfully.`
+    );
+    setTimeout(() => setRateSuccessMessage(null), 4000);
+  };
+
+  const handleToggleBatchEdit = () => {
+    if (isBatchEditRates) {
+      setIsBatchEditRates(false);
+      setBatchRateDrafts({});
+    } else {
+      const drafts: Record<string, { buyRate: number | string; sellRate: number | string; transferRate: number | string }> = {};
+      db.exchangeRates.forEach(r => {
+        drafts[r.id] = {
+          buyRate: r.buyRate,
+          sellRate: r.sellRate,
+          transferRate: r.transferRate
+        };
+      });
+      setBatchRateDrafts(drafts);
+      setIsBatchEditRates(true);
+      setInlineEditingRateId(null);
+    }
+  };
+
+  const handleSaveBatchRates = () => {
+    let updatedCount = 0;
+    const today = new Date().toISOString().split('T')[0];
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    db.exchangeRates.forEach(r => {
+      const draft = batchRateDrafts[r.id];
+      if (draft) {
+        const b = Number(draft.buyRate) > 0 ? Number(draft.buyRate) : r.buyRate;
+        const s = Number(draft.sellRate) > 0 ? Number(draft.sellRate) : r.sellRate;
+        const t = Number(draft.transferRate) > 0 ? Number(draft.transferRate) : r.transferRate;
+
+        if (b !== r.buyRate || s !== r.sellRate || t !== r.transferRate) {
+          saveExchangeRate({
+            ...r,
+            buyRate: b,
+            sellRate: s,
+            transferRate: t,
+            effectiveDate: today,
+            effectiveTime: nowTime,
+            updatedBy: currentUser.fullName
+          });
+          updatedCount++;
+        }
+      }
+    });
+
+    setIsBatchEditRates(false);
+    setBatchRateDrafts({});
+    setRateSuccessMessage(
+      language === 'my'
+        ? `ငွေလဲလှယ်နှုန်း စုစုပေါင်း ${updatedCount} ခု၏ Buy Rate နှင့် Sell Rate များကို အောင်မြင်စွာ ပြင်ဆင်သိမ်းဆည်းပြီးပါပြီ။`
+        : `Successfully updated Buy Rate & Sell Rate for ${updatedCount} currency pairs.`
+    );
+    setTimeout(() => setRateSuccessMessage(null), 4500);
+  };
+
+  const handleApplyLatestMarketRates = () => {
+    const marketRates: Record<string, { buyRate: number; sellRate: number; transferRate: number; note: string }> = {
+      USD: { buyRate: 4500, sellRate: 4620, transferRate: 4580, note: 'Central Bank & Market Reference Rate' },
+      THB: { buyRate: 132.50, sellRate: 136.00, transferRate: 134.50, note: 'Thailand Worker Remittance Corridor' },
+      SGD: { buyRate: 3450, sellRate: 3530, transferRate: 3495, note: 'Singapore Corridor Banking Rate' },
+      MYR: { buyRate: 1040, sellRate: 1075, transferRate: 1060, note: 'Malaysia Labor Corridor Official Rate' },
+      EUR: { buyRate: 4880, sellRate: 4990, transferRate: 4940, note: 'Eurozone International Transfer Rate' },
+      JPY: { buyRate: 29.80, sellRate: 31.20, transferRate: 30.50, note: 'TITP Japanese Trainees & Interns Rate' },
+      CNY: { buyRate: 620, sellRate: 645, transferRate: 635, note: 'Muse Border Trade Settlement Rate' },
+      AED: { buyRate: 1220, sellRate: 1260, transferRate: 1245, note: 'Middle East Dubai Corridor Rate' }
+    };
+
+    const today = new Date().toISOString().split('T')[0];
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let count = 0;
+
+    Object.entries(marketRates).forEach(([cur, rateObj]) => {
+      const existing = db.exchangeRates.find(r => r.fromCurrency === cur && r.toCurrency === 'MMK');
+      if (existing) {
+        saveExchangeRate({
+          ...existing,
+          buyRate: rateObj.buyRate,
+          sellRate: rateObj.sellRate,
+          transferRate: rateObj.transferRate,
+          effectiveDate: today,
+          effectiveTime: nowTime,
+          updatedBy: currentUser.fullName,
+          note: rateObj.note
+        });
+        count++;
+      } else {
+        const nextId = getNextCleanId('EXR', db.exchangeRates, 3);
+        saveExchangeRate({
+          id: nextId,
+          fromCurrency: cur,
+          toCurrency: 'MMK',
+          buyRate: rateObj.buyRate,
+          sellRate: rateObj.sellRate,
+          transferRate: rateObj.transferRate,
+          effectiveDate: today,
+          effectiveTime: nowTime,
+          updatedBy: currentUser.fullName,
+          note: rateObj.note
+        });
+        count++;
+      }
+    });
+
+    setShowPresetConfirmModal(false);
+    setRateSuccessMessage(
+      language === 'my'
+        ? `အဓိက ငွေကြေး ${count} ခု၏ Buy Rate နှင့် Sell Rate များကို နောက်ဆုံးပေါက်ဈေးနှုန်းထားများအတိုင်း အလိုအလျောက် ပြင်ဆင်ပြီးပါပြီ။`
+        : `Updated Buy Rate and Sell Rate for ${count} currency pairs with latest market reference rates.`
+    );
+    setTimeout(() => setRateSuccessMessage(null), 5000);
   };
 
   // Filter lists based on search
@@ -960,34 +1137,342 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
 
         {/* 6. EXCHANGE RATE MODULE */}
         {currentSubTab === 'exchange_rate' && (
-          <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200 text-[11px]">
-                <tr>
-                  <th className="px-4 py-3">{t.currencyPair}</th>
-                  <th className="px-4 py-3 text-blue-600 font-bold">{t.transferRate} (MMK)</th>
-                  <th className="px-4 py-3">{t.buyRate}</th>
-                  <th className="px-4 py-3">{t.sellRate}</th>
-                  <th className="px-4 py-3">{t.effectiveDate}</th>
-                  <th className="px-4 py-3 text-right">{t.actions}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filteredExchangeRates.map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900">{r.fromCurrency} / {r.toCurrency}</td>
-                    <td className="px-4 py-3 font-mono font-extrabold text-blue-600 text-sm">{Number(r.transferRate || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-mono text-slate-600">{Number(r.buyRate || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-mono text-slate-600">{Number(r.sellRate || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-slate-500 text-[11px]">{r.effectiveDate}</td>
-                    <td className="px-4 py-3 text-right space-x-1.5">
-                      <button onClick={() => handleOpenEdit('exchange_rate', r)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-3.5 h-3.5 inline" /></button>
-                      <button onClick={() => setDeleteConfirmId(r.id)} className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5 inline" /></button>
-                    </td>
+          <div className="space-y-3">
+            {/* Rates Control Toolbar & Feedback */}
+            {rateSuccessMessage && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-xs font-semibold flex items-center justify-between shadow-xs animate-fadeIn">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{rateSuccessMessage}</span>
+                </div>
+                <button onClick={() => setRateSuccessMessage(null)} className="text-emerald-500 hover:text-emerald-700">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800">
+                    {language === 'my' ? 'ငွေလဲလှယ်နှုန်း ဈေးကွက်ပေါက်ဈေး ထိန်းချုပ်ခန်း' : 'Exchange Rate Market Board & Rate Controls'}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {language === 'my' 
+                      ? 'Buy Rate (ဝယ်ယူဈေး) နှင့် Sell Rate (ရောင်းချဈေး) များကို ဇယားထဲတွင် တိုက်ရိုက် ပြင်ဆင်နိုင်ပါသည်။' 
+                      : 'Update Buy Rate and Sell Rate directly in the table cells or use Batch Edit mode.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center flex-wrap gap-2">
+                {isBatchEditRates ? (
+                  <>
+                    <button
+                      onClick={handleSaveBatchRates}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-colors"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{language === 'my' ? 'နှုန်းထားအားလုံး သိမ်းဆည်းမည်' : 'Save All Rates'}</span>
+                    </button>
+                    <button
+                      onClick={handleToggleBatchEdit}
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>{language === 'my' ? 'မလုပ်တော့ပါ' : 'Cancel'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleToggleBatchEdit}
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                      title="Directly edit Buy Rate and Sell Rate across all rows simultaneously"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>{language === 'my' ? '⚡ အားလုံး အမြန်ပြင်ဆင်ရန်' : '⚡ Quick Edit All'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowPresetConfirmModal(true)}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                      title="Auto-fill with latest Myanmar market reference rates for USD, THB, SGD, MYR, etc."
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>{language === 'my' ? '🔄 နောက်ဆုံးပေါက်ဈေး သတ်မှတ်မည်' : '🔄 Apply Market Rates'}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Main Exchange Rates Table */}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-xs">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200 text-[11px]">
+                  <tr>
+                    <th className="px-4 py-3">{t.currencyPair}</th>
+                    <th className="px-4 py-3 text-blue-700 font-bold">{t.transferRate} (MMK)</th>
+                    <th className="px-4 py-3 text-emerald-800 font-bold">
+                      {language === 'my' ? 'ဝယ်ယူဈေး (Buy Rate)' : 'Buy Rate'}
+                    </th>
+                    <th className="px-4 py-3 text-amber-900 font-bold">
+                      {language === 'my' ? 'ရောင်းချဈေး (Sell Rate)' : 'Sell Rate'}
+                    </th>
+                    <th className="px-4 py-3 text-slate-600 font-bold">
+                      {language === 'my' ? 'ကွာဟချက် (Spread/Margin)' : 'Spread / Margin'}
+                    </th>
+                    <th className="px-4 py-3">{t.effectiveDate}</th>
+                    <th className="px-4 py-3 text-right">{t.actions}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredExchangeRates.map(r => {
+                    const flag = db.countries.find(c => c.currencyCode === r.fromCurrency)?.flagEmoji || '💱';
+                    const isRowEditing = inlineEditingRateId === r.id;
+                    const isBatch = isBatchEditRates;
+                    const batchDraft = batchRateDrafts[r.id] || { buyRate: r.buyRate, sellRate: r.sellRate, transferRate: r.transferRate };
+
+                    const currentBuy = isBatch 
+                      ? (Number(batchDraft.buyRate) || 0) 
+                      : isRowEditing 
+                        ? (Number(inlineRateDraft.buyRate) || 0) 
+                        : (Number(r.buyRate) || 0);
+
+                    const currentSell = isBatch 
+                      ? (Number(batchDraft.sellRate) || 0) 
+                      : isRowEditing 
+                        ? (Number(inlineRateDraft.sellRate) || 0) 
+                        : (Number(r.sellRate) || 0);
+
+                    const spread = currentSell - currentBuy;
+                    const spreadPct = currentBuy > 0 ? ((spread / currentBuy) * 100).toFixed(2) : '0';
+
+                    return (
+                      <tr 
+                        key={r.id} 
+                        className={`transition-colors ${
+                          isRowEditing 
+                            ? 'bg-blue-50/40 ring-1 ring-blue-300' 
+                            : isBatch 
+                              ? 'hover:bg-amber-50/20' 
+                              : 'hover:bg-slate-50/80'
+                        }`}
+                      >
+                        {/* Currency Pair */}
+                        <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-base">{flag}</span>
+                            <span className="text-slate-900">{r.fromCurrency}</span>
+                            <span className="text-slate-400 font-normal">/</span>
+                            <span className="text-slate-600">{r.toCurrency}</span>
+                          </div>
+                        </td>
+
+                        {/* Remittance / Transfer Rate (MMK) */}
+                        <td className="px-4 py-3">
+                          {isBatch ? (
+                            <input
+                              type="number"
+                              step="any"
+                              value={batchDraft.transferRate}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setBatchRateDrafts(prev => ({
+                                  ...prev,
+                                  [r.id]: { ...prev[r.id], transferRate: val }
+                                }));
+                              }}
+                              className="w-24 px-2 py-1 bg-white border border-blue-300 rounded font-mono font-bold text-blue-700 text-xs focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                            />
+                          ) : isRowEditing ? (
+                            <input
+                              type="number"
+                              step="any"
+                              value={inlineRateDraft.transferRate}
+                              onChange={(e) => setInlineRateDraft({ ...inlineRateDraft, transferRate: e.target.value })}
+                              className="w-24 px-2 py-1 bg-white border border-blue-400 rounded font-mono font-bold text-blue-700 text-xs focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                            />
+                          ) : (
+                            <span className="font-mono font-extrabold text-blue-600 text-sm">
+                              {Number(r.transferRate || 0).toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Buy Rate */}
+                        <td className="px-4 py-3">
+                          {isBatch ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                value={batchDraft.buyRate}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setBatchRateDrafts(prev => ({
+                                    ...prev,
+                                    [r.id]: { ...prev[r.id], buyRate: val }
+                                  }));
+                                }}
+                                className="w-28 px-2 py-1 bg-white border-2 border-emerald-400 rounded font-mono font-bold text-emerald-800 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              />
+                            </div>
+                          ) : isRowEditing ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                autoFocus
+                                value={inlineRateDraft.buyRate}
+                                onChange={(e) => setInlineRateDraft({ ...inlineRateDraft, buyRate: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveInlineRate(r);
+                                  if (e.key === 'Escape') setInlineEditingRateId(null);
+                                }}
+                                className="w-28 px-2 py-1 bg-white border-2 border-emerald-500 rounded font-mono font-bold text-emerald-800 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleStartInlineEdit(r)}
+                              className="group flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors text-left"
+                              title={language === 'my' ? 'Buy Rate ပြင်ဆင်ရန် နှိပ်ပါ' : 'Click to edit Buy Rate'}
+                            >
+                              <span className="font-mono font-bold text-emerald-800">
+                                {Number(r.buyRate || 0).toLocaleString()}
+                              </span>
+                              <Edit2 className="w-3 h-3 text-emerald-500 opacity-60 group-hover:opacity-100" />
+                            </button>
+                          )}
+                        </td>
+
+                        {/* Sell Rate */}
+                        <td className="px-4 py-3">
+                          {isBatch ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                value={batchDraft.sellRate}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setBatchRateDrafts(prev => ({
+                                    ...prev,
+                                    [r.id]: { ...prev[r.id], sellRate: val }
+                                  }));
+                                }}
+                                className="w-28 px-2 py-1 bg-white border-2 border-amber-400 rounded font-mono font-bold text-amber-900 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                              />
+                            </div>
+                          ) : isRowEditing ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                step="any"
+                                value={inlineRateDraft.sellRate}
+                                onChange={(e) => setInlineRateDraft({ ...inlineRateDraft, sellRate: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveInlineRate(r);
+                                  if (e.key === 'Escape') setInlineEditingRateId(null);
+                                }}
+                                className="w-28 px-2 py-1 bg-white border-2 border-amber-500 rounded font-mono font-bold text-amber-900 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleStartInlineEdit(r)}
+                              className="group flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors text-left"
+                              title={language === 'my' ? 'Sell Rate ပြင်ဆင်ရန် နှိပ်ပါ' : 'Click to edit Sell Rate'}
+                            >
+                              <span className="font-mono font-bold text-amber-900">
+                                {Number(r.sellRate || 0).toLocaleString()}
+                              </span>
+                              <Edit2 className="w-3 h-3 text-amber-500 opacity-60 group-hover:opacity-100" />
+                            </button>
+                          )}
+                        </td>
+
+                        {/* Live Spread / Margin Calculation */}
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className={`font-mono font-bold text-xs ${spread >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                              {spread >= 0 ? `+${spread.toLocaleString()}` : spread.toLocaleString()} MMK
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({spreadPct}%)
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Effective Date & Last Updated */}
+                        <td className="px-4 py-3 text-slate-500 text-[11px]">
+                          <div>{r.effectiveDate || '-'}</div>
+                          {r.effectiveTime && (
+                            <div className="text-[10px] text-slate-400 font-mono">{r.effectiveTime}</div>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3 text-right">
+                          {isRowEditing ? (
+                            <div className="flex items-center justify-end space-x-1">
+                              <button
+                                onClick={() => handleSaveInlineRate(r)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center space-x-1 shadow-xs transition-colors"
+                                title={language === 'my' ? 'သိမ်းဆည်းမည်' : 'Save'}
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{language === 'my' ? 'သိမ်းမည်' : 'Save'}</span>
+                              </button>
+                              <button
+                                onClick={() => setInlineEditingRateId(null)}
+                                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded"
+                                title={language === 'my' ? 'ပယ်ဖျက်' : 'Cancel'}
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : isBatch ? (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Editing
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-end space-x-1">
+                              <button
+                                onClick={() => handleStartInlineEdit(r)}
+                                className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                title={language === 'my' ? 'Buy Rate / Sell Rate အမြန်ပြင်မည်' : 'Quick edit rates'}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEdit('exchange_rate', r)}
+                                className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
+                                title={language === 'my' ? 'အသေးစိတ် ပြင်မည်' : 'Full edit modal'}
+                              >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(r.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title={language === 'my' ? 'ဖျက်မည်' : 'Delete'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1724,25 +2209,49 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-slate-700 font-semibold mb-1">Bank Buy Rate</label>
+                      <label className="block text-emerald-800 font-bold mb-1 flex items-center justify-between text-xs">
+                        <span>{language === 'my' ? 'ဝယ်ယူဈေး (Buy Rate)' : 'Buy Rate'} *</span>
+                        <span className="text-[10px] text-emerald-600 font-mono">MMK</span>
+                      </label>
                       <input
                         type="number"
                         step="any"
+                        required
                         value={editingItem.buyRate || 0}
                         onChange={(e) => setEditingItem({ ...editingItem, buyRate: Number(e.target.value) })}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono"
+                        className="w-full bg-emerald-50/40 border border-emerald-300 focus:border-emerald-500 rounded-lg px-3 py-2 text-emerald-900 font-mono font-bold text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-700 font-semibold mb-1">Bank Sell Rate</label>
+                      <label className="block text-amber-900 font-bold mb-1 flex items-center justify-between text-xs">
+                        <span>{language === 'my' ? 'ရောင်းချဈေး (Sell Rate)' : 'Sell Rate'} *</span>
+                        <span className="text-[10px] text-amber-600 font-mono">MMK</span>
+                      </label>
                       <input
                         type="number"
                         step="any"
+                        required
                         value={editingItem.sellRate || 0}
                         onChange={(e) => setEditingItem({ ...editingItem, sellRate: Number(e.target.value) })}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono"
+                        className="w-full bg-amber-50/40 border border-amber-300 focus:border-amber-500 rounded-lg px-3 py-2 text-amber-950 font-mono font-bold text-sm"
                       />
                     </div>
+                  </div>
+
+                  {/* Spread preview in modal */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">
+                      {language === 'my' ? 'ရောင်း/ဝယ် ကွာဟချက် (Spread / Margin):' : 'Spread / Profit Margin:'}
+                    </span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {Number(editingItem.sellRate || 0) >= Number(editingItem.buyRate || 0) ? '+' : ''}
+                      {(Number(editingItem.sellRate || 0) - Number(editingItem.buyRate || 0)).toLocaleString()} MMK
+                      {Number(editingItem.buyRate || 0) > 0 && (
+                        <span className="text-slate-400 font-normal ml-1">
+                          ({(((Number(editingItem.sellRate || 0) - Number(editingItem.buyRate || 0)) / Number(editingItem.buyRate || 0)) * 100).toFixed(2)}%)
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div>
                     <label className="block text-slate-700 font-semibold mb-1">Note / Reference</label>
@@ -1969,6 +2478,110 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         isOpen={showCompanyProfileModal}
         onClose={() => setShowCompanyProfileModal(false)}
       />
+
+      {/* Apply Market Reference Rates Confirmation Modal */}
+      {showPresetConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center space-x-3 text-amber-600">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <RefreshCw className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {language === 'my' ? 'နောက်ဆုံး ပေါက်ဈေးများ သတ်မှတ်မည်' : 'Apply Latest Market Reference Rates'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {language === 'my' 
+                    ? 'အောက်ပါ အဓိကငွေကြေးများ၏ Buy Rate, Sell Rate နှင့် Transfer Rate များကို နောက်ဆုံးပေါက်ဈေးဖြင့် ပြင်ဆင်ပါမည်။' 
+                    : 'The Buy Rate, Sell Rate, and Transfer Rate for major currencies will be updated to standard reference rates:'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2 text-xs font-mono">
+              <div className="grid grid-cols-4 font-bold text-[11px] text-slate-500 border-b border-slate-200 pb-1">
+                <span>Pair</span>
+                <span className="text-emerald-700">Buy</span>
+                <span className="text-amber-700">Sell</span>
+                <span className="text-blue-700">Remit</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇺🇸 USD/MMK</span>
+                <span>4,500</span>
+                <span>4,620</span>
+                <span className="font-bold text-blue-600">4,580</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇹🇭 THB/MMK</span>
+                <span>132.50</span>
+                <span>136.00</span>
+                <span className="font-bold text-blue-600">134.50</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇸🇬 SGD/MMK</span>
+                <span>3,450</span>
+                <span>3,530</span>
+                <span className="font-bold text-blue-600">3,495</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇲🇾 MYR/MMK</span>
+                <span>1,040</span>
+                <span>1,075</span>
+                <span className="font-bold text-blue-600">1,060</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇪🇺 EUR/MMK</span>
+                <span>4,880</span>
+                <span>4,990</span>
+                <span className="font-bold text-blue-600">4,940</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇯🇵 JPY/MMK</span>
+                <span>29.80</span>
+                <span>31.20</span>
+                <span className="font-bold text-blue-600">30.50</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇨🇳 CNY/MMK</span>
+                <span>620.00</span>
+                <span>645.00</span>
+                <span className="font-bold text-blue-600">635.00</span>
+              </div>
+              <div className="grid grid-cols-4 text-slate-800">
+                <span className="font-bold">🇦🇪 AED/MMK</span>
+                <span>1,220</span>
+                <span>1,260</span>
+                <span className="font-bold text-blue-600">1,245</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 italic">
+              {language === 'my' 
+                ? '* သတ်မှတ်ပြီးနောက် ဇယားထဲတွင် မိမိစိတ်ကြိုက် Buy/Sell Rate များကို အချိန်မရွေး ဆက်လက်ပြင်ဆင်နိုင်ပါသည်။' 
+                : '* You can continue to edit Buy Rate and Sell Rate individually at any time.'}
+            </p>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowPresetConfirmModal(false)}
+                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyLatestMarketRates}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm transition-colors flex items-center space-x-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>{language === 'my' ? 'သတ်မှတ်မည် (Confirm & Apply)' : 'Confirm & Apply Rates'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

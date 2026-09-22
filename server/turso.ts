@@ -644,19 +644,34 @@ export async function syncPushToTurso(data: {
   if (data.exchangeRates && Array.isArray(data.exchangeRates)) {
     for (const rate of data.exchangeRates) {
       if (!rate.id) continue;
+      const bRate = Number(rate.buyRate) || 0;
+      const sRate = Number(rate.sellRate) || 0;
+      const tRate = Number(rate.transferRate) || sRate || 0;
+      const cbRate = Number(rate.centralBankRate) || tRate || 0;
       await client.execute({
         sql: `INSERT INTO exchange_rates (
-          id, from_currency, to_currency, buy_rate, sell_rate, central_bank_rate, effective_date, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, from_currency, to_currency, buy_rate, sell_rate, central_bank_rate, effective_date, updated_at,
+          transfer_rate, effective_time, updated_by, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           buy_rate=excluded.buy_rate,
           sell_rate=excluded.sell_rate,
           central_bank_rate=excluded.central_bank_rate,
-          updated_at=excluded.updated_at;`,
+          effective_date=excluded.effective_date,
+          updated_at=excluded.updated_at,
+          transfer_rate=excluded.transfer_rate,
+          effective_time=excluded.effective_time,
+          updated_by=excluded.updated_by,
+          note=excluded.note;`,
         args: [
           rate.id, rate.fromCurrency || '', rate.toCurrency || '',
-          Number(rate.buyRate) || 0, Number(rate.sellRate) || 0, Number(rate.centralBankRate) || 0,
-          rate.effectiveDate || '', rate.updatedAt || new Date().toISOString()
+          bRate, sRate, cbRate,
+          rate.effectiveDate || new Date().toISOString().split('T')[0],
+          rate.updatedAt || new Date().toISOString(),
+          tRate,
+          rate.effectiveTime || '09:00',
+          rate.updatedBy || 'Admin',
+          rate.note || ''
         ]
       });
       ratesSaved++;
