@@ -407,8 +407,20 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                       <div className="text-[10px] text-slate-500">{tx.receiverPhone}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-slate-200">{tx.senderName}</div>
-                      <div className="text-[11px] text-slate-400">From: {tx.senderCountryCode}</div>
+                      <div className="text-slate-200 font-medium">{tx.senderName}</div>
+                      {tx.scope === 'DOMESTIC' ? (
+                        <div className="flex items-center space-x-1 text-[10px] text-sky-400 font-mono mt-0.5">
+                          <Building2 className="w-3 h-3 text-sky-400 shrink-0" />
+                          <span>From: {db.branches.find(b => b.id === tx.sendingBranchId)?.nameEn || tx.sendingBranchId || 'Yangon HQ'}</span>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-slate-400">From: {tx.senderCountryCode}</div>
+                      )}
+                      {tx.linkedTransactionNo && (
+                        <div className="text-[9px] text-emerald-400 font-mono mt-0.5">
+                          Outward: {tx.linkedTransactionNo}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-mono font-bold text-base text-emerald-400">
@@ -548,16 +560,35 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>{language === 'my' ? 'ငွေလွှဲပို့သူ (Sender)' : 'Remitter / Sender'}</span>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5" />
+                      {language === 'my' ? 'ငွေလွှဲပို့သူ (Sender)' : 'Remitter / Sender'}
+                    </span>
+                    {selectedTx.scope === 'DOMESTIC' && (
+                      <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 text-[10px] font-mono font-bold">
+                        Domestic
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm font-bold text-white">{selectedTx.senderName}</div>
                   <div className="text-xs text-slate-300">
-                    <span className="text-slate-400">Origin Country:</span> <span className="font-semibold text-white">{selectedTx.senderCountryCode}</span>
+                    <span className="text-slate-400">
+                      {selectedTx.scope === 'DOMESTIC' ? (language === 'my' ? 'လွှဲပို့သည့် ဘဏ်ခွဲ:' : 'Sending Branch:') : 'Origin Country:'}
+                    </span>{' '}
+                    <span className="font-semibold text-white">
+                      {selectedTx.scope === 'DOMESTIC' 
+                        ? (db.branches.find(b => b.id === selectedTx.sendingBranchId)?.nameEn || selectedTx.sendingBranchId || 'Yangon HQ')
+                        : selectedTx.senderCountryCode}
+                    </span>
                   </div>
+                  {selectedTx.linkedTransactionNo && (
+                    <div className="text-xs text-emerald-400 font-mono">
+                      <span className="text-slate-400">Outward No:</span> <span className="font-bold">{selectedTx.linkedTransactionNo}</span>
+                    </div>
+                  )}
                   <div className="text-xs text-slate-300">
-                    <span className="text-slate-400">Purpose:</span> <span>{selectedTx.purposeName || 'Family Support'}</span>
+                    <span className="text-slate-400">Purpose:</span> <span>{selectedTx.purposeName || 'Local Remittance'}</span>
                   </div>
                   <div className="text-xs text-slate-400">
                     <span>Date:</span> <span className="font-mono">{selectedTx.createdDate ? new Date(selectedTx.createdDate).toLocaleString() : '-'}</span>

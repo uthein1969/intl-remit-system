@@ -28,7 +28,9 @@ import {
   Receipt,
   RefreshCw,
   Lock,
-  DollarSign
+  DollarSign,
+  Send,
+  SendHorizontal
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
@@ -61,12 +63,14 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
     language, 
     t, 
     approveTransaction, 
+    sendOutwardToInward,
     rejectTransaction, 
     holdTransaction, 
     updateTransaction,
     isSyncingTurso,
     syncTursoBidirectional,
     activeBranchId,
+    setActiveBranchId,
     activeCountryCode
   } = useRemittance();
   
@@ -129,6 +133,19 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
     sender?: string;
   } | null>(null);
   const [uploadFeedback, setUploadFeedback] = useState<{ message: string; type?: string } | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [dispatchSuccessModal, setDispatchSuccessModal] = useState<{
+    show: boolean;
+    outwardNo: string;
+    inwardNo: string;
+    mtcn: string;
+    destBranchId: string;
+    destBranchName: string;
+    sendingBranchName: string;
+    amount: number;
+    currency: string;
+    receiverName: string;
+  } | null>(null);
 
   const outwardTxs = db.transactions.filter(t => t.type === 'OUTWARD');
 
@@ -214,6 +231,63 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
       setShowReviewModal(false);
       setVoucherTx(selectedTx);
       setShowVoucherModal(true);
+    }
+  };
+
+  const handleSendToReceiveBranch = async (tx: RemittanceTransaction) => {
+    setIsSending(true);
+    try {
+      const res = await sendOutwardToInward(tx.id);
+      if (res.success && res.inwardTx) {
+        confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 } });
+        const targetBranchId = tx.payoutBranchId || (tx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+        const destBranch = db.branches.find(b => b.id === targetBranchId);
+        const sendBranch = db.branches.find(b => b.id === tx.sendingBranchId);
+        setDispatchSuccessModal({
+          show: true,
+          outwardNo: tx.transactionNo,
+          inwardNo: res.inwardTx.transactionNo,
+          mtcn: tx.mtcn,
+          destBranchId: targetBranchId,
+          destBranchName: destBranch ? `${destBranch.nameEn} (${destBranch.code})` : 'Mandalay Branch (MDY-01)',
+          sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
+          amount: Number(tx.receiveAmount || tx.sendAmount || 0),
+          currency: tx.targetCurrency || 'MMK',
+          receiverName: tx.receiverName
+        });
+      }
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleApproveAndSend = async () => {
+    if (!selectedTx) return;
+    setIsSending(true);
+    try {
+      const targetBranchId = selectedTx.payoutBranchId || (selectedTx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+      const success = await approveTransaction(selectedTx.id, approvalNote || 'Approved and sent to receiving branch');
+      if (success) {
+        const res = await sendOutwardToInward(selectedTx.id, approvalNote);
+        setShowReviewModal(false);
+        confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 } });
+        const destBranch = db.branches.find(b => b.id === targetBranchId);
+        const sendBranch = db.branches.find(b => b.id === selectedTx.sendingBranchId);
+        setDispatchSuccessModal({
+          show: true,
+          outwardNo: selectedTx.transactionNo,
+          inwardNo: res.inwardTx?.transactionNo || 'REM-INW-AUTO',
+          mtcn: selectedTx.mtcn,
+          destBranchId: targetBranchId,
+          destBranchName: destBranch ? `${destBranch.nameEn} (${destBranch.code})` : 'Mandalay Branch (MDY-01)',
+          sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
+          amount: Number(selectedTx.receiveAmount || selectedTx.sendAmount || 0),
+          currency: selectedTx.targetCurrency || 'MMK',
+          receiverName: selectedTx.receiverName
+        });
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -812,17 +886,52 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                             <CheckSquare className="w-3.5 h-3.5" />
                             <span>{language === 'my' ? 'စိစစ် & အတည်ပြု' : 'Review & Approve'}</span>
                           </button>
+                        ) : tx.status === 'APPROVED' && tx.scope === 'DOMESTIC' && !tx.isSentToDestination ? (
+                          <div className="flex items-center space-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSendToReceiveBranch(tx)}
+                              disabled={isSending}
+                              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-xs shadow-md shadow-sky-950/40 transition-all flex items-center space-x-1.5 cursor-pointer hover:scale-[1.02]"
+                              title={language === 'my' ? 'လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ ငွေလွှဲပေးပို့မည်' : 'Send to Receiving Branch Inward'}
+                            >
+                              <SendHorizontal className="w-3.5 h-3.5 text-sky-100" />
+                              <span>{language === 'my' ? 'Send (ငွေလွှဲပို့)' : 'Send to Branch'}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setVoucherTx(tx);
+                                setShowVoucherModal(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              title={t.printVoucher}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            onClick={() => {
-                              setVoucherTx(tx);
-                              setShowVoucherModal(true);
-                            }}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                            title={t.printVoucher}
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center space-x-1.5">
+                            {tx.scope === 'DOMESTIC' && tx.isSentToDestination && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold ${
+                                tx.status === 'PAID_OUT'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                              }`}>
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                <span>{tx.status === 'PAID_OUT' ? (language === 'my' ? 'ငွေထုတ်ပြီး' : 'Paid Out') : (language === 'my' ? 'Inward ပို့ပြီး' : 'Sent to Inward')}</span>
+                              </span>
+                            )}
+                            <button
+                              onClick={() => {
+                                setVoucherTx(tx);
+                                setShowVoucherModal(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              title={t.printVoucher}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -871,6 +980,63 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
 
             {/* Scrollable Body with Top-Down Scrollbar to view all information */}
             <div className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-200 custom-scrollbar scroll-smooth">
+              {/* Domestic Inter-Branch Remittance Routing Card */}
+              {selectedTx.scope === 'DOMESTIC' && (
+                <div className="bg-gradient-to-r from-sky-950/50 via-indigo-950/40 to-slate-900 p-4 rounded-xl border border-sky-500/40 space-y-3 shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-sky-400" />
+                      {language === 'my' 
+                        ? 'ပြည်တွင်း ဘဏ်ခွဲအချင်းချင်း ငွေလွှဲပေးပို့မှု (Domestic Inter-Branch Dispatch)'
+                        : 'Domestic Inter-Branch Remittance Dispatch'}
+                    </span>
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                      selectedTx.isSentToDestination
+                        ? selectedTx.status === 'PAID_OUT'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}>
+                      {selectedTx.isSentToDestination 
+                        ? (selectedTx.status === 'PAID_OUT' ? (language === 'my' ? 'ငွေထုတ်ပေးပြီး (Paid Out)' : 'Paid Out') : (language === 'my' ? 'ဘဏ်ခွဲ Inward သို့ လွှဲပို့ပြီး (Dispatched)' : 'Dispatched to Inward'))
+                        : (language === 'my' ? 'အတည်ပြုပြီးပါက Send နှိပ်၍ ပို့ပါမည်' : 'Ready to Dispatch upon Send')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[11px] font-medium">{language === 'my' ? 'ငွေလွှဲပေးပို့သည့် ဘဏ်ခွဲ (Sending Branch)' : 'Sending Branch'}:</span>
+                      <strong className="text-white text-xs block mt-0.5">
+                        {db.branches.find(b => b.id === selectedTx.sendingBranchId)?.nameEn || selectedTx.sendingBranchId || 'Yangon Head Office'}
+                      </strong>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Code: {db.branches.find(b => b.id === selectedTx.sendingBranchId)?.code || 'YGN-01'}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-900/90 p-2.5 rounded-lg border border-amber-500/40 shadow-inner">
+                      <span className="text-amber-400 block text-[11px] font-medium flex items-center justify-between">
+                        <span>{language === 'my' ? 'ငွေထုတ်ယူမည့် ဘဏ်ခွဲ (Receiving Branch / Inward)' : 'Destination / Receiving Branch'}:</span>
+                        <span className="text-[10px] text-emerald-400 font-mono">Auto Inward</span>
+                      </span>
+                      <strong className="text-amber-300 text-xs block mt-0.5">
+                        {db.branches.find(b => b.id === (selectedTx.payoutBranchId || 'BR-002'))?.nameEn || 'Mandalay Branch'}
+                      </strong>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Code: {db.branches.find(b => b.id === (selectedTx.payoutBranchId || 'BR-002'))?.code || 'MDY-01'} ({db.branches.find(b => b.id === (selectedTx.payoutBranchId || 'BR-002'))?.city || 'Mandalay'})
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedTx.isSentToDestination && selectedTx.linkedTransactionNo && (
+                    <div className="text-[11px] text-sky-300 bg-sky-950/70 p-2.5 rounded-lg border border-sky-800/60 flex items-center justify-between">
+                      <span>{language === 'my' ? 'အလိုအလျောက် ဖွင့်လှစ်ပြီးသော Inward Claim နံပါတ်:' : 'Auto-Created Inward Claim No:'} <strong className="font-mono text-emerald-400">{selectedTx.linkedTransactionNo}</strong></span>
+                      <span className="text-[10px] text-slate-400 font-mono">MTCN: {selectedTx.mtcn}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Quick overview grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
                 <div>
@@ -1705,13 +1871,58 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                 >
                   {t.reject}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
-                >
-                  {t.approve}
-                </button>
+
+                {selectedTx.status === 'PENDING_APPROVAL' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      disabled={isSending}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
+                    >
+                      {t.approve}
+                    </button>
+
+                    {selectedTx.scope === 'DOMESTIC' && (
+                      <button
+                        type="button"
+                        onClick={handleApproveAndSend}
+                        disabled={isSending}
+                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-sky-900/40 transition-all hover:scale-[1.02] cursor-pointer flex items-center space-x-1.5"
+                        title={language === 'my' ? 'အတည်ပြုပြီး လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ ငွေလွှဲပေးပို့မည်' : 'Approve & Dispatch Remittance to Destination Inward'}
+                      >
+                        <SendHorizontal className="w-3.5 h-3.5 text-sky-200" />
+                        <span>{language === 'my' ? 'Approve & Send (လွှဲပို့မည်)' : 'Approve & Send to Branch'}</span>
+                      </button>
+                    )}
+                  </>
+                ) : selectedTx.status === 'APPROVED' && selectedTx.scope === 'DOMESTIC' && !selectedTx.isSentToDestination ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReviewModal(false);
+                      handleSendToReceiveBranch(selectedTx);
+                    }}
+                    disabled={isSending}
+                    className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg shadow-sky-900/40 transition-all hover:scale-[1.02] cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <SendHorizontal className="w-3.5 h-3.5 text-sky-200" />
+                    <span>{language === 'my' ? 'Send to Receive Branch (ငွေလွှဲပို့မည်)' : 'Send to Receive Branch'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReviewModal(false);
+                      setVoucherTx(selectedTx);
+                      setShowVoucherModal(true);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>{t.printVoucher}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1800,6 +2011,136 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
         senderName={lightboxDoc?.sender}
         onClose={() => setLightboxDoc(null)}
       />
+
+      {/* Domestic Remittance Dispatch Confirmation & Auto Inward Created Modal */}
+      {dispatchSuccessModal?.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-sky-500/60 text-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 px-6 py-5 flex items-center justify-between text-white">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+                  <SendHorizontal className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold tracking-tight">
+                    {language === 'my' ? 'ငွေလွှဲအောင်မြင်စွာ ပေးပို့ပြီးပါပြီ' : 'Domestic Remittance Dispatched!'}
+                  </h3>
+                  <p className="text-xs text-sky-100 font-medium">
+                    {language === 'my' ? 'လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ Auto ရောက်ရှိပါသည်' : 'Auto-Dispatched to Receiving Branch Inward'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchSuccessModal(null)}
+                className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 text-xs text-slate-200">
+              {/* Branch to Branch Visual Route */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between text-slate-400 font-medium">
+                  <span>{language === 'my' ? 'လွှဲပို့လမ်းကြောင်း (Branch Route)' : 'Inter-Branch Route'}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Live Synced
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">{language === 'my' ? 'ပေးပို့သည့် ဘဏ်ခွဲ' : 'Origin Branch'}</span>
+                    <strong className="text-white text-xs block font-bold truncate">{dispatchSuccessModal.sendingBranchName}</strong>
+                  </div>
+                  <div className="flex flex-col items-center justify-center px-2">
+                    <ArrowRight className="w-5 h-5 text-sky-400 animate-pulse" />
+                    <span className="text-[9px] text-sky-400 font-mono mt-0.5 font-bold">SEND</span>
+                  </div>
+                  <div className="flex-1 text-right">
+                    <span className="text-[10px] text-amber-400 block font-medium uppercase tracking-wider">{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ' : 'Receive Branch'}</span>
+                    <strong className="text-amber-300 text-xs block font-bold truncate">{dispatchSuccessModal.destBranchName}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transaction Key Metrics */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block text-[11px] font-medium">{t.mtcnCode}:</span>
+                  <strong className="font-mono text-amber-400 text-sm block mt-0.5">{dispatchSuccessModal.mtcn}</strong>
+                  <span className="text-[10px] text-slate-500 font-mono block mt-0.5">{dispatchSuccessModal.outwardNo}</span>
+                </div>
+
+                <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/30 shadow-inner">
+                  <span className="text-emerald-400 block text-[11px] font-medium">{language === 'my' ? 'Auto ဝင်သွားသော Inward စာရင်း:' : 'Auto Inward Claim No:'}</span>
+                  <strong className="font-mono text-emerald-300 text-sm block mt-0.5">{dispatchSuccessModal.inwardNo}</strong>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Status: PENDING_APPROVAL</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">{language === 'my' ? 'ငွေထုတ်ယူသူ (Beneficiary)' : 'Beneficiary'}:</span>
+                  <strong className="text-white text-xs block font-bold">{dispatchSuccessModal.receiverName}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 block text-[11px]">{language === 'my' ? 'ထုတ်ပေးငွေပမာဏ (Payout Cash)' : 'Payout Cash'}:</span>
+                  <strong className="text-emerald-400 text-sm font-mono font-bold">
+                    {dispatchSuccessModal.amount.toLocaleString()} {dispatchSuccessModal.currency}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Notice to user */}
+              <div className="bg-sky-950/40 p-3 rounded-xl border border-sky-500/30 flex items-start space-x-2 text-sky-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  {language === 'my'
+                    ? `လက်ခံမည့်ဘဏ်ခွဲ (${dispatchSuccessModal.destBranchName}) ၏ Inward စာရင်းသို့ Auto ဝင်ရောက်သွားပြီးဖြစ်ပါသည်။ ထိုဘဏ်ခွဲရှိ Checker က စစ်ဆေး၍ Payout Cash ထုတ်ပေးနိုင်ပါပြီ။`
+                    : `Transaction automatically created in ${dispatchSuccessModal.destBranchName} Inward queue. Their Checker can now review and approve cash payout!`}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const found = db.transactions.find(t => t.transactionNo === dispatchSuccessModal.outwardNo);
+                    if (found) {
+                      setVoucherTx(found);
+                      setShowVoucherModal(true);
+                    }
+                    setDispatchSuccessModal(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'Voucher ထုတ်မည်' : 'Print Voucher'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveBranchId(dispatchSuccessModal.destBranchId);
+                    setDispatchSuccessModal(null);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-900/40 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>
+                    {language === 'my'
+                      ? `လက်ခံမည့်ဘဏ်ခွဲ (${dispatchSuccessModal.destBranchName}) သို့ ကူးပြောင်းမည်`
+                      : `Switch to ${dispatchSuccessModal.destBranchName}`}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

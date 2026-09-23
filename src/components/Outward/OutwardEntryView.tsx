@@ -211,10 +211,18 @@ export const OutwardEntryView: React.FC = () => {
   const [purposeId, setPurposeId] = useState('PUR-001');
   const [partnerCompanyId, setPartnerCompanyId] = useState('CMP-005');
   const [sendingBranchId, setSendingBranchId] = useState(activeBranchId || currentUser.branchId || 'BR-001');
+  const [payoutBranchId, setPayoutBranchId] = useState<string>(() => {
+    const otherBranch = db.branches.find(b => b.countryCode === 'MM' && b.id !== (activeBranchId || currentUser.branchId || 'BR-001'));
+    return otherBranch?.id || 'BR-002';
+  });
 
   useEffect(() => {
     if (activeBranchId) {
       setSendingBranchId(activeBranchId);
+      if (payoutBranchId === activeBranchId) {
+        const nextOther = db.branches.find(b => b.countryCode === 'MM' && b.id !== activeBranchId);
+        if (nextOther) setPayoutBranchId(nextOther.id);
+      }
     }
   }, [activeBranchId]);
 
@@ -940,6 +948,7 @@ export const OutwardEntryView: React.FC = () => {
         payoutBankName,
         payoutAccountNumber,
         sendingBranchId,
+        payoutBranchId: scope === 'DOMESTIC' ? payoutBranchId : (payoutBranchId || undefined),
         partnerCompanyId,
         purposeId,
         purposeName: selectedPurpose ? (language === 'my' ? selectedPurpose.nameMm : selectedPurpose.nameEn) : 'General',
@@ -2355,7 +2364,7 @@ export const OutwardEntryView: React.FC = () => {
             {/* Sending Branch */}
             <div>
               <label className="block text-slate-400 mb-1 font-medium">
-                {language === 'my' ? 'ဆောင်ရွက်သည့် ဘဏ်ခွဲ (Sending Branch)' : 'Sending Branch'} *
+                {language === 'my' ? 'ငွေလွှဲပေးပို့သည့် ဘဏ်ခွဲ (Sending Branch)' : 'Sending Branch'} *
               </label>
               <select
                 value={sendingBranchId}
@@ -2369,6 +2378,34 @@ export const OutwardEntryView: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            {/* Receiving Branch (For Domestic Remittance) */}
+            {scope === 'DOMESTIC' ? (
+              <div>
+                <label className="block text-amber-400 mb-1 font-semibold flex items-center justify-between">
+                  <span>{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch)' : 'Receive Branch (Destination)'} *</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Auto Inward Dispatch</span>
+                </label>
+                <select
+                  value={payoutBranchId}
+                  onChange={(e) => setPayoutBranchId(e.target.value)}
+                  className="w-full bg-slate-800 border border-amber-500/50 rounded-xl px-3 py-2.5 text-white focus:border-amber-400 focus:outline-none font-semibold text-xs shadow-inner"
+                >
+                  {db.branches
+                    .filter(b => b.countryCode === 'MM')
+                    .map(b => (
+                      <option key={b.id} value={b.id} disabled={b.id === sendingBranchId}>
+                        {b.code} - {b.nameEn} ({b.city}) {b.id === sendingBranchId ? `(${language === 'my' ? 'ပို့မည့်ဘဏ်ခွဲဖြစ်နေပါသည်' : 'Current Sending Branch'})` : ''}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[10px] text-amber-300/80 mt-1">
+                  {language === 'my' 
+                    ? '💡 Approve ပြီး Send နှိပ်ပါက ဤဘဏ်ခွဲ Inward သို့ Auto ဝင်ပြီး Payout Cash ထုတ်ပေးနိုင်ပါမည်'
+                    : '💡 Once approved & sent, arrives automatically in this branch Inward for cash payout'}
+                </p>
+              </div>
+            ) : null}
 
             {/* Purpose */}
             <div>

@@ -307,6 +307,14 @@ export interface RemittanceTransaction {
   createdDate: string; // ISO string
   approvedDate?: string;
   paidOutDate?: string;
+
+  // Inter-branch Dispatch & Sync (Sending Branch -> Receiving Branch)
+  isSentToDestination?: boolean;
+  sentDate?: string;
+  sentByUserId?: string;
+  sentByName?: string;
+  linkedTransactionId?: string;
+  linkedTransactionNo?: string;
 }
 
 export interface AuditRecord {

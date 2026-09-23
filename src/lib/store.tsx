@@ -102,7 +102,8 @@ interface RemittanceContextType {
   // Outward & Inward Transactions
   createOutwardRemittance: (txData: Partial<RemittanceTransaction>) => Promise<RemittanceTransaction>;
   createInwardRemittance: (txData: Partial<RemittanceTransaction>) => Promise<RemittanceTransaction>;
-  approveTransaction: (id: string, note?: string) => Promise<boolean>;
+  approveTransaction: (id: string, note?: string, autoSendToInward?: boolean) => Promise<boolean>;
+  sendOutwardToInward: (outwardId: string, note?: string) => Promise<{ success: boolean; inwardTx?: RemittanceTransaction; message?: string }>;
   rejectTransaction: (id: string, reason: string) => Promise<boolean>;
   holdTransaction: (id: string, note: string) => Promise<boolean>;
   payoutInwardTransaction: (id: string, note?: string) => Promise<boolean>;
@@ -1743,22 +1744,23 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // 3. Approve Transaction (Checker)
-  const approveTransaction = async (id: string, note?: string): Promise<boolean> => {
+  const approveTransaction = async (id: string, note?: string, autoSendToInward?: boolean): Promise<boolean> => {
     const tx = db.transactions.find(t => t.id === id);
     if (!tx) return false;
 
+    const nowStr = new Date().toISOString();
     const updatedTx: RemittanceTransaction = {
       ...tx,
       status: 'APPROVED',
       approverUserId: currentUser.id,
       approverName: `${currentUser.fullName} (${currentUser.role})`,
       approvalNote: note || 'Transaction verified and approved by Checker.',
-      approvedDate: new Date().toISOString(),
+      approvedDate: nowStr,
     };
 
     const auditRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: nowStr,
       userId: currentUser.id,
       userName: currentUser.fullName,
       userRole: currentUser.role,
@@ -1776,7 +1778,175 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     syncLiveTransactionToCloud(updatedTx, auditRecord);
 
+    // If autoSendToInward is requested for domestic outward remittance, dispatch immediately
+    if (autoSendToInward && tx.type === 'OUTWARD') {
+      setTimeout(() => {
+        sendOutwardToInward(id, note);
+      }, 50);
+    }
+
     return true;
+  };
+
+  // 3.5. Send Domestic Outward to Receiving Branch (Auto-creates Inward Claim)
+  const sendOutwardToInward = async (
+    outwardId: string, 
+    note?: string
+  ): Promise<{ success: boolean; inwardTx?: RemittanceTransaction; message?: string }> => {
+    const outwardTx = db.transactions.find(t => t.id === outwardId);
+    if (!outwardTx) {
+      return { success: false, message: 'Outward remittance record not found.' };
+    }
+
+    // Determine target receiving branch
+    const targetBranchId = outwardTx.payoutBranchId || 
+      (outwardTx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+
+    // Check if an inward claim already exists for this MTCN
+    const existingInward = db.transactions.find(t => t.type === 'INWARD' && t.mtcn === outwardTx.mtcn);
+    if (existingInward) {
+      const updatedOutward: RemittanceTransaction = {
+        ...outwardTx,
+        status: 'APPROVED',
+        isSentToDestination: true,
+        sentDate: outwardTx.sentDate || new Date().toISOString(),
+        payoutBranchId: targetBranchId,
+        linkedTransactionId: existingInward.id,
+        linkedTransactionNo: existingInward.transactionNo
+      };
+      setDb(prev => ({
+        ...prev,
+        transactions: prev.transactions.map(t => t.id === outwardId ? updatedOutward : t)
+      }));
+      return { success: true, inwardTx: existingInward, message: 'Transaction was already dispatched to receiving branch.' };
+    }
+
+    const nowStr = new Date().toISOString();
+    const inwTxNo = generateTxNo('INWARD');
+
+    const inwardTx: RemittanceTransaction = {
+      id: getNextCleanId('TX', db.transactions, 3),
+      transactionNo: inwTxNo,
+      mtcn: outwardTx.mtcn,
+      type: 'INWARD',
+      scope: outwardTx.scope || 'DOMESTIC',
+      status: 'PENDING_APPROVAL', // Waiting for Receive Branch Checker to review & Payout Cash!
+
+      senderName: outwardTx.senderName,
+      senderNameMm: outwardTx.senderNameMm,
+      senderNrc: outwardTx.senderNrc,
+      senderPassport: outwardTx.senderPassport || outwardTx.senderPassbook,
+      senderPassbook: outwardTx.senderPassbook || outwardTx.senderPassport,
+      senderPhone: outwardTx.senderPhone,
+      senderAddress: outwardTx.senderAddress,
+      senderCountryCode: outwardTx.senderCountryCode || 'MM',
+      senderFatherName: outwardTx.senderFatherName,
+      senderOccupation: outwardTx.senderOccupation,
+      senderSourceOfFund: outwardTx.senderSourceOfFund,
+      senderDateOfBirth: outwardTx.senderDateOfBirth,
+      senderIdType: outwardTx.senderIdType || (outwardTx.senderPassport ? 'PASSPORT' : 'NRC'),
+      senderNrcAttachment: outwardTx.senderNrcAttachment || outwardTx.senderNrcFrontAttachment,
+      senderNrcAttachmentName: outwardTx.senderNrcAttachmentName || outwardTx.senderNrcFrontAttachmentName,
+      senderNrcAttachmentType: outwardTx.senderNrcAttachmentType || outwardTx.senderNrcFrontAttachmentType,
+      senderNrcAttachmentSize: outwardTx.senderNrcAttachmentSize || outwardTx.senderNrcFrontAttachmentSize,
+      senderNrcFrontAttachment: outwardTx.senderNrcFrontAttachment || outwardTx.senderNrcAttachment,
+      senderNrcFrontAttachmentName: outwardTx.senderNrcFrontAttachmentName || outwardTx.senderNrcAttachmentName,
+      senderNrcFrontAttachmentType: outwardTx.senderNrcFrontAttachmentType || outwardTx.senderNrcAttachmentType,
+      senderNrcFrontAttachmentSize: outwardTx.senderNrcFrontAttachmentSize || outwardTx.senderNrcAttachmentSize,
+      senderNrcBackAttachment: outwardTx.senderNrcBackAttachment,
+      senderNrcBackAttachmentName: outwardTx.senderNrcBackAttachmentName,
+      senderNrcBackAttachmentType: outwardTx.senderNrcBackAttachmentType,
+      senderNrcBackAttachmentSize: outwardTx.senderNrcBackAttachmentSize,
+      senderPassportAttachment: outwardTx.senderPassportAttachment || outwardTx.senderPassbookAttachment,
+      senderPassportAttachmentName: outwardTx.senderPassportAttachmentName || outwardTx.senderPassbookAttachmentName,
+      senderPassportAttachmentType: outwardTx.senderPassportAttachmentType || outwardTx.senderPassbookAttachmentType,
+      senderPassportAttachmentSize: outwardTx.senderPassportAttachmentSize || outwardTx.senderPassbookAttachmentSize,
+
+      receiverName: outwardTx.receiverName,
+      receiverNameMm: outwardTx.receiverNameMm,
+      receiverNrc: outwardTx.receiverNrc,
+      receiverPassport: outwardTx.receiverPassport || outwardTx.receiverPassbook,
+      receiverPassbook: outwardTx.receiverPassbook || outwardTx.receiverPassport,
+      receiverPhone: outwardTx.receiverPhone,
+      receiverAddress: outwardTx.receiverAddress,
+      receiverCountryCode: outwardTx.receiverCountryCode || 'MM',
+
+      sourceCurrency: outwardTx.sourceCurrency || 'MMK',
+      targetCurrency: outwardTx.targetCurrency || 'MMK',
+      sendAmount: Number(outwardTx.sendAmount || 0),
+      exchangeRate: Number(outwardTx.exchangeRate || 1),
+      receiveAmount: Number(outwardTx.receiveAmount || outwardTx.sendAmount || 0),
+      serviceFee: Number(outwardTx.serviceFee || 0),
+      commissionFee: Number(outwardTx.commissionFee || 0),
+      taxAmount: 0,
+      totalPayableAmount: Number(outwardTx.receiveAmount || outwardTx.sendAmount || 0),
+
+      payoutMethod: outwardTx.payoutMethod || 'CASH_PICKUP',
+      payoutBankName: outwardTx.payoutBankName,
+      payoutAccountNumber: outwardTx.payoutAccountNumber,
+
+      sendingBranchId: outwardTx.sendingBranchId || currentUser.branchId || 'BR-001',
+      payoutBranchId: targetBranchId,
+      branchId: targetBranchId,
+      partnerCompanyId: outwardTx.partnerCompanyId,
+
+      purposeId: outwardTx.purposeId || 'PUR-001',
+      purposeName: outwardTx.purposeName || 'Domestic Remittance',
+      senderNote: outwardTx.senderNote || note,
+      proofDocumentName: outwardTx.proofDocumentName,
+      proofDocumentUrl: outwardTx.proofDocumentUrl,
+      proofDocumentType: outwardTx.proofDocumentType,
+      proofDocumentSize: outwardTx.proofDocumentSize,
+      proofDocCategory: outwardTx.proofDocCategory,
+
+      blacklistChecked: true,
+      blacklistAlert: outwardTx.blacklistAlert,
+
+      creatorUserId: currentUser.id,
+      creatorName: `${currentUser.fullName} (${currentUser.role}) [Dispatched from ${outwardTx.transactionNo}]`,
+      createdDate: nowStr,
+
+      linkedTransactionId: outwardTx.id,
+      linkedTransactionNo: outwardTx.transactionNo
+    };
+
+    const updatedOutwardTx: RemittanceTransaction = {
+      ...outwardTx,
+      status: 'APPROVED',
+      isSentToDestination: true,
+      sentDate: nowStr,
+      sentByUserId: currentUser.id,
+      sentByName: `${currentUser.fullName} (${currentUser.role})`,
+      payoutBranchId: targetBranchId,
+      linkedTransactionId: inwardTx.id,
+      linkedTransactionNo: inwardTx.transactionNo
+    };
+
+    const sendingBranchName = db.branches.find(b => b.id === outwardTx.sendingBranchId)?.nameEn || outwardTx.sendingBranchId;
+    const targetBranchName = db.branches.find(b => b.id === targetBranchId)?.nameEn || targetBranchId;
+
+    const auditRecord: AuditRecord = {
+      id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: nowStr,
+      userId: currentUser.id,
+      userName: currentUser.fullName,
+      userRole: currentUser.role,
+      action: 'UPDATE',
+      entityType: 'OUTWARD',
+      entityId: outwardTx.transactionNo,
+      details: `Domestic Outward Remittance ${outwardTx.transactionNo} (MTCN: ${outwardTx.mtcn}) sent from ${sendingBranchName} to ${targetBranchName}. Auto-created Inward Claim ${inwardTx.transactionNo} for Payout Cash.`
+    };
+
+    setDb(prev => ({
+      ...prev,
+      transactions: [inwardTx, ...prev.transactions.map(t => t.id === outwardId ? updatedOutwardTx : t)],
+      auditLogs: [auditRecord, ...prev.auditLogs]
+    }));
+
+    syncLiveTransactionToCloud(inwardTx, auditRecord);
+    syncLiveTransactionToCloud(updatedOutwardTx, auditRecord);
+
+    return { success: true, inwardTx };
   };
 
   // 4. Reject Transaction
@@ -1857,18 +2027,28 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const tx = db.transactions.find(t => t.id === id);
     if (!tx) return false;
 
+    const nowStr = new Date().toISOString();
     const updatedTx: RemittanceTransaction = {
       ...tx,
       status: 'PAID_OUT',
       approverUserId: currentUser.id,
       approverName: `${currentUser.fullName} (${currentUser.role})`,
       approvalNote: note || 'Funds successfully disbursed to beneficiary.',
-      paidOutDate: new Date().toISOString(),
+      paidOutDate: nowStr,
     };
+
+    // Synchronize corresponding Outward Remittance if linked
+    const linkedOutward = db.transactions.find(t => 
+      t.type === 'OUTWARD' && (
+        (tx.linkedTransactionId && t.id === tx.linkedTransactionId) ||
+        (tx.linkedTransactionNo && t.transactionNo === tx.linkedTransactionNo) ||
+        (t.mtcn === tx.mtcn)
+      )
+    );
 
     const auditRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: nowStr,
       userId: currentUser.id,
       userName: currentUser.fullName,
       userRole: currentUser.role,
@@ -1880,11 +2060,25 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setDb(prev => ({
       ...prev,
-      transactions: prev.transactions.map(t => t.id === id ? updatedTx : t),
+      transactions: prev.transactions.map(t => {
+        if (t.id === id) return updatedTx;
+        if (linkedOutward && t.id === linkedOutward.id) {
+          return {
+            ...t,
+            status: 'PAID_OUT',
+            paidOutDate: nowStr,
+            approvalNote: (t.approvalNote ? t.approvalNote + ' | ' : '') + `Paid out at destination branch by ${currentUser.fullName}`
+          };
+        }
+        return t;
+      }),
       auditLogs: [auditRecord, ...prev.auditLogs]
     }));
 
     syncLiveTransactionToCloud(updatedTx, auditRecord);
+    if (linkedOutward) {
+      syncLiveTransactionToCloud({ ...linkedOutward, status: 'PAID_OUT', paidOutDate: nowStr }, auditRecord);
+    }
 
     return true;
   };
@@ -3850,6 +4044,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         createOutwardRemittance,
         createInwardRemittance,
         approveTransaction,
+        sendOutwardToInward,
         rejectTransaction,
         holdTransaction,
         payoutInwardTransaction,
