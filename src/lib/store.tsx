@@ -554,6 +554,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       receiverCountryCode: tx.receiverCountryCode || (tx as any).toCountry || '',
       senderPassbook: tx.senderPassbook || '',
       receiverPassbook: tx.receiverPassbook || '',
+      isSentToDestination: tx.isSentToDestination || false,
+      sentDate: tx.sentDate || '',
+      sentByUserId: tx.sentByUserId || '',
+      sentByName: tx.sentByName || '',
+      linkedTransactionId: tx.linkedTransactionId || '',
+      linkedTransactionNo: tx.linkedTransactionNo || '',
     };
   };
 
@@ -635,6 +641,15 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               exchangeRate: Number(tx.exchangeRate) || 1,
               serviceFee: Number(tx.serviceFee || tx.transferFee) || 0,
               totalPayableAmount: Number(tx.totalPayableAmount || tx.totalCollected) || 0,
+              payoutBranchId: tx.payoutBranchId || tx.payout_branch_id || existing?.payoutBranchId || '',
+              sendingBranchId: tx.sendingBranchId || tx.sending_branch_id || existing?.sendingBranchId || '',
+              scope: tx.scope || existing?.scope || 'DOMESTIC',
+              isSentToDestination: tx.isSentToDestination ?? tx.is_sent_to_destination ?? existing?.isSentToDestination ?? false,
+              sentDate: tx.sentDate || tx.sent_date || existing?.sentDate || '',
+              sentByUserId: tx.sentByUserId || tx.sent_by_user_id || existing?.sentByUserId || '',
+              sentByName: tx.sentByName || tx.sent_by_name || existing?.sentByName || '',
+              linkedTransactionId: tx.linkedTransactionId || tx.linked_transaction_id || existing?.linkedTransactionId || '',
+              linkedTransactionNo: tx.linkedTransactionNo || tx.linked_transaction_no || existing?.linkedTransactionNo || '',
             };
 
             if (merged.transactionNo) map.set(merged.transactionNo, merged);
@@ -1486,6 +1501,142 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  // Auto-reconcile Domestic Outward Remittances:
+  // If a domestic outward transaction is APPROVED (or PAID_OUT), but no corresponding INWARD claim exists for its MTCN,
+  // automatically create the inward claim in the receiving branch queue and sync to cloud!
+  useEffect(() => {
+    const unlinkedDomesticOutwards = db.transactions.filter(t => 
+      t.type === 'OUTWARD' && 
+      t.scope === 'DOMESTIC' && 
+      (t.status === 'APPROVED' || t.status === 'PAID_OUT') &&
+      !db.transactions.some(inw => inw.type === 'INWARD' && inw.mtcn === t.mtcn)
+    );
+
+    if (unlinkedDomesticOutwards.length === 0) return;
+
+    setDb(prev => {
+      const newInwards: RemittanceTransaction[] = [];
+      const updatedOutwards = prev.transactions.map(outwardTx => {
+        if (
+          outwardTx.type === 'OUTWARD' && 
+          outwardTx.scope === 'DOMESTIC' && 
+          (outwardTx.status === 'APPROVED' || outwardTx.status === 'PAID_OUT') &&
+          !prev.transactions.some(inw => inw.type === 'INWARD' && inw.mtcn === outwardTx.mtcn) &&
+          !newInwards.some(inw => inw.mtcn === outwardTx.mtcn)
+        ) {
+          const targetBranchId = outwardTx.payoutBranchId || 
+            (outwardTx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+          const nowStr = new Date().toISOString();
+          const inwTxNo = generateTxNo('INWARD');
+          const inwId = getNextCleanId('TX', [...prev.transactions, ...newInwards], 3);
+
+          const inwardTx: RemittanceTransaction = {
+            id: inwId,
+            transactionNo: inwTxNo,
+            mtcn: outwardTx.mtcn,
+            type: 'INWARD',
+            scope: 'DOMESTIC',
+            status: outwardTx.status === 'PAID_OUT' ? 'PAID_OUT' : 'PENDING_APPROVAL',
+            senderName: outwardTx.senderName,
+            senderNameMm: outwardTx.senderNameMm,
+            senderNrc: outwardTx.senderNrc,
+            senderPassport: outwardTx.senderPassport || outwardTx.senderPassbook,
+            senderPassbook: outwardTx.senderPassbook || outwardTx.senderPassport,
+            senderPhone: outwardTx.senderPhone,
+            senderAddress: outwardTx.senderAddress,
+            senderCountryCode: outwardTx.senderCountryCode || 'MM',
+            senderFatherName: outwardTx.senderFatherName,
+            senderOccupation: outwardTx.senderOccupation,
+            senderSourceOfFund: outwardTx.senderSourceOfFund,
+            senderDateOfBirth: outwardTx.senderDateOfBirth,
+            senderIdType: outwardTx.senderIdType || (outwardTx.senderPassport ? 'PASSPORT' : 'NRC'),
+            senderNrcAttachment: outwardTx.senderNrcAttachment || outwardTx.senderNrcFrontAttachment,
+            senderNrcAttachmentName: outwardTx.senderNrcAttachmentName || outwardTx.senderNrcFrontAttachmentName,
+            senderNrcAttachmentType: outwardTx.senderNrcAttachmentType || outwardTx.senderNrcFrontAttachmentType,
+            senderNrcAttachmentSize: outwardTx.senderNrcAttachmentSize || outwardTx.senderNrcFrontAttachmentSize,
+            senderNrcFrontAttachment: outwardTx.senderNrcFrontAttachment || outwardTx.senderNrcAttachment,
+            senderNrcFrontAttachmentName: outwardTx.senderNrcFrontAttachmentName || outwardTx.senderNrcAttachmentName,
+            senderNrcFrontAttachmentType: outwardTx.senderNrcFrontAttachmentType || outwardTx.senderNrcAttachmentType,
+            senderNrcFrontAttachmentSize: outwardTx.senderNrcFrontAttachmentSize || outwardTx.senderNrcFrontAttachmentSize,
+            senderNrcBackAttachment: outwardTx.senderNrcBackAttachment,
+            senderNrcBackAttachmentName: outwardTx.senderNrcBackAttachmentName,
+            senderNrcBackAttachmentType: outwardTx.senderNrcBackAttachmentType,
+            senderNrcBackAttachmentSize: outwardTx.senderNrcBackAttachmentSize,
+            senderPassportAttachment: outwardTx.senderPassportAttachment || outwardTx.senderPassbookAttachment,
+            senderPassportAttachmentName: outwardTx.senderPassportAttachmentName || outwardTx.senderPassbookAttachmentName,
+            senderPassportAttachmentType: outwardTx.senderPassportAttachmentType || outwardTx.senderPassbookAttachmentType,
+            senderPassportAttachmentSize: outwardTx.senderPassportAttachmentSize || outwardTx.senderPassbookAttachmentSize,
+
+            receiverName: outwardTx.receiverName,
+            receiverNameMm: outwardTx.receiverNameMm,
+            receiverNrc: outwardTx.receiverNrc,
+            receiverPassport: outwardTx.receiverPassport || outwardTx.receiverPassbook,
+            receiverPassbook: outwardTx.receiverPassbook || outwardTx.receiverPassport,
+            receiverPhone: outwardTx.receiverPhone,
+            receiverAddress: outwardTx.receiverAddress,
+            receiverCountryCode: outwardTx.receiverCountryCode || 'MM',
+
+            sourceCurrency: outwardTx.sourceCurrency || 'MMK',
+            targetCurrency: outwardTx.targetCurrency || 'MMK',
+            sendAmount: Number(outwardTx.sendAmount || 0),
+            exchangeRate: Number(outwardTx.exchangeRate || 1),
+            receiveAmount: Number(outwardTx.receiveAmount || outwardTx.sendAmount || 0),
+            serviceFee: Number(outwardTx.serviceFee || 0),
+            commissionFee: Number(outwardTx.commissionFee || 0),
+            taxAmount: 0,
+            totalPayableAmount: Number(outwardTx.receiveAmount || outwardTx.sendAmount || 0),
+
+            payoutMethod: outwardTx.payoutMethod || 'CASH_PICKUP',
+            payoutBankName: outwardTx.payoutBankName,
+            payoutAccountNumber: outwardTx.payoutAccountNumber,
+
+            sendingBranchId: outwardTx.sendingBranchId || currentUser.branchId || 'BR-001',
+            payoutBranchId: targetBranchId,
+            branchId: targetBranchId,
+            partnerCompanyId: outwardTx.partnerCompanyId,
+
+            purposeId: outwardTx.purposeId || 'PUR-001',
+            purposeName: outwardTx.purposeName || 'Domestic Remittance',
+            senderNote: outwardTx.senderNote,
+            proofDocumentName: outwardTx.proofDocumentName,
+            proofDocumentUrl: outwardTx.proofDocumentUrl,
+            proofDocumentType: outwardTx.proofDocumentType,
+            proofDocumentSize: outwardTx.proofDocumentSize,
+            proofDocCategory: outwardTx.proofDocCategory,
+
+            blacklistChecked: true,
+            blacklistAlert: outwardTx.blacklistAlert,
+
+            creatorUserId: currentUser.id,
+            creatorName: `${currentUser.fullName} (${currentUser.role}) [Auto Reconciled]`,
+            createdDate: outwardTx.createdDate || nowStr,
+
+            linkedTransactionId: outwardTx.id,
+            linkedTransactionNo: outwardTx.transactionNo
+          };
+
+          newInwards.push(inwardTx);
+          syncLiveTransactionToCloud(inwardTx);
+
+          return {
+            ...outwardTx,
+            isSentToDestination: true,
+            sentDate: outwardTx.sentDate || nowStr,
+            payoutBranchId: targetBranchId,
+            linkedTransactionId: inwardTx.id,
+            linkedTransactionNo: inwardTx.transactionNo
+          };
+        }
+        return outwardTx;
+      });
+
+      return {
+        ...prev,
+        transactions: [...newInwards, ...updatedOutwards]
+      };
+    });
+  }, [db.transactions]);
+
   // 1. Create Outward Remittance
   const createOutwardRemittance = async (txData: Partial<RemittanceTransaction>): Promise<RemittanceTransaction> => {
     const txNo = generateTxNo('OUTWARD');
@@ -1749,6 +1900,120 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!tx) return false;
 
     const nowStr = new Date().toISOString();
+    
+    // In domestic remittance, approving an outward remittance ALWAYS automatically sends it to the receiving branch
+    const isDomesticOutward = tx.type === 'OUTWARD' && (tx.scope === 'DOMESTIC' || autoSendToInward !== false);
+    const targetBranchId = tx.payoutBranchId || 
+      (tx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+
+    // Check if an inward claim already exists for this MTCN
+    const existingInward = db.transactions.find(t => t.type === 'INWARD' && t.mtcn === tx.mtcn);
+
+    let inwardTx: RemittanceTransaction | undefined = undefined;
+    let inwardAuditRecord: AuditRecord | undefined = undefined;
+
+    if (isDomesticOutward && !existingInward) {
+      const inwTxNo = generateTxNo('INWARD');
+      inwardTx = {
+        id: getNextCleanId('TX', db.transactions, 3),
+        transactionNo: inwTxNo,
+        mtcn: tx.mtcn,
+        type: 'INWARD',
+        scope: 'DOMESTIC',
+        status: 'PENDING_APPROVAL', // Waiting for Receive Branch Checker to review & Payout Cash!
+
+        senderName: tx.senderName,
+        senderNameMm: tx.senderNameMm,
+        senderNrc: tx.senderNrc,
+        senderPassport: tx.senderPassport || tx.senderPassbook,
+        senderPassbook: tx.senderPassbook || tx.senderPassport,
+        senderPhone: tx.senderPhone,
+        senderAddress: tx.senderAddress,
+        senderCountryCode: tx.senderCountryCode || 'MM',
+        senderFatherName: tx.senderFatherName,
+        senderOccupation: tx.senderOccupation,
+        senderSourceOfFund: tx.senderSourceOfFund,
+        senderDateOfBirth: tx.senderDateOfBirth,
+        senderIdType: tx.senderIdType || (tx.senderPassport ? 'PASSPORT' : 'NRC'),
+        senderNrcAttachment: tx.senderNrcAttachment || tx.senderNrcFrontAttachment,
+        senderNrcAttachmentName: tx.senderNrcAttachmentName || tx.senderNrcFrontAttachmentName,
+        senderNrcAttachmentType: tx.senderNrcAttachmentType || tx.senderNrcFrontAttachmentType,
+        senderNrcAttachmentSize: tx.senderNrcAttachmentSize || tx.senderNrcFrontAttachmentSize,
+        senderNrcFrontAttachment: tx.senderNrcFrontAttachment || tx.senderNrcAttachment,
+        senderNrcFrontAttachmentName: tx.senderNrcFrontAttachmentName || tx.senderNrcAttachmentName,
+        senderNrcFrontAttachmentType: tx.senderNrcFrontAttachmentType || tx.senderNrcAttachmentType,
+        senderNrcFrontAttachmentSize: tx.senderNrcFrontAttachmentSize || tx.senderNrcFrontAttachmentSize,
+        senderNrcBackAttachment: tx.senderNrcBackAttachment,
+        senderNrcBackAttachmentName: tx.senderNrcBackAttachmentName,
+        senderNrcBackAttachmentType: tx.senderNrcBackAttachmentType,
+        senderNrcBackAttachmentSize: tx.senderNrcBackAttachmentSize,
+        senderPassportAttachment: tx.senderPassportAttachment || tx.senderPassbookAttachment,
+        senderPassportAttachmentName: tx.senderPassportAttachmentName || tx.senderPassbookAttachmentName,
+        senderPassportAttachmentType: tx.senderPassportAttachmentType || tx.senderPassbookAttachmentType,
+        senderPassportAttachmentSize: tx.senderPassportAttachmentSize || tx.senderPassbookAttachmentSize,
+
+        receiverName: tx.receiverName,
+        receiverNameMm: tx.receiverNameMm,
+        receiverNrc: tx.receiverNrc,
+        receiverPassport: tx.receiverPassport || tx.receiverPassbook,
+        receiverPassbook: tx.receiverPassbook || tx.receiverPassport,
+        receiverPhone: tx.receiverPhone,
+        receiverAddress: tx.receiverAddress,
+        receiverCountryCode: tx.receiverCountryCode || 'MM',
+
+        sourceCurrency: tx.sourceCurrency || 'MMK',
+        targetCurrency: tx.targetCurrency || 'MMK',
+        sendAmount: Number(tx.sendAmount || 0),
+        exchangeRate: Number(tx.exchangeRate || 1),
+        receiveAmount: Number(tx.receiveAmount || tx.sendAmount || 0),
+        serviceFee: Number(tx.serviceFee || 0),
+        commissionFee: Number(tx.commissionFee || 0),
+        taxAmount: 0,
+        totalPayableAmount: Number(tx.receiveAmount || tx.sendAmount || 0),
+
+        payoutMethod: tx.payoutMethod || 'CASH_PICKUP',
+        payoutBankName: tx.payoutBankName,
+        payoutAccountNumber: tx.payoutAccountNumber,
+
+        sendingBranchId: tx.sendingBranchId || currentUser.branchId || 'BR-001',
+        payoutBranchId: targetBranchId,
+        branchId: targetBranchId,
+        partnerCompanyId: tx.partnerCompanyId,
+
+        purposeId: tx.purposeId || 'PUR-001',
+        purposeName: tx.purposeName || 'Domestic Remittance',
+        senderNote: tx.senderNote || note,
+        proofDocumentName: tx.proofDocumentName,
+        proofDocumentUrl: tx.proofDocumentUrl,
+        proofDocumentType: tx.proofDocumentType,
+        proofDocumentSize: tx.proofDocumentSize,
+        proofDocCategory: tx.proofDocCategory,
+
+        blacklistChecked: true,
+        blacklistAlert: tx.blacklistAlert,
+
+        creatorUserId: currentUser.id,
+        creatorName: `${currentUser.fullName} (${currentUser.role}) [Dispatched from ${tx.transactionNo}]`,
+        createdDate: nowStr,
+
+        linkedTransactionId: tx.id,
+        linkedTransactionNo: tx.transactionNo
+      };
+
+      const destBranchName = db.branches.find(b => b.id === targetBranchId)?.nameEn || targetBranchId;
+      inwardAuditRecord = {
+        id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000) + 1}`,
+        timestamp: nowStr,
+        userId: currentUser.id,
+        userName: currentUser.fullName,
+        userRole: currentUser.role,
+        action: 'CREATE',
+        entityType: 'INWARD',
+        entityId: inwTxNo,
+        details: `Auto-dispatched Domestic Inward Remittance to ${destBranchName} from Outward ${tx.transactionNo} (MTCN: ${tx.mtcn}) upon approval.`
+      };
+    }
+
     const updatedTx: RemittanceTransaction = {
       ...tx,
       status: 'APPROVED',
@@ -1756,6 +2021,15 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       approverName: `${currentUser.fullName} (${currentUser.role})`,
       approvalNote: note || 'Transaction verified and approved by Checker.',
       approvedDate: nowStr,
+      ...(isDomesticOutward ? {
+        isSentToDestination: true,
+        sentDate: nowStr,
+        sentByUserId: currentUser.id,
+        sentByName: `${currentUser.fullName} (${currentUser.role})`,
+        payoutBranchId: targetBranchId,
+        linkedTransactionId: existingInward?.id || inwardTx?.id,
+        linkedTransactionNo: existingInward?.transactionNo || inwardTx?.transactionNo
+      } : {})
     };
 
     const auditRecord: AuditRecord = {
@@ -1767,22 +2041,25 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       action: 'APPROVE',
       entityType: tx.type === 'OUTWARD' ? 'OUTWARD' : 'INWARD',
       entityId: tx.transactionNo,
-      details: `Checker ${currentUser.fullName} approved transaction ${tx.transactionNo} (MTCN: ${tx.mtcn}). Note: ${note || 'None'}`
+      details: `Checker ${currentUser.fullName} approved transaction ${tx.transactionNo} (MTCN: ${tx.mtcn}).${isDomesticOutward ? ' Auto-sent to receiving branch Inward queue.' : ''} Note: ${note || 'None'}`
     };
 
     setDb(prev => ({
       ...prev,
-      transactions: prev.transactions.map(t => t.id === id ? updatedTx : t),
-      auditLogs: [auditRecord, ...prev.auditLogs]
+      transactions: [
+        ...(inwardTx ? [inwardTx] : []),
+        ...prev.transactions.map(t => t.id === id ? updatedTx : t)
+      ],
+      auditLogs: [
+        ...(inwardAuditRecord ? [inwardAuditRecord] : []),
+        auditRecord,
+        ...prev.auditLogs
+      ]
     }));
 
     syncLiveTransactionToCloud(updatedTx, auditRecord);
-
-    // If autoSendToInward is requested for domestic outward remittance, dispatch immediately
-    if (autoSendToInward && tx.type === 'OUTWARD') {
-      setTimeout(() => {
-        sendOutwardToInward(id, note);
-      }, 50);
+    if (inwardTx && inwardAuditRecord) {
+      syncLiveTransactionToCloud(inwardTx, inwardAuditRecord);
     }
 
     return true;

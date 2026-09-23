@@ -225,12 +225,39 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
 
   const handleApprove = async () => {
     if (!selectedTx) return;
-    const success = await approveTransaction(selectedTx.id, approvalNote);
-    if (success) {
-      confetti({ particleCount: 70, spread: 60 });
-      setShowReviewModal(false);
-      setVoucherTx(selectedTx);
-      setShowVoucherModal(true);
+    setIsSending(true);
+    try {
+      const isDomestic = selectedTx.scope === 'DOMESTIC';
+      const targetBranchId = selectedTx.payoutBranchId || (selectedTx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
+      const destBranch = db.branches.find(b => b.id === targetBranchId);
+      const sendBranch = db.branches.find(b => b.id === selectedTx.sendingBranchId);
+
+      const success = await approveTransaction(selectedTx.id, approvalNote, true);
+      if (success) {
+        confetti({ particleCount: 80, spread: 70 });
+        setShowReviewModal(false);
+
+        if (isDomestic) {
+          const updated = db.transactions.find(t => t.id === selectedTx.id) || selectedTx;
+          setDispatchSuccessModal({
+            show: true,
+            outwardNo: selectedTx.transactionNo,
+            inwardNo: updated.linkedTransactionNo || `INW-${selectedTx.mtcn.slice(-6)}`,
+            mtcn: selectedTx.mtcn,
+            destBranchId: targetBranchId,
+            destBranchName: destBranch ? `${destBranch.nameEn} (${destBranch.code})` : 'Mandalay Branch (MDY-01)',
+            sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
+            amount: Number(selectedTx.receiveAmount || selectedTx.sendAmount || 0),
+            currency: selectedTx.targetCurrency || 'MMK',
+            receiverName: selectedTx.receiverName
+          });
+        } else {
+          setVoucherTx(selectedTx);
+          setShowVoucherModal(true);
+        }
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -1874,25 +1901,25 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
 
                 {selectedTx.status === 'PENDING_APPROVAL' ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={handleApprove}
-                      disabled={isSending}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
-                    >
-                      {t.approve}
-                    </button>
-
-                    {selectedTx.scope === 'DOMESTIC' && (
+                    {selectedTx.scope === 'DOMESTIC' ? (
                       <button
                         type="button"
-                        onClick={handleApproveAndSend}
+                        onClick={handleApprove}
                         disabled={isSending}
-                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-sky-900/40 transition-all hover:scale-[1.02] cursor-pointer flex items-center space-x-1.5"
-                        title={language === 'my' ? 'အတည်ပြုပြီး လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ ငွေလွှဲပေးပို့မည်' : 'Approve & Dispatch Remittance to Destination Inward'}
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer flex items-center space-x-2"
+                        title={language === 'my' ? 'အတည်ပြုပြီး လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ အလိုအလျောက် ပေးပို့မည်' : 'Approve & Auto-Dispatch to Destination Branch Inward'}
                       >
-                        <SendHorizontal className="w-3.5 h-3.5 text-sky-200" />
-                        <span>{language === 'my' ? 'Approve & Send (လွှဲပို့မည်)' : 'Approve & Send to Branch'}</span>
+                        <SendHorizontal className="w-4 h-4 text-sky-200" />
+                        <span>{language === 'my' ? 'Approve & Send (အတည်ပြုပြီး လွှဲပို့မည်)' : 'Approve & Send to Branch'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleApprove}
+                        disabled={isSending}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
+                      >
+                        {t.approve}
                       </button>
                     )}
                   </>
