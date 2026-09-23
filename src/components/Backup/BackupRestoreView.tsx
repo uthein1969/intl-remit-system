@@ -56,6 +56,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
     resetToDefaultSeed, 
     clearAllTransactions,
     clearAllAuditLogs,
+    clearAllCustomers,
     clearLocalAndTursoDataForTesting,
     currentUser 
   } = useRemittance();
@@ -75,7 +76,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
     isOpen: boolean;
     title: string;
     description: string;
-    actionType: 'clear_tx' | 'clear_audit' | 'reset_seed' | 'clear_cache';
+    actionType: 'clear_tx' | 'clear_audit' | 'clear_customers' | 'reset_seed' | 'clear_cache';
     confirmButtonText: string;
   } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
@@ -316,6 +317,14 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
           message: language === 'my'
             ? `Audit logs (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (audit_logs) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
             : `Successfully cleared all ${res.count} audit logs from local storage and Turso cloud.`
+        });
+      } else if (confirmDialog.actionType === 'clear_customers') {
+        const res = await clearAllCustomers(true);
+        setNotification({
+          type: 'success',
+          message: language === 'my'
+            ? `Customer profiles (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (customer_profiles) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
+            : `Successfully cleared all ${res.count} customer profiles from local storage and Turso cloud.`
         });
       } else if (confirmDialog.actionType === 'reset_seed') {
         resetToDefaultSeed();
@@ -653,11 +662,17 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                   {db.auditLogs.length}
                 </span>
               </div>
+              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block font-semibold">Customers</span>
+                <span className={`text-sm font-mono font-bold ${db.customers.length > 0 ? 'text-sky-400' : 'text-slate-500'}`}>
+                  {db.customers.length}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Action Buttons Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Button 1: Clear Transactions */}
             <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
               <div>
@@ -731,6 +746,44 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
               >
                 <History className="w-3.5 h-3.5" />
                 <span>{language === 'my' ? 'မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Clear Audit Logs'}</span>
+              </button>
+            </div>
+
+            {/* Button 3: Clear Customer Profiles */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                  <span className="flex items-center gap-1.5 text-sky-400">
+                    <Users className="w-4 h-4" />
+                    {language === 'my' ? 'Customer စာရင်း ရှင်းလင်းမည်' : 'Clear Customers'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-mono">
+                    {db.customers.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {language === 'my'
+                    ? 'Local Storage နှင့် Turso Cloud (customer_profiles) ရှိ Customer မှတ်တမ်းများကို ရှင်းလင်းမည်'
+                    : 'Clears customer profiles from both local state and Turso LibSQL table.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-clear-customers"
+                disabled={db.customers.length === 0 || isProcessingAction}
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'Customer စာရင်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Customer Profiles?',
+                  description: language === 'my'
+                    ? `လက်ရှိ စနစ်ထဲရှိ Customer မှတ်တမ်း (${db.customers.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (customer_profiles) နှစ်ခုစလုံးမှ ရှင်းထုတ်ပါမည်။`
+                    : `Are you sure you want to clear all ${db.customers.length} customer profiles from both local storage and Turso customer_profiles table?`,
+                  actionType: 'clear_customers',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Customer စာရင်းများ ရှင်းမည်' : 'Yes, Clear Customer Profiles'
+                })}
+                className="w-full py-2.5 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'Customers ရှင်းလင်းမည်' : 'Clear Customers'}</span>
               </button>
             </div>
 

@@ -169,6 +169,7 @@ interface RemittanceContextType {
   resetToDefaultSeed: () => void;
   clearAllTransactions: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
   clearAllAuditLogs: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
+  clearAllCustomers: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
   clearLocalAndTursoDataForTesting: () => Promise<void>;
   
   // Default Status Configuration (Admin Setup for User Admin Role)
@@ -2818,9 +2819,39 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { count, tursoSuccess };
   };
 
+  const clearAllCustomers = async (alsoClearTurso: boolean = true): Promise<{ count: number; tursoSuccess?: boolean }> => {
+    const count = db.customers.length;
+    setDb(prev => {
+      const updated = { ...prev, customers: [] };
+      persistDatabaseSafely(updated);
+      return updated;
+    });
+
+    let tursoSuccess: boolean | undefined = undefined;
+    if (alsoClearTurso) {
+      try {
+        const { clearTursoRemoteTable } = await import('./tursoClient');
+        const res = await clearTursoRemoteTable('customer_profiles');
+        tursoSuccess = res?.success;
+      } catch (e) {
+        console.warn('Failed to clear Turso remote customer profiles:', e);
+        tursoSuccess = false;
+      }
+    }
+
+    logActionDirect(
+      'DELETE',
+      'CUSTOMER',
+      'ALL_RECORDS',
+      `Cleared all ${count} customer profiles for testing (Turso cleared: ${tursoSuccess ?? 'no'}).`
+    );
+    return { count, tursoSuccess };
+  };
+
   const clearLocalAndTursoDataForTesting = async (): Promise<void> => {
     await clearAllTransactions(true);
     await clearAllAuditLogs(true);
+    await clearAllCustomers(true);
     try {
       localStorage.removeItem(LOCAL_STORAGE_DB_KEY);
       await clearIndexedDb();
@@ -4422,6 +4453,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetToDefaultSeed: resetToDefaultData,
         clearAllTransactions,
         clearAllAuditLogs,
+        clearAllCustomers,
         clearLocalAndTursoDataForTesting,
         defaultStatusConfig,
         updateDefaultStatusConfig,

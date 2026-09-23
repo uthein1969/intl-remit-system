@@ -18,7 +18,8 @@ import {
   Trash2,
   History,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import {
@@ -42,6 +43,7 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
     language,
     clearAllTransactions,
     clearAllAuditLogs,
+    clearAllCustomers,
     resetToDefaultSeed
   } = useRemittance();
   const [status, setStatus] = useState<TursoStatusResponse | null>(null);
@@ -61,7 +63,7 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
     isOpen: boolean;
     title: string;
     description: string;
-    actionType: 'clear_tx' | 'clear_audit' | 'reset_seed';
+    actionType: 'clear_tx' | 'clear_audit' | 'clear_customers' | 'reset_seed';
     confirmText: string;
   } | null>(null);
 
@@ -278,6 +280,12 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
         onNotify('success', language === 'my'
           ? `Audit logs (${res.count}) ခုအား Local နှင့် Turso Cloud (audit_logs) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
           : `Cleared ${res.count} audit logs from local and Turso cloud.`);
+      } else if (confirmModal.actionType === 'clear_customers') {
+        const res = await clearAllCustomers(true);
+        await loadStatus();
+        onNotify('success', language === 'my'
+          ? `Customer profiles (${res.count}) ခုအား Local နှင့် Turso Cloud (customer_profiles) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
+          : `Cleared ${res.count} customer profiles from local and Turso cloud.`);
       } else if (confirmModal.actionType === 'reset_seed') {
         resetToDefaultSeed();
         await loadStatus();
@@ -694,15 +702,23 @@ turso db tokens create remittance-db`;
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
-            <span className="text-xs text-slate-400">Turso Cloud TX:</span>
-            <span className="text-xs font-mono font-bold text-amber-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-              {status?.counts?.transactions ?? db.transactions.length}
-            </span>
+          <div className="flex items-center space-x-3 shrink-0">
+            <div className="flex items-center space-x-1 text-xs text-slate-400">
+              <span>TX:</span>
+              <span className="font-mono font-bold text-amber-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                {status?.counts?.transactions ?? db.transactions.length}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1 text-xs text-slate-400">
+              <span>Cust:</span>
+              <span className="font-mono font-bold text-sky-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                {status?.counts?.customers ?? db.customers.length}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           {/* Card 1: Clear Transactions */}
           <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
             <div>
@@ -779,7 +795,45 @@ turso db tokens create remittance-db`;
             </button>
           </div>
 
-          {/* Card 3: Reset Demo Seed Data */}
+          {/* Card 3: Clear Customer Profiles */}
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between font-bold text-white mb-1">
+                <span className="flex items-center gap-1.5 text-sky-400">
+                  <Users className="w-4 h-4" />
+                  {language === 'my' ? 'Customer များ ရှင်းမည်' : 'Clear Customers'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[10px] bg-sky-500/20 text-sky-300 font-mono">
+                  {status?.counts?.customers ?? db.customers.length}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {language === 'my'
+                  ? 'Turso (customer_profiles) နှင့် Local Storage Customer စာရင်းများ ရှင်းလင်းမည်'
+                  : 'Truncate customer_profiles table in Turso and local cache.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-turso-clear-customers"
+              disabled={isClearing}
+              onClick={() => setConfirmModal({
+                isOpen: true,
+                title: language === 'my' ? 'Turso Customer စာရင်းများ ရှင်းလင်းမည်လား?' : 'Clear Turso Customer Profiles?',
+                description: language === 'my'
+                  ? `Turso Cloud Database (customer_profiles) နှင့် Local Cache ထဲရှိ Customer မှတ်တမ်း အားလုံးကို ရှင်းလင်းပါမည်။`
+                  : 'This will purge all customer profiles from both remote Turso database and local storage.',
+                actionType: 'clear_customers',
+                confirmText: language === 'my' ? 'ဟုတ်ကဲ့၊ Customer များ ရှင်းမည်' : 'Yes, Clear Customers'
+              })}
+              className="w-full py-2.5 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-40"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>{language === 'my' ? 'Customer များ ရှင်းမည်' : 'Clear Customers'}</span>
+            </button>
+          </div>
+
+          {/* Card 4: Reset Demo Seed Data */}
           <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
             <div>
               <div className="flex items-center justify-between font-bold text-white mb-1">
