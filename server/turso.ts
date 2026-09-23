@@ -536,7 +536,8 @@ export async function syncPushToTurso(data: {
             ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?,
-            ?, ?, ?, ?
+            ?, ?, ?, ?,
+            ?, ?, ?
           )
           ON CONFLICT(id) DO UPDATE SET
             transaction_no=excluded.transaction_no,
@@ -1888,5 +1889,60 @@ export async function deleteTursoBranch(id: string) {
   });
   return { success: true };
 }
+
+export async function saveTursoExchangeRates(rates: any[]) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const list = Array.isArray(rates) ? rates : [rates];
+  for (const rate of list) {
+    if (!rate || !rate.id) continue;
+    const bRate = Number(rate.buyRate) || 0;
+    const sRate = Number(rate.sellRate) || 0;
+    const tRate = Number(rate.transferRate) || sRate || 0;
+    const cbRate = Number(rate.centralBankRate) || tRate || 0;
+    await client.execute({
+      sql: `INSERT INTO exchange_rates (
+        id, from_currency, to_currency, buy_rate, sell_rate, central_bank_rate, effective_date, updated_at,
+        transfer_rate, effective_time, updated_by, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        buy_rate=excluded.buy_rate,
+        sell_rate=excluded.sell_rate,
+        central_bank_rate=excluded.central_bank_rate,
+        effective_date=excluded.effective_date,
+        updated_at=excluded.updated_at,
+        transfer_rate=excluded.transfer_rate,
+        effective_time=excluded.effective_time,
+        updated_by=excluded.updated_by,
+        note=excluded.note;`,
+      args: [
+        rate.id,
+        rate.fromCurrency || '',
+        rate.toCurrency || 'MMK',
+        bRate,
+        sRate,
+        cbRate,
+        rate.effectiveDate || new Date().toISOString().split('T')[0],
+        rate.updatedAt || new Date().toISOString(),
+        tRate,
+        rate.effectiveTime || '09:00',
+        rate.updatedBy || 'Admin',
+        rate.note || ''
+      ]
+    });
+  }
+  return { success: true, count: list.length };
+}
+
+export async function deleteTursoExchangeRate(id: string) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  await client.execute({
+    sql: 'DELETE FROM exchange_rates WHERE id = ?;',
+    args: [id]
+  });
+  return { success: true };
+}
+
 
 

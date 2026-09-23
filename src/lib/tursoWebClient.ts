@@ -2,7 +2,7 @@
 // Provides instant, zero-server database connectivity directly from the browser (e.g. on Vercel, Netlify, Static Hosting).
 
 import { createClient, Client } from '@libsql/client/web';
-import { User, UserRole, RemittanceTransaction, Branch } from '../types';
+import { User, UserRole, RemittanceTransaction, Branch, ExchangeRate } from '../types';
 
 const TURSO_URL = 'https://remittance-db-uthein.turso.io';
 const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTczMTQsImlkIjoiMDFhMDhmYTYtZTYwMS03MzQ2LTk5YTYtYjAxNGNiZDU5YTI4Iiwia2lkIjoidU1rSk9uS0Rqcl9wRkNWOEtEQ3dDUFFtM2FacHlBTjNOVmZkaE9UeFV1OCIsInJpZCI6IjE3OTZkMDNiLTA4OGItNGZhMC04Yjk0LTAwZjliYWI1YjI3ZSJ9.1cgPOor1F3S55DoxEQ9IzWxvmxkxcy8Bq2EvMjmz6j5SzONju6fFIGKImCSB6vQjdnJbSTNQpYO8JzwHWUV6Cg';
@@ -1525,3 +1525,65 @@ export async function tursoWebDeleteBranch(id: string): Promise<{ success: boole
     return { success: false, message: err?.message };
   }
 }
+
+export async function tursoWebSaveExchangeRates(rates: ExchangeRate[]): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    for (const rate of rates) {
+      if (!rate || !rate.id) continue;
+      const bRate = Number(rate.buyRate) || 0;
+      const sRate = Number(rate.sellRate) || 0;
+      const tRate = Number(rate.transferRate) || sRate || 0;
+      const cbRate = Number((rate as any).centralBankRate) || tRate || 0;
+      await client.execute({
+        sql: `INSERT INTO exchange_rates (
+          id, from_currency, to_currency, buy_rate, sell_rate, central_bank_rate, effective_date, updated_at,
+          transfer_rate, effective_time, updated_by, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          buy_rate=excluded.buy_rate,
+          sell_rate=excluded.sell_rate,
+          central_bank_rate=excluded.central_bank_rate,
+          effective_date=excluded.effective_date,
+          updated_at=excluded.updated_at,
+          transfer_rate=excluded.transfer_rate,
+          effective_time=excluded.effective_time,
+          updated_by=excluded.updated_by,
+          note=excluded.note;`,
+        args: [
+          rate.id,
+          rate.fromCurrency || '',
+          rate.toCurrency || 'MMK',
+          bRate,
+          sRate,
+          cbRate,
+          rate.effectiveDate || new Date().toISOString().split('T')[0],
+          (rate as any).updatedAt || new Date().toISOString(),
+          tRate,
+          rate.effectiveTime || '09:00',
+          rate.updatedBy || 'Admin',
+          rate.note || ''
+        ]
+      });
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to save exchange rates:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebDeleteExchangeRate(id: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    await client.execute({
+      sql: 'DELETE FROM exchange_rates WHERE id = ?;',
+      args: [id]
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to delete exchange rate:', err);
+    return { success: false, message: err?.message };
+  }
+}
+

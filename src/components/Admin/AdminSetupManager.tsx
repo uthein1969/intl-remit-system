@@ -69,7 +69,9 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     saveCompany, deleteCompany,
     saveCurrency, deleteCurrency,
     saveCountry, deleteCountry,
-    saveExchangeRate, deleteExchangeRate,
+    saveExchangeRate, 
+    saveExchangeRatesBatch,
+    deleteExchangeRate,
     saveBlacklist, deleteBlacklist,
     savePurpose, deletePurpose,
     saveCustomer, deleteCustomer,
@@ -305,7 +307,19 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     } else if (modalType === 'country') {
       saveCountry(editingItem);
     } else if (modalType === 'exchange_rate') {
-      saveExchangeRate(editingItem);
+      const today = new Date().toISOString().split('T')[0];
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const rateToSave: ExchangeRate = {
+        ...editingItem,
+        buyRate: Number(editingItem.buyRate) || 0,
+        sellRate: Number(editingItem.sellRate) || 0,
+        transferRate: Number(editingItem.transferRate) || Number(editingItem.sellRate) || 0,
+        effectiveDate: editingItem.effectiveDate || today,
+        effectiveTime: editingItem.effectiveTime || nowTime,
+        updatedBy: currentUser.fullName
+      };
+      saveExchangeRate(rateToSave);
+      setSaveNotice(language === 'my' ? `ငွေလဲလှယ်နှုန်း ${rateToSave.fromCurrency}/${rateToSave.toCurrency} ကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ။` : `Exchange rate ${rateToSave.fromCurrency}/${rateToSave.toCurrency} saved successfully.`);
     } else if (modalType === 'blacklist') {
       saveBlacklist(editingItem);
     } else if (modalType === 'purpose') {
@@ -382,9 +396,9 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       const drafts: Record<string, { buyRate: number | string; sellRate: number | string; transferRate: number | string }> = {};
       db.exchangeRates.forEach(r => {
         drafts[r.id] = {
-          buyRate: r.buyRate,
-          sellRate: r.sellRate,
-          transferRate: r.transferRate
+          buyRate: r.buyRate ?? 0,
+          sellRate: r.sellRate ?? 0,
+          transferRate: r.transferRate ?? r.sellRate ?? 0
         };
       });
       setBatchRateDrafts(drafts);
@@ -397,16 +411,24 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     let updatedCount = 0;
     const today = new Date().toISOString().split('T')[0];
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updatedRates: ExchangeRate[] = [];
+
+    const parseRate = (val: any, fallback: number) => {
+      if (val === undefined || val === null || val === '') return fallback;
+      const clean = typeof val === 'string' ? val.replace(/,/g, '').trim() : val;
+      const num = Number(clean);
+      return !isNaN(num) && num > 0 ? num : fallback;
+    };
 
     db.exchangeRates.forEach(r => {
       const draft = batchRateDrafts[r.id];
       if (draft) {
-        const b = Number(draft.buyRate) > 0 ? Number(draft.buyRate) : r.buyRate;
-        const s = Number(draft.sellRate) > 0 ? Number(draft.sellRate) : r.sellRate;
-        const t = Number(draft.transferRate) > 0 ? Number(draft.transferRate) : r.transferRate;
+        const b = parseRate(draft.buyRate, r.buyRate);
+        const s = parseRate(draft.sellRate, r.sellRate);
+        const t = parseRate(draft.transferRate, r.transferRate || r.sellRate);
 
         if (b !== r.buyRate || s !== r.sellRate || t !== r.transferRate) {
-          saveExchangeRate({
+          updatedRates.push({
             ...r,
             buyRate: b,
             sellRate: s,
@@ -419,6 +441,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         }
       }
     });
+
+    if (updatedRates.length > 0) {
+      saveExchangeRatesBatch(updatedRates);
+    }
 
     setIsBatchEditRates(false);
     setBatchRateDrafts({});
@@ -445,11 +471,12 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     const today = new Date().toISOString().split('T')[0];
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     let count = 0;
+    const updatedRates: ExchangeRate[] = [];
 
     Object.entries(marketRates).forEach(([cur, rateObj]) => {
       const existing = db.exchangeRates.find(r => r.fromCurrency === cur && r.toCurrency === 'MMK');
       if (existing) {
-        saveExchangeRate({
+        updatedRates.push({
           ...existing,
           buyRate: rateObj.buyRate,
           sellRate: rateObj.sellRate,
@@ -462,7 +489,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         count++;
       } else {
         const nextId = getNextCleanId('EXR', db.exchangeRates, 3);
-        saveExchangeRate({
+        updatedRates.push({
           id: nextId,
           fromCurrency: cur,
           toCurrency: 'MMK',
@@ -477,6 +504,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         count++;
       }
     });
+
+    if (updatedRates.length > 0) {
+      saveExchangeRatesBatch(updatedRates);
+    }
 
     setShowPresetConfirmModal(false);
     setRateSuccessMessage(
@@ -1282,10 +1313,13 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                               value={batchDraft.transferRate}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setBatchRateDrafts(prev => ({
-                                  ...prev,
-                                  [r.id]: { ...prev[r.id], transferRate: val }
-                                }));
+                                setBatchRateDrafts(prev => {
+                                  const existing = prev[r.id] || { buyRate: r.buyRate ?? 0, sellRate: r.sellRate ?? 0, transferRate: r.transferRate ?? r.sellRate ?? 0 };
+                                  return {
+                                    ...prev,
+                                    [r.id]: { ...existing, transferRate: val }
+                                  };
+                                });
                               }}
                               className="w-24 px-2 py-1 bg-white border border-blue-300 rounded font-mono font-bold text-blue-700 text-xs focus:ring-2 focus:ring-blue-400 focus:outline-none"
                             />
@@ -1314,10 +1348,13 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                                 value={batchDraft.buyRate}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setBatchRateDrafts(prev => ({
-                                    ...prev,
-                                    [r.id]: { ...prev[r.id], buyRate: val }
-                                  }));
+                                  setBatchRateDrafts(prev => {
+                                    const existing = prev[r.id] || { buyRate: r.buyRate ?? 0, sellRate: r.sellRate ?? 0, transferRate: r.transferRate ?? r.sellRate ?? 0 };
+                                    return {
+                                      ...prev,
+                                      [r.id]: { ...existing, buyRate: val }
+                                    };
+                                  });
                                 }}
                                 className="w-28 px-2 py-1 bg-white border-2 border-emerald-400 rounded font-mono font-bold text-emerald-800 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                               />
@@ -1361,10 +1398,13 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                                 value={batchDraft.sellRate}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setBatchRateDrafts(prev => ({
-                                    ...prev,
-                                    [r.id]: { ...prev[r.id], sellRate: val }
-                                  }));
+                                  setBatchRateDrafts(prev => {
+                                    const existing = prev[r.id] || { buyRate: r.buyRate ?? 0, sellRate: r.sellRate ?? 0, transferRate: r.transferRate ?? r.sellRate ?? 0 };
+                                    return {
+                                      ...prev,
+                                      [r.id]: { ...existing, sellRate: val }
+                                    };
+                                  });
                                 }}
                                 className="w-28 px-2 py-1 bg-white border-2 border-amber-400 rounded font-mono font-bold text-amber-900 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
                               />
@@ -2202,8 +2242,8 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                       type="number"
                       step="any"
                       required
-                      value={editingItem.transferRate || 0}
-                      onChange={(e) => setEditingItem({ ...editingItem, transferRate: Number(e.target.value) })}
+                      value={editingItem.transferRate !== undefined ? editingItem.transferRate : ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, transferRate: e.target.value })}
                       className="w-full bg-blue-50/50 border border-blue-300 rounded-lg px-3 py-2 text-slate-900 font-mono font-extrabold text-sm"
                     />
                   </div>
@@ -2217,8 +2257,8 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                         type="number"
                         step="any"
                         required
-                        value={editingItem.buyRate || 0}
-                        onChange={(e) => setEditingItem({ ...editingItem, buyRate: Number(e.target.value) })}
+                        value={editingItem.buyRate !== undefined ? editingItem.buyRate : ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, buyRate: e.target.value })}
                         className="w-full bg-emerald-50/40 border border-emerald-300 focus:border-emerald-500 rounded-lg px-3 py-2 text-emerald-900 font-mono font-bold text-sm"
                       />
                     </div>
@@ -2231,8 +2271,8 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                         type="number"
                         step="any"
                         required
-                        value={editingItem.sellRate || 0}
-                        onChange={(e) => setEditingItem({ ...editingItem, sellRate: Number(e.target.value) })}
+                        value={editingItem.sellRate !== undefined ? editingItem.sellRate : ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, sellRate: e.target.value })}
                         className="w-full bg-amber-50/40 border border-amber-300 focus:border-amber-500 rounded-lg px-3 py-2 text-amber-950 font-mono font-bold text-sm"
                       />
                     </div>

@@ -37,7 +37,9 @@ import {
   tursoWebSaveUser,
   tursoWebDeleteUser,
   tursoWebSaveBranch,
-  tursoWebDeleteBranch
+  tursoWebDeleteBranch,
+  tursoWebSaveExchangeRates,
+  tursoWebDeleteExchangeRate
 } from './tursoWebClient';
 import { 
   persistDatabaseSafely, 
@@ -130,6 +132,7 @@ interface RemittanceContextType {
   
   // 6. Exchange Rate
   saveExchangeRate: (rate: ExchangeRate) => void;
+  saveExchangeRatesBatch: (rates: ExchangeRate[]) => Promise<void>;
   deleteExchangeRate: (id: string) => void;
   getExchangeRate: (from: string, to: string) => number;
   getCorridorExchangeRate: (sourceCur: string, targetCur: string) => number;
@@ -2089,17 +2092,51 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // 6. Exchange Rate
   const saveExchangeRate = (rate: ExchangeRate) => {
-    const isNew = !db.exchangeRates.some(r => r.id === rate.id);
-    setDb(prev => ({
-      ...prev,
-      exchangeRates: isNew ? [...prev.exchangeRates, rate] : prev.exchangeRates.map(r => r.id === rate.id ? rate : r)
-    }));
+    setDb(prev => {
+      const isNew = !prev.exchangeRates.some(r => r.id === rate.id);
+      return {
+        ...prev,
+        exchangeRates: isNew ? [...prev.exchangeRates, rate] : prev.exchangeRates.map(r => r.id === rate.id ? rate : r)
+      };
+    });
     logActionDirect(
-      isNew ? 'CREATE' : 'UPDATE',
+      'UPDATE',
       'EXCHANGE_RATE',
       `${rate.fromCurrency}/${rate.toCurrency}`,
-      `${isNew ? 'Set new' : 'Updated'} exchange rate ${rate.fromCurrency}/${rate.toCurrency} -> Transfer Rate: ${rate.transferRate} MMK (Buy: ${rate.buyRate} / Sell: ${rate.sellRate})`
+      `Updated exchange rate ${rate.fromCurrency}/${rate.toCurrency} -> Transfer Rate: ${rate.transferRate} MMK (Buy: ${rate.buyRate} / Sell: ${rate.sellRate})`
     );
+    // Push directly to Turso so auto-sync never reverts it
+    safeFetchJson('/api/turso/exchange-rates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([rate])
+    }).catch(() => {});
+    tursoWebSaveExchangeRates([rate]).catch(() => {});
+  };
+
+  const saveExchangeRatesBatch = async (rates: ExchangeRate[]) => {
+    if (!rates || rates.length === 0) return;
+    const rateMap = new Map(rates.map(r => [r.id, r]));
+    setDb(prev => ({
+      ...prev,
+      exchangeRates: prev.exchangeRates.map(r => rateMap.has(r.id) ? rateMap.get(r.id)! : r)
+    }));
+    logActionDirect(
+      'UPDATE',
+      'EXCHANGE_RATE',
+      'BATCH_RATES',
+      `Updated ${rates.length} exchange rates: ${rates.map(r => `${r.fromCurrency}/${r.toCurrency}=${r.transferRate} MMK (Buy: ${r.buyRate} / Sell: ${r.sellRate})`).join(', ')}`
+    );
+    try {
+      await safeFetchJson('/api/turso/exchange-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rates)
+      });
+      tursoWebSaveExchangeRates(rates).catch(() => {});
+    } catch (e) {
+      console.warn('Batch exchange rates sync to Turso note:', e);
+    }
   };
 
   const deleteExchangeRate = (id: string) => {
@@ -2108,6 +2145,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (item) {
       logActionDirect('DELETE', 'EXCHANGE_RATE', `${item.fromCurrency}/${item.toCurrency}`, `Deleted exchange rate for ${item.fromCurrency}/${item.toCurrency}`);
     }
+    safeFetchJson(`/api/turso/exchange-rates?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
+    tursoWebDeleteExchangeRate(id).catch(() => {});
   };
 
   // 7. Blacklist (with Myanmar NRC & Passport note text box)
@@ -3827,6 +3868,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         saveCountry,
         deleteCountry,
         saveExchangeRate,
+        saveExchangeRatesBatch,
         deleteExchangeRate,
         getExchangeRate,
         getCorridorExchangeRate,

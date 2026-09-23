@@ -20,6 +20,8 @@ import {
   deleteTursoUser,
   saveTursoBranch,
   deleteTursoBranch,
+  saveTursoExchangeRates,
+  deleteTursoExchangeRate,
   TURSO_SCHEMA_SQL 
 } from './server/turso.js';
 
@@ -184,6 +186,28 @@ app.delete('/api/turso/branches', async (req, res) => {
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || 'Failed to delete Turso branch' });
+  }
+});
+
+// Exchange Rates dedicated endpoints
+app.post('/api/turso/exchange-rates', async (req, res) => {
+  try {
+    const payload = req.body;
+    const rates = Array.isArray(payload) ? payload : (payload.rates || [payload]);
+    const result = await saveTursoExchangeRates(rates);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to save exchange rates' });
+  }
+});
+
+app.delete('/api/turso/exchange-rates', async (req, res) => {
+  try {
+    const id = String(req.query.id || req.body?.id || '');
+    const result = await deleteTursoExchangeRate(id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to delete exchange rate' });
   }
 });
 
