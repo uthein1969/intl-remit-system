@@ -78,47 +78,6 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
   const branch = transaction ? (db.branches.find(b => b.id === transaction.sendingBranchId) || db.branches[0]) : db.branches[0];
   const partner = transaction ? db.companies.find(c => c.id === transaction.partnerCompanyId) : undefined;
 
-  if (!isOpen || !transaction) return null;
-
-  const copyMtcn = () => {
-    navigator.clipboard.writeText(transaction.mtcn);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handlePrint = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    window.print();
-  };
-
-  const handleOpenNewTab = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    openVoucherInNewTab({
-      transaction,
-      branch,
-      partner,
-      operatorProfile,
-      language,
-    });
-  };
-
-  const handleDownload = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    downloadVoucherHtml({
-      transaction,
-      branch,
-      partner,
-      operatorProfile,
-      language,
-    });
-    setFeedbackMsg(
-      language === 'my' 
-        ? 'ပြေစာ HTML ဖိုင်ကို ဒေါင်းလုဒ်ရယူပြီးပါပြီ' 
-        : 'Voucher HTML downloaded successfully'
-    );
-    setTimeout(() => setFeedbackMsg(null), 3000);
-  };
-
   // Safe file downloader for data URLs and external URLs
   const handleDownloadDoc = (url: string, filename: string) => {
     try {
@@ -177,12 +136,12 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     return undefined;
   }, [transaction]);
 
-  const passportDocName = transaction.senderPassportAttachmentName || 
-    transaction.senderPassbookAttachmentName || 
-    (transaction.senderPassport ? `Passport_${transaction.senderPassport}.svg` : 'Sender_Passport.svg');
+  const passportDocName = transaction?.senderPassportAttachmentName || 
+    transaction?.senderPassbookAttachmentName || 
+    (transaction?.senderPassport ? `Passport_${transaction.senderPassport}.svg` : 'Sender_Passport.svg');
 
-  const passportDocSize = transaction.senderPassportAttachmentSize || 
-    transaction.senderPassbookAttachmentSize || 
+  const passportDocSize = transaction?.senderPassportAttachmentSize || 
+    transaction?.senderPassbookAttachmentSize || 
     '24.5 KB';
 
   // Resolved NRC Attachments:
@@ -204,6 +163,48 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     }
     return undefined;
   }, [transaction]);
+
+  // ALL HOOKS MUST BE DECLARED ABOVE THIS LINE!
+  if (!isOpen || !transaction) return null;
+
+  const copyMtcn = () => {
+    navigator.clipboard.writeText(transaction.mtcn);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePrint = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    window.print();
+  };
+
+  const handleOpenNewTab = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    openVoucherInNewTab({
+      transaction,
+      branch,
+      partner,
+      operatorProfile,
+      language,
+    });
+  };
+
+  const handleDownload = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    downloadVoucherHtml({
+      transaction,
+      branch,
+      partner,
+      operatorProfile,
+      language,
+    });
+    setFeedbackMsg(
+      language === 'my' 
+        ? 'ပြေစာ HTML ဖိုင်ကို ဒေါင်းလုဒ်ရယူပြီးပါပြီ' 
+        : 'Voucher HTML downloaded successfully'
+    );
+    setTimeout(() => setFeedbackMsg(null), 3000);
+  };
 
   return (
     <div 

@@ -33,7 +33,9 @@ import {
   Calendar,
   Clock,
   RefreshCw,
-  RotateCcw
+  RotateCcw,
+  PlusCircle,
+  Printer
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance, getNextCleanId } from '../../lib/store';
@@ -451,6 +453,7 @@ export const InwardEntryView: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdTx, setCreatedTx] = useState<RemittanceTransaction | null>(null);
+  const [lastSubmittedTx, setLastSubmittedTx] = useState<RemittanceTransaction | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // Consolidated beneficiary/customer list for Dropdown selection
@@ -777,8 +780,13 @@ export const InwardEntryView: React.FC = () => {
         status: 'PENDING_APPROVAL',
       });
 
-      confetti({ particleCount: 70, spread: 60 });
+      try {
+        confetti({ particleCount: 70, spread: 60 });
+      } catch {
+        // Safe confetti fallback
+      }
       setCreatedTx(newTx);
+      setLastSubmittedTx(newTx);
       setIsSubmitted(true);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to submit inward remittance claim');
@@ -789,6 +797,8 @@ export const InwardEntryView: React.FC = () => {
 
   const handleResetForm = () => {
     setMtcn('');
+    setSearchMtcn('');
+    setLookupMessage(null);
     setSenderName('');
     setSenderPhone('');
     setSenderAddress('');
@@ -811,6 +821,7 @@ export const InwardEntryView: React.FC = () => {
     setErrorMessage('');
     setIsSubmitted(false);
     setCreatedTx(null);
+    setLastSubmittedTx(null);
     handleResetToCurrentTime();
   };
 
@@ -833,6 +844,18 @@ export const InwardEntryView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Add New (Clean Data) Button in Header */}
+          <button
+            type="button"
+            id="header-add-new-inward-btn"
+            onClick={handleResetForm}
+            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm hover:scale-[1.02] cursor-pointer"
+            title={language === 'my' ? 'အချက်အလက်များရှင်းလင်းပြီး ငွေထုတ်လွှာအသစ် စတင်မည်' : 'Clean data and start new inward claim'}
+          >
+            <PlusCircle className="w-4 h-4 text-emerald-400" />
+            <span>{language === 'my' ? 'Add New (အသစ်ထည့်မည်)' : 'Add New'}</span>
+          </button>
+
           {/* Live System Date & Time Display */}
           <div className="flex items-center space-x-2 text-xs text-slate-300 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 font-mono shadow-inner">
             <Calendar className="w-3.5 h-3.5 text-amber-400" />
@@ -878,6 +901,55 @@ export const InwardEntryView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Prominent Success Notification Banner when Claim is Submitted */}
+      {isSubmitted && lastSubmittedTx && (
+        <div className="bg-emerald-950/70 border-2 border-emerald-500/60 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {language === 'my' ? 'အောင်မြင်စွာ တင်ပြပြီးပါပြီ' : 'Successfully Submitted'}
+                </span>
+                <span className="font-mono text-xs font-bold text-amber-400">
+                  MTCN: {lastSubmittedTx.mtcn}
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white mt-0.5">
+                {language === 'my' ? 'ငွေထုတ်လွှာ အတည်ပြုချက် တင်ပြခြင်း အောင်မြင်ပါသည်' : 'Inward Remittance Claim Submitted for Approval'}
+              </h3>
+              <p className="text-xs text-slate-300">
+                Ref: <span className="font-mono font-semibold text-white">{lastSubmittedTx.transactionNo}</span> • {language === 'my' ? 'ထုတ်ပေးငွေ' : 'Payout'}: <strong className="text-emerald-400 font-mono">{lastSubmittedTx.receiveAmount?.toLocaleString()} MMK</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              id="top-print-out-form-btn"
+              onClick={() => setCreatedTx(lastSubmittedTx)}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition-all hover:scale-105 flex items-center space-x-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>{language === 'my' ? 'ပြေစာ ပရင့်ထုတ်မည် (Print Out Form)' : 'Print Out Form / Voucher'}</span>
+            </button>
+
+            <button
+              type="button"
+              id="top-add-new-btn"
+              onClick={handleResetForm}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 hover:border-slate-500 font-bold text-xs shadow transition-all hover:scale-105 flex items-center space-x-2 cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'my' ? 'အသစ်ထည့်မည် (Add New)' : 'Add New (Clean Data)'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Domestic Process Notice Banner */}
       {scope === 'DOMESTIC' && (
@@ -2073,6 +2145,17 @@ export const InwardEntryView: React.FC = () => {
             </div>
           </div>
 
+          {/* Validation Error Message Banner */}
+          {errorMessage && (
+            <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500/60 text-rose-200 text-xs flex items-center space-x-3 shadow-md animate-in fade-in duration-150">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <div>
+                <span className="font-bold text-rose-300 block">{language === 'my' ? 'ဖြည့်သွင်းရန် လိုအပ်ချက်များရှိနေပါသည်:' : 'Validation Required:'}</span>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
           {/* Grand Payout Box */}
           <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
@@ -2085,16 +2168,29 @@ export const InwardEntryView: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {isSubmitted && (
+              {/* Always present Add New (Clean Data) button */}
+              <button
+                type="button"
+                id="reset-inward-claim-btn"
+                onClick={handleResetForm}
+                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 font-bold text-sm shadow-md transition-all hover:scale-[1.02] flex items-center space-x-2 cursor-pointer"
+                title={language === 'my' ? 'အချက်အလက်များရှင်းလင်းပြီး ငွေထုတ်လွှာအသစ် စတင်မည်' : 'Clean data and start new inward claim'}
+              >
+                <RotateCcw className="w-4 h-4 text-sky-400" />
+                <span>{language === 'my' ? 'အသစ်ထည့်မည် (Add New)' : 'Add New (Clean Data)'}</span>
+              </button>
+
+              {/* If submitted, allow user to open Print Out Form at any time */}
+              {isSubmitted && lastSubmittedTx && (
                 <button
                   type="button"
-                  id="reset-inward-claim-btn"
-                  onClick={handleResetForm}
-                  className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm shadow-md transition-all hover:scale-[1.02] flex items-center space-x-2 cursor-pointer"
-                  title={language === 'my' ? 'နောက်ထပ် ငွေထုတ်လွှာ အသစ်စတင်မည်' : 'Start New Inward Remittance Claim'}
+                  id="print-out-form-bottom-btn"
+                  onClick={() => setCreatedTx(lastSubmittedTx)}
+                  className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg transition-all hover:scale-[1.02] flex items-center space-x-2 cursor-pointer"
+                  title={language === 'my' ? 'ပြေစာ ပရင့်ထုတ်မည် / ကြည့်ရှုမည်' : 'Print Out Form & Voucher'}
                 >
-                  <RotateCcw className="w-4 h-4 text-sky-400" />
-                  <span>{language === 'my' ? 'နောက်ထပ် ငွေထုတ်လွှာ အသစ်စတင်မည်' : 'New Inward Entry'}</span>
+                  <Printer className="w-4 h-4 text-white" />
+                  <span>{language === 'my' ? 'Print Out Form (ပြေစာ)' : 'Print Out Form'}</span>
                 </button>
               )}
 

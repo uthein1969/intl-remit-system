@@ -27,7 +27,8 @@ import {
   Sparkles,
   Receipt,
   RefreshCw,
-  Lock
+  Lock,
+  DollarSign
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
@@ -767,6 +768,16 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                       <div className="text-[11px] text-slate-400 font-mono">
                         ➔ {Number(tx.receiveAmount || 0).toLocaleString()} {tx.targetCurrency}
                       </div>
+                      <div className="text-[10px] font-mono mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          Fee: {Number(tx.serviceFee || 0).toLocaleString()} {tx.sourceCurrency}
+                        </span>
+                        {Number(tx.commissionFee || 0) > 0 && (
+                          <span className="px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                            Comm: {Number(tx.commissionFee || 0).toLocaleString()} {tx.sourceCurrency}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-slate-300 font-medium">{tx.creatorName}</div>
@@ -861,41 +872,121 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
             {/* Scrollable Body with Top-Down Scrollbar to view all information */}
             <div className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-200 custom-scrollbar scroll-smooth">
               {/* Quick overview grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
-              <div>
-                <span className="text-slate-400 block font-medium">{t.senderName}:</span>
-                <strong className="text-slate-200 text-sm">{selectedTx.senderName}</strong>
-                <p className="text-[11px] text-slate-400 font-mono">{selectedTx.senderNrc}</p>
-                <p className="text-[11px] text-slate-400">{selectedTx.senderPhone}</p>
-                {selectedTx.senderDateOfBirth && (
-                  <p className="text-[11px] text-amber-400 font-mono flex items-center gap-1 mt-0.5">
-                    <span className="text-slate-500">DOB:</span>
-                    <span>{formatToDDMMYYYY(selectedTx.senderDateOfBirth)}</span>
-                  </p>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div>
+                  <span className="text-slate-400 block font-medium">{t.senderName}:</span>
+                  <strong className="text-slate-200 text-sm">{selectedTx.senderName}</strong>
+                  <p className="text-[11px] text-slate-400 font-mono">{selectedTx.senderNrc}</p>
+                  <p className="text-[11px] text-slate-400">{selectedTx.senderPhone}</p>
+                  {selectedTx.senderDateOfBirth && (
+                    <p className="text-[11px] text-amber-400 font-mono flex items-center gap-1 mt-0.5">
+                      <span className="text-slate-500">DOB:</span>
+                      <span>{formatToDDMMYYYY(selectedTx.senderDateOfBirth)}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block font-medium">{t.receiverName}:</span>
+                  <strong className="text-slate-200 text-sm">{selectedTx.receiverName}</strong>
+                  <p className="text-[11px] text-slate-400">Destination: {selectedTx.receiverCountryCode}</p>
+                  <p className="text-[11px] text-slate-400">{selectedTx.receiverPhone}</p>
+                  {selectedTx.receiverAddress && (
+                    <p className="text-[11px] text-slate-400 truncate">{selectedTx.receiverAddress}</p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <span className="text-slate-400 block font-medium">{t.receiverName}:</span>
-                <strong className="text-slate-200 text-sm">{selectedTx.receiverName}</strong>
-                <p className="text-[11px] text-slate-400">Destination: {selectedTx.receiverCountryCode}</p>
-                <p className="text-[11px] text-slate-400">{selectedTx.receiverPhone}</p>
-              </div>
+              {/* Financial & Fee Breakdown Card: Explicitly displaying Service Fee and Commission Fee */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-xs font-bold text-white">
+                      {language === 'my' 
+                        ? 'ငွေလွှဲပမာဏ၊ ဝန်ဆောင်ခနှင့် ကော်မရှင်ခ တွက်ချက်မှု (Financial Breakdown & Fees)' 
+                        : 'Financial Breakdown & Fee Details'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400 bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
+                    Rate: 1 {selectedTx.sourceCurrency} = {selectedTx.exchangeRate} {selectedTx.targetCurrency}
+                  </span>
+                </div>
 
-              <div className="border-t border-slate-800 pt-2">
-                <span className="text-slate-400 block font-medium">{t.sendAmount}:</span>
-                <strong className="text-emerald-400 text-sm font-mono">
-                  {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency}
-                </strong>
-              </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  {/* Send Amount */}
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 block text-[11px] font-medium">{t.sendAmount}:</span>
+                    <strong className="text-emerald-400 text-sm font-mono block mt-0.5">
+                      {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency}
+                    </strong>
+                    {selectedTx.isUsdBase && selectedTx.usdAmount && (
+                      <span className="text-[10px] text-amber-400 font-mono block mt-0.5">
+                        ≈ ${Number(selectedTx.usdAmount).toLocaleString()} USD
+                      </span>
+                    )}
+                  </div>
 
-              <div className="border-t border-slate-800 pt-2">
-                <span className="text-slate-400 block font-medium">{t.receiveAmount}:</span>
-                <strong className="text-emerald-400 text-sm font-mono">
-                  {Number(selectedTx.receiveAmount || 0).toLocaleString()} {selectedTx.targetCurrency}
-                </strong>
+                  {/* Receive Amount */}
+                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 block text-[11px] font-medium">{t.receiveAmount}:</span>
+                    <strong className="text-sky-400 text-sm font-mono block mt-0.5">
+                      {Number(selectedTx.receiveAmount || 0).toLocaleString()} {selectedTx.targetCurrency}
+                    </strong>
+                    <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                      Country: {selectedTx.receiverCountryCode}
+                    </span>
+                  </div>
+
+                  {/* Service Fee */}
+                  <div className="bg-amber-950/20 p-2.5 rounded-lg border border-amber-500/30">
+                    <span className="text-amber-300 block text-[11px] font-semibold">
+                      {language === 'my' ? 'ဝန်ဆောင်ခ (Service Fee):' : 'Service Fee:'}
+                    </span>
+                    <strong className="text-amber-400 text-sm font-mono block mt-0.5">
+                      {Number(selectedTx.serviceFee || 0).toLocaleString()} {selectedTx.sourceCurrency || 'MMK'}
+                    </strong>
+                    {selectedTx.usdServiceFee ? (
+                      <span className="text-[10px] text-amber-300/80 font-mono block mt-0.5">
+                        (${Number(selectedTx.usdServiceFee).toLocaleString()} USD)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-500/70 font-mono block mt-0.5">Service Charge</span>
+                    )}
+                  </div>
+
+                  {/* Commission Fee */}
+                  <div className="bg-indigo-950/20 p-2.5 rounded-lg border border-indigo-500/30">
+                    <span className="text-indigo-300 block text-[11px] font-semibold">
+                      {language === 'my' ? 'ကော်မရှင်ခ (Commission Fee):' : 'Commission Fee:'}
+                    </span>
+                    <strong className="text-indigo-400 text-sm font-mono block mt-0.5">
+                      {Number(selectedTx.commissionFee || 0).toLocaleString()} {selectedTx.sourceCurrency || 'MMK'}
+                    </strong>
+                    <span className="text-[10px] text-indigo-400/70 font-mono block mt-0.5">Agent / Partner Fee</span>
+                  </div>
+                </div>
+
+                {/* Total Payable Summary Banner */}
+                <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-inner">
+                  <div>
+                    <span className="text-xs text-slate-300 font-medium block">
+                      {language === 'my' ? 'ငွေလွှဲပေးပို့သူထံမှ ကောက်ခံရရှိသည့် စုစုပေါင်း ကျသင့်ငွေ (Total Payable Amount):' : 'Total Payable Amount from Remitter:'}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {language === 'my' ? '(လွှဲပို့ငွေ + ဝန်ဆောင်ခ + ကော်မရှင်ခ)' : '(Send Amount + Service Fee + Commission Fee)'}
+                    </span>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <span className="text-base font-black text-emerald-400 font-mono">
+                      {Number(
+                        selectedTx.totalPayableAmount || 
+                        ((selectedTx.sendAmount || 0) + (selectedTx.serviceFee || 0) + (selectedTx.commissionFee || 0))
+                      ).toLocaleString()} {selectedTx.sourceCurrency || 'MMK'}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
 
             {/* Sender Identity Document Verification (NRC Front & Back, Passport, Deposit Slip) */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
