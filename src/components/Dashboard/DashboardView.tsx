@@ -121,7 +121,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </button>
           <button
             onClick={() => onNavigate('inward_entry')}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             <DownloadCloud className="w-3.5 h-3.5" />
             <span>{language === 'my' ? 'ငွေလွှဲထုတ်မည်' : 'New Inward Claim'}</span>

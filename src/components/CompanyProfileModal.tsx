@@ -49,23 +49,23 @@ export const CompanyProfileModal: React.FC<CompanyProfileModalProps> = ({ isOpen
 
   return (
     <div 
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150 my-auto">
         {/* Header */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+        <div className="bg-white text-slate-900 px-6 py-4 flex items-center justify-between border-b border-slate-200">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            <div className="p-2 rounded-lg bg-orange-50 text-orange-600 border border-orange-200">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 {language === 'my' ? 'ဆော့ဖ်ဝဲလ် အသုံးပြုသည့် ကုမ္ပဏီ အချက်အလက်' : 'Operating Remittance Company Profile'}
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {language === 'my' 
                   ? 'လိမ္မော်ရောင်လေးဒေါင့်အကွက်နှင့် ပြေစာများတွင် ဖော်ပြမည့် ကုမ္ပဏီ အမည်၊ လိပ်စာ၊ ဖုန်းနံပါတ်' 
                   : 'Company Name, Address & Phone displayed in the Orange Box & Vouchers'}
@@ -75,7 +75,7 @@ export const CompanyProfileModal: React.FC<CompanyProfileModalProps> = ({ isOpen
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

@@ -410,46 +410,46 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-blue-950 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#b2e0d4] text-slate-900 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Bar: Brand, CBM Badge & Language Switcher */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30">
             <ArrowLeftRight className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-white font-bold text-base sm:text-lg tracking-tight">
+              <span className="text-slate-900 font-bold text-base sm:text-lg tracking-tight">
                 {language === 'my' ? 'ပြည်တွင်း ပြည်ပ ငွေလွှဲစနစ်' : 'Remittance Management Portal'}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 Multi-DB Ready
               </span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-600">
               {language === 'my' ? 'မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် စည်းမျဉ်းကိုက် လုံခြုံရေးစနစ်' : 'CBM-Regulated Multi-Currency Settlement Engine'}
             </p>
           </div>
         </div>
 
         {/* Language Switcher */}
-        <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-xs">
           <button
             onClick={() => setLanguage('en')}
-            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
               language === 'en' 
                 ? 'bg-blue-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             EN
           </button>
           <button
             onClick={() => setLanguage('my')}
-            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
               language === 'my' 
                 ? 'bg-blue-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             မြန်မာ
@@ -461,13 +461,13 @@ export const LoginView: React.FC = () => {
       <div className="max-w-4xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Login Card with Database Choice */}
-        <div className="lg:col-span-7 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="lg:col-span-7 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
           
           {/* Database Provider Selection Tabs (Turso Default) */}
-          <div className="bg-slate-950 p-2.5 border-b border-slate-800">
-            <div className="text-[11px] font-semibold text-slate-400 mb-1.5 px-1 flex items-center justify-between">
+          <div className="bg-slate-50 p-2.5 border-b border-slate-200">
+            <div className="text-[11px] font-semibold text-slate-600 mb-1.5 px-1 flex items-center justify-between">
               <span>{language === 'my' ? 'အသုံးပြုလိုသော Cloud Database ရွေးချယ်ပါ:' : 'Select Authentication Database:'}</span>
-              <span className="text-[10px] text-emerald-400 font-mono">Turso: Default</span>
+              <span className="text-[10px] text-emerald-700 font-mono font-bold">Turso: Default</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {/* Turso Cloud Option (DEFAULT) */}
@@ -480,14 +480,14 @@ export const LoginView: React.FC = () => {
                 }}
                 className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
                   selectedProvider === 'TURSO'
-                    ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-600/30'
-                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Zap className={`w-3.5 h-3.5 ${selectedProvider === 'TURSO' ? 'text-amber-300' : 'text-slate-400'}`} />
                 <span>Turso Cloud</span>
                 <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                  selectedProvider === 'TURSO' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
+                  selectedProvider === 'TURSO' ? 'bg-amber-300 text-slate-900' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 }`}>
                   Default
                 </span>
@@ -503,8 +503,8 @@ export const LoginView: React.FC = () => {
                 }}
                 className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
                   selectedProvider === 'SUPABASE'
-                    ? 'bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-600/30'
-                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Cloud className={`w-3.5 h-3.5 ${selectedProvider === 'SUPABASE' ? 'text-white' : 'text-slate-400'}`} />
@@ -517,35 +517,35 @@ export const LoginView: React.FC = () => {
           </div>
 
           {/* Card Header */}
-          <div className="bg-linear-to-r from-slate-900 to-blue-900 p-6 text-white relative">
+          <div className="bg-gradient-to-r from-blue-700 to-blue-600 p-6 text-white relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <ShieldCheck className="w-5 h-5 text-emerald-300" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-100">
                   {selectedProvider === 'TURSO' ? 'Turso Cloud Login' : 'Supabase Login'}
                 </span>
               </div>
               
               {/* Provider Connection Status Pill */}
               {selectedProvider === 'TURSO' ? (
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-500/20 text-emerald-300 border-emerald-400/40">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-500/20 text-emerald-100 border-emerald-300/40">
+                  <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
                   <span>Turso Connected</span>
                 </div>
               ) : (
                 <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
                   db?.supabaseConfig?.isConnected 
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' 
-                    : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
+                    ? 'bg-emerald-500/20 text-emerald-100 border-emerald-300/40' 
+                    : 'bg-amber-500/20 text-amber-100 border-amber-300/40'
                 }`}>
-                  <div className={`w-2 h-2 rounded-full ${db?.supabaseConfig?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <div className={`w-2 h-2 rounded-full ${db?.supabaseConfig?.isConnected ? 'bg-emerald-300 animate-pulse' : 'bg-amber-300'}`} />
                   <span>{db?.supabaseConfig?.isConnected ? 'Supabase Connected' : 'DB Not Connected'}</span>
                 </div>
               )}
             </div>
 
             <h2 className="text-2xl font-bold mt-2 text-white flex items-center gap-2">
-              <Lock className="w-6 h-6 text-blue-400" />
+              <Lock className="w-6 h-6 text-blue-200" />
               <span>User Login</span>
             </h2>
             <p className="text-xs text-slate-300 mt-1">
@@ -864,11 +864,11 @@ export const LoginView: React.FC = () => {
         <div className="lg:col-span-5 space-y-4">
           
           {/* Quick Select User Accounts */}
-          <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-700 p-5 text-white shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 text-slate-900 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-blue-400" />
-                <h3 className="font-bold text-sm text-slate-100">
+                <Users className="w-4 h-4 text-blue-600" />
+                <h3 className="font-bold text-sm text-slate-900">
                   {selectedProvider === 'TURSO'
                     ? (language === 'my' ? 'Turso Cloud Table မှ User များ' : 'Users in Turso Cloud')
                     : (language === 'my' ? 'Supabase Table မှ User များ' : 'Users in Supabase Table')}
@@ -877,14 +877,14 @@ export const LoginView: React.FC = () => {
               <button
                 onClick={selectedProvider === 'TURSO' ? loadTursoUsers : loadSupabaseUsers}
                 disabled={loadingTursoUsers || loadingSupabaseUsers}
-                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                 title="Refresh users list"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${(loadingTursoUsers || loadingSupabaseUsers) ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 mt-2.5 mb-3 leading-relaxed">
+            <p className="text-xs text-slate-600 mt-2.5 mb-3 leading-relaxed">
               {language === 'my'
                 ? 'အောက်ပါအကောင့်များကို နှိပ်၍ အသုံးပြုသူအမည်နှင့် လျှို့ဝှက်နံပါတ်ကို အလိုအလျောက် ဖြည့်သွင်းနိုင်ပါသည်:'
                 : 'Click any account below to autofill and verify authentication instantly:'}
@@ -919,30 +919,30 @@ export const LoginView: React.FC = () => {
                     onClick={() => handleQuickSelectUser(u)}
                     className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
                       usernameOrEmail === u.username
-                        ? 'bg-blue-600/30 border-blue-500 ring-1 ring-blue-500/50'
-                        : 'bg-slate-900/60 border-slate-700/80 hover:bg-slate-700/50 hover:border-slate-600'
+                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-bold text-xs text-slate-100 group-hover:text-blue-300 transition-colors truncate">
+                        <span className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                           {u.fullName}
                         </span>
                         <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${getRoleBadgeColor(u.role)}`}>
                           {u.role}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center space-x-1.5 truncate">
+                      <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center space-x-1.5 truncate">
                         <span>@{u.username}</span>
                         <span>•</span>
-                        <span className="text-amber-300/90 font-sans text-[10px] bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
+                        <span className="text-amber-800 font-sans text-[10px] bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
                           {country?.flagEmoji || '🌐'} {branch?.nameEn || u.branchId || 'BR-001'}
                         </span>
                       </div>
                     </div>
 
                     <div className="pl-2">
-                      <span className="text-[10px] font-semibold text-blue-400 group-hover:text-blue-300 px-2 py-1 rounded bg-blue-950/60 border border-blue-800/60">
+                      <span className="text-[10px] font-semibold text-blue-600 group-hover:text-blue-700 px-2 py-1 rounded bg-blue-50 border border-blue-200">
                         {language === 'my' ? 'ရွေးမည်' : 'Select'}
                       </span>
                     </div>
@@ -953,12 +953,12 @@ export const LoginView: React.FC = () => {
 
             {/* Turso Cloud Helper Actions */}
             {selectedProvider === 'TURSO' && (
-              <div className="mt-3 pt-3 border-t border-slate-700/80 flex items-center justify-between gap-2">
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                 <button
                   type="button"
                   disabled={seedingTursoUsers}
                   onClick={handleSeedTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
                 >
                   {seedingTursoUsers ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   <span>{language === 'my' ? 'Turso သို့ User ထည့်မည်' : 'Seed Turso Users'}</span>
@@ -968,7 +968,7 @@ export const LoginView: React.FC = () => {
                   type="button"
                   disabled={syncingTurso}
                   onClick={handleSyncAllToTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
                 >
                   <UploadCloud className={`w-3 h-3 ${syncingTurso ? 'animate-bounce' : ''}`} />
                   <span>{language === 'my' ? 'Data အားလုံး Sync မည်' : 'Sync All Data'}</span>
@@ -978,11 +978,11 @@ export const LoginView: React.FC = () => {
 
             {/* Supabase Empty Seed Helper */}
             {selectedProvider === 'SUPABASE' && supabaseUsers.length === 0 && db.supabaseConfig.isConnected && (
-              <div className="mt-3 p-3 rounded-lg bg-blue-900/30 border border-blue-700/50 text-xs">
-                <div className="text-blue-200 font-semibold mb-1">
+              <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs">
+                <div className="text-blue-900 font-semibold mb-1">
                   {language === 'my' ? 'Supabase Table တွင် User မရှိသေးပါသလား?' : 'Empty Users Table on Supabase?'}
                 </div>
-                <p className="text-[11px] text-slate-300 mb-2">
+                <p className="text-[11px] text-slate-600 mb-2">
                   {language === 'my'
                     ? 'စနစ်တွင်းရှိ မူလ User (၅) ဦးကို Supabase သို့ ချက်ချင်းထည့်သွင်းနိုင်ပါသည်'
                     : 'Upload 5 pre-configured operator roles (Admin, Maker, Checker, Auditor) to Supabase now.'}
@@ -991,7 +991,7 @@ export const LoginView: React.FC = () => {
                   type="button"
                   disabled={seedingSupabaseUsers}
                   onClick={handleSeedSupabase}
-                  className="w-full py-1.5 px-2.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer"
+                  className="w-full py-1.5 px-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-xs"
                 >
                   {seedingSupabaseUsers ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{language === 'my' ? 'User စာရင်းကို Supabase သို့ ပို့မည်' : 'Upload Users to Supabase'}</span>
@@ -1001,16 +1001,16 @@ export const LoginView: React.FC = () => {
           </div>
 
           {/* Database Info & Architecture Note */}
-          <div className="bg-slate-800/60 rounded-xl border border-slate-700/60 p-4 text-xs text-slate-300 space-y-2">
-            <div className="font-bold text-slate-200 flex items-center space-x-1.5">
-              <Layers className="w-4 h-4 text-blue-400" />
+          <div className="bg-white rounded-xl border border-slate-200 p-4 text-xs text-slate-600 space-y-2 shadow-sm">
+            <div className="font-bold text-slate-900 flex items-center space-x-1.5">
+              <Layers className="w-4 h-4 text-blue-600" />
               <span>
                 {selectedProvider === 'TURSO' 
                   ? (language === 'my' ? 'Turso Cloud Architecture (Default)' : 'Turso LibSQL Cloud Architecture')
                   : (language === 'my' ? 'Supabase PostgreSQL Architecture' : 'Supabase PostgreSQL Architecture')}
               </span>
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-400">
+            <p className="text-[11px] leading-relaxed text-slate-600">
               {selectedProvider === 'TURSO' 
                 ? (language === 'my'
                     ? 'Turso Cloud သည် Serverless LibSQL SQLite ဖြစ်ပြီး Local Storage နှင့် Realtime Cloud Synchronization ကို တစ်ပြိုင်တည်း ထောက်ပံ့ပေးပါသည်။ အင်တာနက်ပြတ်တောက်ချိန်တွင်လည်း Local တွင် သိမ်းဆည်းထားနိုင်ပြီး အင်တာနက်ရချိန်တွင် Auto-Sync ပြုလုပ်ပေးပါသည်။'
@@ -1024,17 +1024,17 @@ export const LoginView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleCopy('rls')}
-                  className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer border border-slate-300"
                 >
-                  {copiedSql === 'rls' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedSql === 'rls' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedSql === 'rls' ? 'Copied!' : 'Copy RLS Script'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleCopy('ddl')}
-                  className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer border border-slate-300"
                 >
-                  {copiedSql === 'ddl' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedSql === 'ddl' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedSql === 'ddl' ? 'Copied!' : 'Copy Full DDL'}</span>
                 </button>
               </div>

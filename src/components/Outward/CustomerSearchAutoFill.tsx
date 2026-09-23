@@ -147,34 +147,34 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
   };
 
   const isEmerald = themeColor === 'emerald';
-  const accentBorder = isEmerald ? 'border-emerald-500/50' : 'border-sky-500/50';
-  const accentBg = isEmerald ? 'bg-emerald-950/30' : 'bg-sky-950/30';
-  const accentText = isEmerald ? 'text-emerald-400' : 'text-sky-400';
-  const accentBtn = isEmerald ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-sky-600 hover:bg-sky-500';
-  const badgeBg = isEmerald ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-sky-500/10 border-sky-500/30 text-sky-300';
+  const accentBorder = isEmerald ? 'border-emerald-500/60' : 'border-sky-500/60';
+  const accentBg = isEmerald ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-sky-50 border-sky-300 text-sky-900';
+  const accentText = isEmerald ? 'text-emerald-700' : 'text-sky-700';
+  const accentBtn = isEmerald ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-sky-600 hover:bg-sky-700';
+  const badgeBg = isEmerald ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'bg-sky-100 border-sky-300 text-sky-800';
 
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Selected Customer Notification Banner */}
       {selectedCustomer && (
-        <div className={`mb-2.5 p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${accentBg} ${accentBorder} animate-fadeIn`}>
+        <div className={`mb-2.5 p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${accentBg} shadow-xs animate-fadeIn`}>
           <div className="flex items-center space-x-2 min-w-0">
-            <div className={`p-1 rounded-lg ${isEmerald ? 'bg-emerald-500/20 text-emerald-300' : 'bg-sky-500/20 text-sky-300'}`}>
+            <div className={`p-1 rounded-lg ${isEmerald ? 'bg-emerald-200/80 text-emerald-800' : 'bg-sky-200/80 text-sky-800'}`}>
               <UserCheck className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <span className="font-bold text-white truncate">
+                <span className="font-bold text-slate-900 truncate">
                   {selectedCustomer.fullNameEn} {selectedCustomer.fullNameMm ? `(${selectedCustomer.fullNameMm})` : ''}
                 </span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${badgeBg}`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold border ${badgeBg}`}>
                   {selectedCustomer.customerCode || 'CUSTOMER'}
                 </span>
-                <span className="text-[10px] text-slate-400 hidden sm:inline">
+                <span className="text-[10px] text-slate-600 hidden sm:inline">
                   • {selectedCustomer.phone || selectedCustomer.nrcNumber || selectedCustomer.passportNumber}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate">
+              <p className="text-[10px] text-slate-600 truncate">
                 {language === 'my' 
                   ? '✨ customer_profiles table မှ အချက်အလက်များ အလိုအလျောက် ဖြည့်သွင်းထားပါသည် (Auto-Filled)'
                   : '✨ Auto-filled from customer_profiles table'}
@@ -184,7 +184,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
           <button
             type="button"
             onClick={onClearCustomer}
-            className="shrink-0 px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 text-[11px] flex items-center space-x-1 cursor-pointer transition-colors"
+            className="shrink-0 px-2 py-1 rounded-lg bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-300 hover:border-rose-300 text-[11px] flex items-center space-x-1 cursor-pointer transition-colors shadow-xs"
             title={language === 'my' ? 'ပြန်လည်ရှင်းလင်းမည်' : 'Clear selection'}
           >
             <X className="w-3 h-3" />
@@ -224,8 +224,8 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               ? `🔍 ${label} - အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport ဖြင့် Auto Search ရှာပါ...`
               : `🔍 ${label} - Auto search by Name, Phone, NRC, Passport...`)
           }
-          className={`w-full bg-slate-900 border rounded-xl pl-9 pr-9 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner ${
-            isOpen ? accentBorder : 'border-slate-700 hover:border-slate-600'
+          className={`w-full bg-white border rounded-xl pl-9 pr-9 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none transition-all shadow-xs ${
+            isOpen ? `${accentBorder} ring-2 ring-blue-500/20` : 'border-slate-300 hover:border-slate-400'
           }`}
         />
 
@@ -237,7 +237,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               setIsOpen(false);
               inputRef.current?.focus();
             }}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white cursor-pointer"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -246,9 +246,9 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
 
       {/* Floating Auto-Search Dropdown */}
       {isOpen && searchTerm.trim().length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-y-auto divide-y divide-slate-800">
+        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto divide-y divide-slate-100">
           {/* Header */}
-          <div className="p-2.5 bg-slate-950/80 sticky top-0 z-10 flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800">
+          <div className="p-2.5 bg-slate-50 sticky top-0 z-10 flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200">
             <span className="flex items-center space-x-1.5 font-medium">
               <Sparkles className={`w-3.5 h-3.5 ${accentText}`} />
               <span>
@@ -257,7 +257,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                   : `customer_profiles search results (contains "${searchTerm}")`}
               </span>
             </span>
-            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-700 font-bold">
               {combinedResults.length} {language === 'my' ? 'ဦး တွေ့ရှိ' : 'found'}
             </span>
           </div>
@@ -277,13 +277,13 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                     onClick={() => handleSelect(cust)}
                     className={`p-3 cursor-pointer transition-colors flex items-center justify-between gap-3 text-xs ${
                       isHighlighted
-                        ? `${isEmerald ? 'bg-emerald-950/50' : 'bg-sky-950/50'} text-white`
-                        : 'hover:bg-slate-800/60 text-slate-200'
+                        ? `${isEmerald ? 'bg-emerald-50' : 'bg-sky-50'} text-slate-900`
+                        : 'hover:bg-slate-50 text-slate-700'
                     }`}
                   >
                     <div className="flex items-start space-x-2.5 min-w-0 flex-1">
                       <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
-                        isEmerald ? 'bg-emerald-500/10 text-emerald-400' : 'bg-sky-500/10 text-sky-400'
+                        isEmerald ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'
                       }`}>
                         <User className="w-4 h-4" />
                       </div>
@@ -291,41 +291,41 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                       <div className="min-w-0 flex-1 space-y-1">
                         {/* Name & Code */}
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-bold text-white text-xs">
+                          <span className="font-bold text-slate-900 text-xs">
                             {cust.fullNameEn}
                           </span>
                           {cust.fullNameMm && (
-                            <span className="text-[11px] text-slate-400 font-medium">
+                            <span className="text-[11px] text-slate-500 font-medium">
                               ({cust.fullNameMm})
                             </span>
                           )}
-                          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
                             {cust.customerCode || 'CUST'}
                           </span>
                           {cust.customerType && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-50 text-amber-800 border border-amber-200">
                               {cust.customerType}
                             </span>
                           )}
                         </div>
 
                         {/* Phone, NRC, Passport */}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                           {cust.phone && (
-                            <span className="flex items-center space-x-1 text-slate-300">
-                              <Phone className="w-3 h-3 text-slate-500" />
+                            <span className="flex items-center space-x-1 text-slate-700">
+                              <Phone className="w-3 h-3 text-slate-400" />
                               <span className="font-mono">{cust.phone}</span>
                             </span>
                           )}
                           {hasNrc && (
-                            <span className="flex items-center space-x-1 text-amber-300">
-                              <FileText className="w-3 h-3 text-amber-500" />
+                            <span className="flex items-center space-x-1 text-amber-800 font-medium">
+                              <FileText className="w-3 h-3 text-amber-600" />
                               <span className="font-mono">{cust.nrcNumber}</span>
                             </span>
                           )}
                           {hasPassport && (
-                            <span className="flex items-center space-x-1 text-sky-300">
-                              <FileText className="w-3 h-3 text-sky-500" />
+                            <span className="flex items-center space-x-1 text-sky-800 font-medium">
+                              <FileText className="w-3 h-3 text-sky-600" />
                               <span className="font-mono">{cust.passportNumber || cust.passbookNumber}</span>
                             </span>
                           )}
@@ -334,7 +334,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                         {/* Address */}
                         {cust.address && (
                           <div className="flex items-center space-x-1 text-[10px] text-slate-500 truncate">
-                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 shrink-0 text-slate-400" />
                             <span className="truncate">{cust.address}</span>
                           </div>
                         )}
@@ -348,7 +348,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                         e.stopPropagation();
                         handleSelect(cust);
                       }}
-                      className={`shrink-0 px-2.5 py-1.5 rounded-lg text-white font-bold text-[11px] flex items-center space-x-1 shadow-sm cursor-pointer ${accentBtn}`}
+                      className={`shrink-0 px-2.5 py-1.5 rounded-lg text-white font-bold text-[11px] flex items-center space-x-1 shadow-xs cursor-pointer ${accentBtn}`}
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{language === 'my' ? 'တန်းဖြည့်မည်' : 'Auto Fill'}</span>
@@ -358,13 +358,13 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               })}
             </div>
           ) : (
-            <div className="p-6 text-center text-slate-400 space-y-2">
+            <div className="p-6 text-center text-slate-500 space-y-2">
               <p className="text-xs">
                 {language === 'my'
                   ? `"${searchTerm}" နှင့် ကိုက်ညီသော Customer မတွေ့ရှိပါ။`
                   : `No customers found containing "${searchTerm}".`}
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-400">
                 {language === 'my'
                   ? 'အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport နံပါတ် အပြည့်အစုံ (သို့) တစ်စိတ်တစ်ပိုင်း ရိုက်ထည့်ရှာဖွေနိုင်ပါသည်။'
                   : 'Search by full or partial Name, Phone, NRC, or Passport number.'}

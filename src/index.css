@@ -3,18 +3,19 @@
 :root {
   --brand: #2563EB;
   --brand-hover: #1D4ED8;
-  --sidebar: #0F172A;
-  --bg: #F1F5F9;
-  --card-bg: #FFFFFF;
-  --line: #E2E8F0;
-  --text-muted: #64748B;
+  --sidebar: #D1F2EB;
+  --bg: #b2e0d4;
+  --card-bg: #D1F2EB;
+  --line: #A2D9CE;
+  --text-muted: #3B6B63;
   --text-main: #0F172A;
   --f-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color-scheme: light;
 }
 
 @layer base {
-  body {
-    background-color: var(--bg);
+  html, body, #root {
+    background-color: #b2e0d4 !important;
     color: var(--text-main);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
@@ -29,11 +30,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #A2D9CE;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #76D7C4;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -41,16 +42,154 @@
   height: 8px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #D1F2EB;
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #A2D9CE;
   border-radius: 4px;
-  border: 1px solid #1e293b;
+  border: 1px solid #76D7C4;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #76D7C4;
+}
+
+/* =========================================================================
+   MINT THEME SYSTEM OVERRIDES
+   All page surfaces, cards, and panels from White to Mint #D1F2EB
+   ========================================================================= */
+
+/* 1. Main cards, pages & panels: Soft Mint #D1F2EB */
+.bg-white:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
+[class*="bg-slate-900"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
+[class*="bg-slate-950"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]) {
+  background-color: #D1F2EB !important;
+  border-color: #A2D9CE !important;
+  color: #0F172A !important;
+}
+
+/* 2. Secondary panels, table headers, pill bars, and recessed regions */
+[class*="bg-slate-800"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
+[class*="bg-slate-850"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
+.bg-slate-50:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]),
+.bg-slate-100:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]),
+thead,
+tfoot {
+  background-color: #C1ECE3 !important;
+  border-color: #A2D9CE !important;
+  color: #0E6251 !important;
+}
+
+/* In-page dark note containers */
+div[class*="bg-black/"]:not(.fixed):not(.absolute) {
+  background-color: #C1ECE3 !important;
+  color: #0E6251 !important;
+}
+
+/* Table styling for Mint mode */
+table {
+  color: #1E293B !important;
+  background-color: #D1F2EB !important;
+}
+thead th {
+  background-color: #B5E8DC !important;
+  color: #0E6251 !important;
+  border-bottom: 2px solid #85D4C3 !important;
+}
+tbody td {
+  border-color: #BCE7DE !important;
+}
+tfoot td, tfoot th {
+  background-color: #B5E8DC !important;
+  color: #0E6251 !important;
+  border-top: 2px solid #85D4C3 !important;
+}
+tbody tr:hover {
+  background-color: #C1ECE3 !important;
+}
+
+/* 3. Form Inputs, Selects, Dropdowns, Textareas */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+select,
+textarea {
+  background-color: #FFFFFF !important;
+  border-color: #85D4C3 !important;
+  color: #0F172A !important;
+}
+
+option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  background-color: #FFFFFF !important;
+  border-color: #0D9488 !important;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2) !important;
+  outline: none !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #64748B !important;
+}
+
+/* 4. Borders & Dividers */
+[class*="border-slate-"] {
+  border-color: #A2D9CE !important;
+}
+
+.divide-slate-800 > * + *,
+.divide-slate-700 > * + * {
+  border-color: #A2D9CE !important;
+}
+
+/* 5. Typography Contrast in Mint Light Mode */
+h1, h2, h3, h4, h5, h6 {
+  color: #0F172A;
+}
+
+.text-white:not(button):not(button *):not(a):not(a *):not([class*="bg-blue"] *):not([class*="bg-sky"] *):not([class*="bg-emerald"] *):not([class*="bg-rose"] *):not([class*="bg-amber"] *):not([class*="bg-indigo"] *):not([class*="bg-teal"] *):not([class*="bg-purple"] *):not([class*="bg-orange"] *):not([class*="bg-red"] *) {
+  color: #0F172A !important;
+}
+
+.text-slate-100 {
+  color: #0F172A !important;
+}
+.text-slate-200 {
+  color: #1E293B !important;
+}
+.text-slate-300 {
+  color: #334155 !important;
+}
+.text-slate-400 {
+  color: #475569 !important;
+}
+.text-slate-500 {
+  color: #475569 !important;
+}
+
+/* 6. Neutral secondary action buttons */
+button[class*="bg-slate-800"]:not([class*="text-white"]),
+button[class*="bg-slate-900"]:not([class*="text-white"]),
+button[class*="hover:bg-slate-800"]:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-indigo"]) {
+  background-color: #C1ECE3 !important;
+  border-color: #A2D9CE !important;
+  color: #0E6251 !important;
+}
+
+button[class*="bg-slate-800"]:hover,
+button[class*="bg-slate-900"]:hover {
+  background-color: #A3E4D7 !important;
+  color: #0B5345 !important;
+}
+
+/* 7. Soft elevation shadows */
+.shadow-xl,
+.shadow-2xl {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
 }
 
 
