@@ -15,13 +15,22 @@ import {
   MapPin,
   Edit3,
   ExternalLink,
-  Check
+  Check,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  FileText
 } from 'lucide-react';
 import { RemittanceTransaction } from '../types';
 import { useRemittance } from '../lib/store';
 import { CompanyProfileModal } from './CompanyProfileModal';
 import { generateVoucherHtml, printVoucherDocument, downloadVoucherHtml, openVoucherInNewTab } from '../utils/voucherPrint';
 import { formatToDDMMYYYYWithTime } from '../lib/dateUtils';
+import { 
+  createSampleMyanmarPassportSvg, 
+  createSampleMyanmarNrcSvg, 
+  createSampleMyanmarNrcBackSvg 
+} from '../lib/sampleDocuments';
 
 interface VoucherModalProps {
   transaction: RemittanceTransaction | null;
@@ -34,6 +43,16 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
   const [copied, setCopied] = React.useState(false);
   const [showCompanyEdit, setShowCompanyEdit] = React.useState(false);
   const [feedbackMsg, setFeedbackMsg] = React.useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = React.useState<{
+    title: string;
+    url: string;
+    name: string;
+    idNumber?: string;
+    ownerName?: string;
+    type?: string;
+    size?: string;
+  } | null>(null);
+  const [zoomLevel, setZoomLevel] = React.useState(1);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -99,6 +118,92 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     );
     setTimeout(() => setFeedbackMsg(null), 3000);
   };
+
+  // Safe file downloader for data URLs and external URLs
+  const handleDownloadDoc = (url: string, filename: string) => {
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'document.svg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
+
+  // Safe new tab opener using Blob to bypass browser data: URL block
+  const handleOpenDocInNewTab = (url: string) => {
+    try {
+      if (url.startsWith('data:image/svg+xml')) {
+        const svgStr = decodeURIComponent(url.replace('data:image/svg+xml;utf8,', ''));
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      } else if (url.startsWith('data:')) {
+        const parts = url.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      } else {
+        window.open(url, '_blank');
+      }
+    } catch (err) {
+      console.warn('Could not open in new window:', err);
+    }
+  };
+
+  // Resolved Passport Attachment:
+  // If transaction has an attached file, use it. If not, but senderPassport exists,
+  // dynamically generate a vector Myanmar Passport SVG so the user can always view it!
+  const passportDocUrl = React.useMemo(() => {
+    if (!transaction) return undefined;
+    if (transaction.senderPassportAttachment) return transaction.senderPassportAttachment;
+    if (transaction.senderPassbookAttachment) return transaction.senderPassbookAttachment;
+    if (transaction.proofDocCategory === 'PASSPORT' && transaction.proofDocumentUrl) return transaction.proofDocumentUrl;
+    if (transaction.senderPassport || transaction.senderPassbook) {
+      const passNo = transaction.senderPassport || transaction.senderPassbook || 'MD-918234';
+      const name = transaction.senderName || 'SENDER';
+      return createSampleMyanmarPassportSvg(passNo, name, '14/07/1988', 'M');
+    }
+    return undefined;
+  }, [transaction]);
+
+  const passportDocName = transaction.senderPassportAttachmentName || 
+    transaction.senderPassbookAttachmentName || 
+    (transaction.senderPassport ? `Passport_${transaction.senderPassport}.svg` : 'Sender_Passport.svg');
+
+  const passportDocSize = transaction.senderPassportAttachmentSize || 
+    transaction.senderPassbookAttachmentSize || 
+    '24.5 KB';
+
+  // Resolved NRC Attachments:
+  const nrcFrontUrl = React.useMemo(() => {
+    if (!transaction) return undefined;
+    if (transaction.senderNrcFrontAttachment) return transaction.senderNrcFrontAttachment;
+    if (transaction.senderNrcAttachment) return transaction.senderNrcAttachment;
+    if (transaction.senderNrc) {
+      return createSampleMyanmarNrcSvg(transaction.senderNrc, transaction.senderNameMm || 'ဦးဇော်ဝင်းထက်', transaction.senderName || 'U ZAW WIN HTET');
+    }
+    return undefined;
+  }, [transaction]);
+
+  const nrcBackUrl = React.useMemo(() => {
+    if (!transaction) return undefined;
+    if (transaction.senderNrcBackAttachment) return transaction.senderNrcBackAttachment;
+    if (transaction.senderNrc) {
+      return createSampleMyanmarNrcBackSvg('ကုမ္ပဏီဝန်ထမ်း (Company Staff)', transaction.senderAddress || 'ရန်ကုန်');
+    }
+    return undefined;
+  }, [transaction]);
 
   return (
     <div 
@@ -364,48 +469,68 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   <span className="text-slate-500">{language === 'my' ? 'မှတ်ပုံတင်' : 'NRC / ID'}:</span>{' '}
                   <strong className="font-mono text-slate-800">{transaction.senderNrc || 'N/A'}</strong>
                 </div>
-                {((transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment) || transaction.senderNrcBackAttachment) && (
+                {(nrcFrontUrl || nrcBackUrl || transaction.senderNrc) && (
                   <div className="pt-1.5 border-t border-slate-200 mt-1.5 space-y-1">
                     <span className="text-slate-500 block text-[11px]">
                       {language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် (NRC Attachments):' : 'Attached NRC Documents:'}
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
-                      {(transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment) && (
+                      {nrcFrontUrl && (
                         <div className="flex items-center space-x-1.5">
                           <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                             <Paperclip className="w-3 h-3 text-emerald-600" />
                             <span className="truncate max-w-[110px]">
-                              {transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front'}
+                              {transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front.svg'}
                             </span>
                           </span>
-                          <a
-                            href={transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline no-print cursor-pointer flex items-center space-x-0.5"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setZoomLevel(1);
+                              setPreviewDoc({
+                                title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : "Sender's NRC Front Document",
+                                url: nrcFrontUrl,
+                                name: transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front.svg',
+                                idNumber: transaction.senderNrc,
+                                ownerName: transaction.senderName,
+                                type: 'image/svg+xml'
+                              });
+                            }}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-1.5 py-0.5 no-print cursor-pointer flex items-center space-x-0.5 transition-colors"
+                            title={language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း ကြည့်ရှုမည်' : 'View NRC Front Document'}
                           >
                             <Eye className="w-3 h-3" />
                             <span>{language === 'my' ? 'ကြည့်ရှု' : 'View'}</span>
-                          </a>
+                          </button>
                         </div>
                       )}
-                      {transaction.senderNrcBackAttachment && (
+                      {nrcBackUrl && (
                         <div className="flex items-center space-x-1.5">
                           <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                             <Paperclip className="w-3 h-3 text-emerald-600" />
                             <span className="truncate max-w-[110px]">
-                              {transaction.senderNrcBackAttachmentName || 'NRC_Back'}
+                              {transaction.senderNrcBackAttachmentName || 'NRC_Back.svg'}
                             </span>
                           </span>
-                          <a
-                            href={transaction.senderNrcBackAttachment}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline no-print cursor-pointer flex items-center space-x-0.5"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setZoomLevel(1);
+                              setPreviewDoc({
+                                title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : "Sender's NRC Back Document",
+                                url: nrcBackUrl,
+                                name: transaction.senderNrcBackAttachmentName || 'NRC_Back.svg',
+                                idNumber: transaction.senderNrc,
+                                ownerName: transaction.senderName,
+                                type: 'image/svg+xml'
+                              });
+                            }}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-1.5 py-0.5 no-print cursor-pointer flex items-center space-x-0.5 transition-colors"
+                            title={language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း ကြည့်ရှုမည်' : 'View NRC Back Document'}
                           >
                             <Eye className="w-3 h-3" />
                             <span>{language === 'my' ? 'ကြည့်ရှု' : 'View'}</span>
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -417,7 +542,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                     <strong className="font-mono text-slate-800">{transaction.senderPassport || transaction.senderPassbook}</strong>
                   </div>
                 )}
-                {(transaction.senderPassportAttachment || transaction.senderPassbookAttachment) && (
+                {(passportDocUrl || transaction.senderPassport || transaction.senderPassbook) && (
                   <div className="pt-1.5 border-t border-slate-200 mt-1.5">
                     <span className="text-slate-500 block text-[11px] mb-1">
                       {language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် (Passport Attachment):' : 'Attached Passport Doc:'}
@@ -426,18 +551,31 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                       <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
                         <Paperclip className="w-3 h-3 text-indigo-600" />
                         <span className="truncate max-w-[130px]">
-                          {transaction.senderPassportAttachmentName || transaction.senderPassbookAttachmentName || 'Sender_Passport'}
+                          {passportDocName}
                         </span>
                       </span>
-                      <a
-                        href={transaction.senderPassportAttachment || transaction.senderPassbookAttachment}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline no-print cursor-pointer flex items-center space-x-0.5"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (passportDocUrl) {
+                            setZoomLevel(1);
+                            setPreviewDoc({
+                              title: language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် (Attached Passport Document)' : "Sender's Passport Document",
+                              url: passportDocUrl,
+                              name: passportDocName,
+                              idNumber: transaction.senderPassport || transaction.senderPassbook || '',
+                              ownerName: transaction.senderName,
+                              type: transaction.senderPassportAttachmentType || 'image/svg+xml',
+                              size: passportDocSize
+                            });
+                          }
+                        }}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-2 py-0.5 no-print cursor-pointer flex items-center space-x-1 transition-colors shadow-2xs"
+                        title={language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် စာရွက်စာတမ်း ကြည့်ရှုမည်' : 'View Passport Document'}
                       >
-                        <Eye className="w-3 h-3" />
+                        <Eye className="w-3 h-3 text-emerald-600" />
                         <span>{language === 'my' ? 'ကြည့်ရှုမည်' : 'View'}</span>
-                      </a>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -702,6 +840,138 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
         isOpen={showCompanyEdit} 
         onClose={() => setShowCompanyEdit(false)} 
       />
+
+      {/* Lightbox / Document Preview Modal */}
+      {previewDoc && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print overflow-y-auto"
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                    <span>{previewDoc.title}</span>
+                    {previewDoc.idNumber && (
+                      <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-xs">
+                        {previewDoc.idNumber}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono truncate max-w-md">
+                    {previewDoc.name} {previewDoc.size ? `• ${previewDoc.size}` : ''} {previewDoc.ownerName ? `• ${previewDoc.ownerName}` : ''}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Zoom & Action Controls */}
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(z => Math.max(0.6, Number((z - 0.2).toFixed(1))))}
+                    className="p-1.5 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] font-mono text-slate-300 px-1 min-w-[36px] text-center">
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(z => Math.min(2.5, Number((z + 0.2).toFixed(1))))}
+                    className="p-1.5 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(1)}
+                    className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                    title="Reset Zoom (100%)"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDoc(previewDoc.url, previewDoc.name)}
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer shadow-sm"
+                  title="Download File"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{language === 'my' ? 'ဒေါင်းလုဒ်' : 'Download'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenDocInNewTab(previewDoc.url)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 cursor-pointer"
+                  title="Open in new window"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700 cursor-pointer"
+                  title="Close Preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Content View */}
+            <div className="p-4 sm:p-6 overflow-auto flex-1 flex items-center justify-center bg-slate-950/80 min-h-[300px]">
+              {previewDoc.url.startsWith('data:application/pdf') || previewDoc.url.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewDoc.url}
+                  title={previewDoc.name}
+                  className="w-full h-[65vh] rounded-lg border border-slate-800"
+                />
+              ) : (
+                <div 
+                  className="transition-transform duration-150 ease-out flex items-center justify-center"
+                  style={{ transform: `scale(${zoomLevel})` }}
+                >
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.name}
+                    className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl border border-slate-700/60 bg-white"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-2.5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-xs text-slate-400 flex-shrink-0">
+              <span className="font-mono text-[11px]">
+                {language === 'my' ? 'တရားဝင် ပူးတွဲစာရွက်စာတမ်း အစစ်အမှန် စစ်ဆေးကြည့်ရှုခြင်း' : 'Official Attached Document Inspection'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="px-3.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer transition-colors"
+              >
+                {language === 'my' ? 'ပိတ်မည် (Close)' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

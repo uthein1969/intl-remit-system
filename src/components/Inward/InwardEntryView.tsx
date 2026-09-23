@@ -32,7 +32,8 @@ import {
   Sparkles,
   Calendar,
   Clock,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance, getNextCleanId } from '../../lib/store';
@@ -448,6 +449,7 @@ export const InwardEntryView: React.FC = () => {
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdTx, setCreatedTx] = useState<RemittanceTransaction | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -777,11 +779,39 @@ export const InwardEntryView: React.FC = () => {
 
       confetti({ particleCount: 70, spread: 60 });
       setCreatedTx(newTx);
+      setIsSubmitted(true);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to submit inward remittance claim');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleResetForm = () => {
+    setMtcn('');
+    setSenderName('');
+    setSenderPhone('');
+    setSenderAddress('');
+    setSenderNrc('');
+    setSenderPassport('');
+    setSenderNrcFrontDoc(null);
+    setSenderNrcBackDoc(null);
+    setSenderPassportAttachment('');
+    setSenderPassportAttachmentName('');
+    setSenderPassportAttachmentSize('');
+    setReceiverName('');
+    setReceiverNameMm('');
+    setReceiverNrc('');
+    setReceiverPassport('');
+    setReceiverPhone('');
+    setReceiverAddress('');
+    setSendAmount(0);
+    setSenderNote('');
+    setPayoutAccountNumber('');
+    setErrorMessage('');
+    setIsSubmitted(false);
+    setCreatedTx(null);
+    handleResetToCurrentTime();
   };
 
   return (
@@ -2054,13 +2084,52 @@ export const InwardEntryView: React.FC = () => {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50"
-            >
-              {isSubmitting ? 'Submitting...' : t.submitInwardApproval}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              {isSubmitted && (
+                <button
+                  type="button"
+                  id="reset-inward-claim-btn"
+                  onClick={handleResetForm}
+                  className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm shadow-md transition-all hover:scale-[1.02] flex items-center space-x-2 cursor-pointer"
+                  title={language === 'my' ? 'နောက်ထပ် ငွေထုတ်လွှာ အသစ်စတင်မည်' : 'Start New Inward Remittance Claim'}
+                >
+                  <RotateCcw className="w-4 h-4 text-sky-400" />
+                  <span>{language === 'my' ? 'နောက်ထပ် ငွေထုတ်လွှာ အသစ်စတင်မည်' : 'New Inward Entry'}</span>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                id="submit-inward-claim-btn"
+                disabled={isSubmitting || isSubmitted}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center space-x-2 ${
+                  isSubmitted
+                    ? 'bg-slate-800/90 text-slate-500 border border-slate-700/80 opacity-40 cursor-not-allowed shadow-none select-none'
+                    : isSubmitting
+                    ? 'bg-emerald-700 text-emerald-200 opacity-60 cursor-wait shadow-none'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                }`}
+                title={
+                  isSubmitted 
+                    ? (language === 'my' ? 'အတည်ပြုချက် တင်ပြပြီးပါပြီ (Submit ပြုလုပ်ပြီးပါပြီ)' : 'Already Submitted for Approval') 
+                    : undefined
+                }
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>{language === 'my' ? 'အတည်ပြုရန် တင်ပြနေပါသည်...' : 'Submitting Claim...'}</span>
+                  </>
+                ) : isSubmitted ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500/80" />
+                    <span>{language === 'my' ? 'ငွေထုတ်ပေးရန် အတည်ပြုချက် တင်ပြပြီးပါပြီ (Submitted)' : 'Inward Claim Submitted for Approval (Submitted)'}</span>
+                  </>
+                ) : (
+                  <span>{t.submitInwardApproval}</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </form>
