@@ -1587,3 +1587,43 @@ export async function tursoWebDeleteExchangeRate(id: string): Promise<{ success:
   }
 }
 
+export async function tursoWebClearTransactions(): Promise<{ success: boolean; count?: number; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    const countRes = await client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] }));
+    const count = Number(countRes.rows[0]?.cnt || 0);
+    await client.execute('DELETE FROM remittance_transactions;');
+    return { success: true, count };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to clear transactions:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebClearAuditLogs(): Promise<{ success: boolean; count?: number; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    const countRes = await client.execute('SELECT COUNT(*) as cnt FROM audit_logs;').catch(() => ({ rows: [{ cnt: 0 }] }));
+    const count = Number(countRes.rows[0]?.cnt || 0);
+    await client.execute('DELETE FROM audit_logs;');
+    return { success: true, count };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to clear audit logs:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+export async function tursoWebClearCustomerProfiles(): Promise<{ success: boolean; count?: number; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    const countRes = await client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] }));
+    const count = Number(countRes.rows[0]?.cnt || 0);
+    await client.execute('DELETE FROM customer_profiles;');
+    return { success: true, count };
+  } catch (err: any) {
+    console.warn('[Turso Web] Failed to clear customer profiles:', err);
+    return { success: false, message: err?.message };
+  }
+}
+
+

@@ -167,6 +167,9 @@ interface RemittanceContextType {
   restoreDatabaseFromJson: (jsonString: string) => boolean;
   resetToDefaultData: () => void;
   resetToDefaultSeed: () => void;
+  clearAllTransactions: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
+  clearAllAuditLogs: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
+  clearLocalAndTursoDataForTesting: () => Promise<void>;
   
   // Default Status Configuration (Admin Setup for User Admin Role)
   defaultStatusConfig: DefaultStatusConfig;
@@ -2764,6 +2767,66 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   };
 
+  const clearAllTransactions = async (alsoClearTurso: boolean = true): Promise<{ count: number; tursoSuccess?: boolean }> => {
+    const count = db.transactions.length;
+    setDb(prev => {
+      const updated = { ...prev, transactions: [] };
+      persistDatabaseSafely(updated);
+      return updated;
+    });
+
+    let tursoSuccess: boolean | undefined = undefined;
+    if (alsoClearTurso) {
+      try {
+        const { clearTursoRemoteTable } = await import('./tursoClient');
+        const res = await clearTursoRemoteTable('remittance_transactions');
+        tursoSuccess = res?.success;
+      } catch (e) {
+        console.warn('Failed to clear Turso remote transactions:', e);
+        tursoSuccess = false;
+      }
+    }
+
+    logActionDirect(
+      'DELETE',
+      'SYSTEM',
+      'ALL_RECORDS',
+      `Cleared all ${count} transactions for testing (Turso cleared: ${tursoSuccess ?? 'no'}).`
+    );
+    return { count, tursoSuccess };
+  };
+
+  const clearAllAuditLogs = async (alsoClearTurso: boolean = true): Promise<{ count: number; tursoSuccess?: boolean }> => {
+    const count = db.auditLogs.length;
+    setDb(prev => {
+      const updated = { ...prev, auditLogs: [] };
+      persistDatabaseSafely(updated);
+      return updated;
+    });
+
+    let tursoSuccess: boolean | undefined = undefined;
+    if (alsoClearTurso) {
+      try {
+        const { clearTursoRemoteTable } = await import('./tursoClient');
+        const res = await clearTursoRemoteTable('audit_logs');
+        tursoSuccess = res?.success;
+      } catch (e) {
+        console.warn('Failed to clear Turso remote audit logs:', e);
+        tursoSuccess = false;
+      }
+    }
+    return { count, tursoSuccess };
+  };
+
+  const clearLocalAndTursoDataForTesting = async (): Promise<void> => {
+    await clearAllTransactions(true);
+    await clearAllAuditLogs(true);
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_DB_KEY);
+      await clearIndexedDb();
+    } catch {}
+  };
+
   // Default Status Configuration (Country-Based Remittance Defaults configured by Admin Role)
   const defaultStatusConfig: DefaultStatusConfig = db.defaultStatusConfig || initialDatabase.defaultStatusConfig || {
     autoCountryDefault: true,
@@ -4357,6 +4420,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         restoreDatabaseFromJson: restoreBackupJson,
         resetToDefaultData,
         resetToDefaultSeed: resetToDefaultData,
+        clearAllTransactions,
+        clearAllAuditLogs,
+        clearLocalAndTursoDataForTesting,
         defaultStatusConfig,
         updateDefaultStatusConfig,
         updateSupabaseConfig,

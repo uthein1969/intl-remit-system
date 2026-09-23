@@ -12,6 +12,8 @@ import {
   FileCode, 
   Server, 
   ShieldCheck, 
+  ShieldAlert,
+  Trash2,
   Copy,
   Terminal,
   Clock,
@@ -31,6 +33,7 @@ import {
 import { useRemittance } from '../../lib/store';
 import { TursoSyncTab } from './TursoSyncTab';
 import { SupabaseSyncTab } from './SupabaseSyncTab';
+import { LOCAL_STORAGE_DB_KEY, clearIndexedDb } from '../../lib/indexedDbStorage';
 
 export interface BackupRestoreViewProps {
   initialTab?: 'backup' | 'audit' | 'turso' | 'supabase';
@@ -51,6 +54,9 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
     restoreDatabaseFromJson, 
     resetToDefaultData,
     resetToDefaultSeed, 
+    clearAllTransactions,
+    clearAllAuditLogs,
+    clearLocalAndTursoDataForTesting,
     currentUser 
   } = useRemittance();
 
@@ -63,6 +69,16 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [showJsonPreview, setShowJsonPreview] = useState(false);
+
+  // Testing & Reset confirmation modal state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    actionType: 'clear_tx' | 'clear_audit' | 'reset_seed' | 'clear_cache';
+    confirmButtonText: string;
+  } | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   useEffect(() => {
     if (initialTab) {
@@ -281,6 +297,61 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
     );
   });
 
+  const handleExecuteConfirmAction = async () => {
+    if (!confirmDialog) return;
+    setIsProcessingAction(true);
+    try {
+      if (confirmDialog.actionType === 'clear_tx') {
+        const res = await clearAllTransactions(true);
+        setNotification({
+          type: 'success',
+          message: language === 'my'
+            ? `ငွေလွှဲစာရင်း (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (remittance_transactions) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
+            : `Successfully cleared all ${res.count} transactions from local storage and Turso cloud.`
+        });
+      } else if (confirmDialog.actionType === 'clear_audit') {
+        const res = await clearAllAuditLogs(true);
+        setNotification({
+          type: 'success',
+          message: language === 'my'
+            ? `Audit logs (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (audit_logs) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
+            : `Successfully cleared all ${res.count} audit logs from local storage and Turso cloud.`
+        });
+      } else if (confirmDialog.actionType === 'reset_seed') {
+        resetToDefaultSeed();
+        setNotification({
+          type: 'success',
+          message: language === 'my'
+            ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲပြီးပါပြီ (Reset to default seed data complete).'
+            : 'Reset to factory seed data complete.'
+        });
+      } else if (confirmDialog.actionType === 'clear_cache') {
+        await clearLocalAndTursoDataForTesting();
+        try {
+          localStorage.removeItem(LOCAL_STORAGE_DB_KEY);
+          await clearIndexedDb();
+        } catch {}
+        setNotification({
+          type: 'success',
+          message: language === 'my'
+            ? 'Browser Cache နှင့် Local Storage များ ရှင်းလင်းပြီးပါပြီ။ စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်...'
+            : 'Local Cache cleared successfully. Refreshing application...'
+        });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      }
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Operation failed'
+      });
+    } finally {
+      setIsProcessingAction(false);
+      setConfirmDialog(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -388,7 +459,8 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
 
       {/* TAB 1: BACKUP & RESTORE */}
       {activeTab === 'backup' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Export Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
             <div>
@@ -522,23 +594,224 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
               <button
                 type="button"
                 id="btn-reset-default-data"
-                onClick={() => {
-                  resetToDefaultSeed();
-                  setNotification({
-                    type: 'success',
-                    message: language === 'my' 
-                      ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲပြီးပါပြီ (Reset to default seed data complete)' 
-                      : 'Reset to default seed data complete.'
-                  });
-                }}
-                className="p-3 bg-slate-800 hover:bg-rose-950 hover:text-rose-400 border border-slate-700 rounded-xl text-slate-400 transition-colors cursor-pointer"
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်လား?' : 'Reset to Factory Mock Data?',
+                  description: language === 'my'
+                    ? 'လက်ရှိဒေတာများကို မူလနမူနာစနစ် (Standard Factory Seed Data) အတိုင်း ပြန်လည်ပြောင်းလဲပါမည်။'
+                    : 'This will reset all system data back to default factory demo records and users.',
+                  actionType: 'reset_seed',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
+                })}
+                className="px-4 py-3 bg-slate-800 hover:bg-amber-950/80 hover:text-amber-300 border border-slate-700 rounded-xl text-slate-300 font-bold text-xs transition-colors flex items-center space-x-2 cursor-pointer"
                 title={language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်' : 'Reset to Factory Mock Data'}
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4 text-amber-400" />
+                <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
               </button>
             </div>
           </div>
         </div>
+
+        {/* DEDICATED TESTING & MAINTENANCE SECTION: CLEAR DATA & RESET */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/40 border-2 border-rose-500/30 rounded-2xl p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-rose-500/20">
+            <div className="flex items-start space-x-3.5">
+              <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-white tracking-wide">
+                    {language === 'my' 
+                      ? 'စမ်းသပ်မှုအသစ် ပြုလုပ်ရန် ဒေတာရှင်းလင်းခြင်း (Testing & Maintenance / Reset)' 
+                      : 'Testing & Maintenance (Reset Data & Clear Cache)'}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    {language === 'my' ? 'စမ်းသပ်မှု ပြုလုပ်ရန်' : 'Testing Tools'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
+                  {language === 'my'
+                    ? 'ငွေလွှဲစမ်းသပ်မှုအသစ် စတင်ရန် Browser Cache နှင့် Turso Database ပေါ်ရှိ Transactions နှင့် Audit Logs များကို လွယ်ကူစွာ ရှင်းလင်းနိုင်ပါသည်။ မာစတာဒေတာများ (ဘဏ်ခွဲ၊ ဝန်ထမ်းအကောင့်၊ ငွေလဲနှုန်းများ) ပျက်ပြယ်မည် မဟုတ်ပါ။'
+                    : 'Reset test remittance transactions and audit logs from both local storage/cache and remote Turso cloud database for fresh testing, while preserving master branches, system users, and exchange rates.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Real-time Counts Badges */}
+            <div className="flex items-center space-x-2 shrink-0">
+              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block font-semibold">Transactions</span>
+                <span className={`text-sm font-mono font-bold ${db.transactions.length > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+                  {db.transactions.length}
+                </span>
+              </div>
+              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block font-semibold">Audit Logs</span>
+                <span className={`text-sm font-mono font-bold ${db.auditLogs.length > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                  {db.auditLogs.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Button 1: Clear Transactions */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                  <span className="flex items-center gap-1.5 text-rose-400">
+                    <Trash2 className="w-4 h-4" />
+                    {language === 'my' ? 'ငွေလွှဲမှတ်တမ်း ရှင်းလင်းမည်' : 'Clear Transactions'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-mono">
+                    {db.transactions.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {language === 'my'
+                    ? 'Local Storage နှင့် Turso Cloud ရှိ ငွေလွှဲ Transaction စာရင်းများအားလုံးကို ရှင်းလင်းမည်'
+                    : 'Clears all transactions in both local browser cache and Turso LibSQL table.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-clear-transactions"
+                disabled={db.transactions.length === 0 || isProcessingAction}
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'ငွေလွှဲမှတ်တမ်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Transactions?',
+                  description: language === 'my'
+                    ? `လက်ရှိ စနစ်ထဲရှိ ငွေလွှဲမှတ်တမ်း (${db.transactions.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (remittance_transactions) နှစ်ခုစလုံးမှ အပြီးအပိုင် ရှင်းထုတ်ပါမည်။ စမ်းသပ်မှုအသစ် ပြုလုပ်ရန်အတွက် အဆင်သင့် ဖြစ်ပါမည်။`
+                    : `Are you sure you want to clear all ${db.transactions.length} transactions from both local storage and Turso cloud database? This will prepare a clean slate for new testing.`,
+                  actionType: 'clear_tx',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ အားလုံးရှင်းလင်းမည်' : 'Yes, Clear All Transactions'
+                })}
+                className="w-full py-2.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'ငွေလွှဲများ ရှင်းလင်းမည်' : 'Clear Transactions'}</span>
+              </button>
+            </div>
+
+            {/* Button 2: Clear Audit Logs */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                  <span className="flex items-center gap-1.5 text-purple-400">
+                    <History className="w-4 h-4" />
+                    {language === 'my' ? 'Audit Logs ရှင်းလင်းမည်' : 'Clear Audit Logs'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-mono">
+                    {db.auditLogs.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {language === 'my'
+                    ? 'Local Storage နှင့် Turso Cloud ရှိ Audit Trail မှတ်တမ်းဟောင်းများကို ရှင်းလင်းမည်'
+                    : 'Clears audit history from both local state and Turso LibSQL table.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-clear-audit-logs"
+                disabled={db.auditLogs.length === 0 || isProcessingAction}
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'Audit Logs မှတ်တမ်းများ ရှင်းလင်းမည်လား?' : 'Clear All Audit Logs?',
+                  description: language === 'my'
+                    ? `လက်ရှိ စနစ်ထဲရှိ Audit Logs (${db.auditLogs.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud (audit_logs) မှ ရှင်းထုတ်ပါမည်။`
+                    : `Are you sure you want to clear all ${db.auditLogs.length} audit trail records from local and Turso cloud?`,
+                  actionType: 'clear_audit',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Yes, Clear Audit Logs'
+                })}
+                className="w-full py-2.5 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Clear Audit Logs'}</span>
+              </button>
+            </div>
+
+            {/* Button 3: Reset Demo Data */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <RotateCcw className="w-4 h-4" />
+                    {language === 'my' ? 'မူလနမူနာဒေတာ ပြန်ထားမည်' : 'Reset Demo Data'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">
+                    Seed Data
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {language === 'my'
+                    ? 'စနစ်တစ်ခုလုံးကို မူလစတင်ချိန်က Demo Data များ (ဘဏ်ခွဲများ၊ User အကောင့်များ) အတိုင်း ပြန်ထားမည်'
+                    : 'Resets the whole database to initial standard seed mock dataset.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-reset-demo-data-card"
+                disabled={isProcessingAction}
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲမည်လား?' : 'Reset to Default Demo Data?',
+                  description: language === 'my'
+                    ? 'စနစ်ကို စတင်တပ်ဆင်စဉ်က မူလနမူနာဒေတာများ (Standard Seed Data) သို့ ပြန်လည်ပြောင်းလဲပေးပါမည်။'
+                    : 'This will reset the entire system state back to default factory demo records and users.',
+                  actionType: 'reset_seed',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
+                })}
+                className="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-40 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
+              </button>
+            </div>
+
+            {/* Button 4: Clear Local Cache */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                  <span className="flex items-center gap-1.5 text-cyan-400">
+                    <RefreshCw className="w-4 h-4" />
+                    {language === 'my' ? 'Clear Local Cache' : 'Clear Browser Cache'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 font-bold">
+                    Storage
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  {language === 'my'
+                    ? 'Browser ထဲတွင် အရန်သိမ်းထားသော LocalStorage & IndexedDB cache များကို ရှင်းလင်းမည်'
+                    : 'Clears offline storage and cached IndexedDB records from the browser.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-clear-local-cache-card"
+                disabled={isProcessingAction}
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: language === 'my' ? 'Browser Cache ရှင်းလင်းမည်လား?' : 'Clear Local Cache & Storage?',
+                  description: language === 'my'
+                    ? 'Browser ထဲရှိ LocalStorage နှင့် IndexedDB အဟောင်း cache များကို ရှင်းလင်းပြီး App ကို reload လုပ်ပါမည်။'
+                    : 'This will purge all local browser caches, IndexedDB, and localStorage keys, then refresh.',
+                  actionType: 'clear_cache',
+                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Cache ရှင်းလင်းမည်' : 'Yes, Clear Local Cache'
+                })}
+                className="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{language === 'my' ? 'Clear Local Cache' : 'Clear Local Cache'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       )}
 
       {/* TAB 2: AUDIT TRAIL LOGS */}
@@ -719,6 +992,56 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
       {/* TAB 4: SUPABASE POSTGRESQL CLOUD INTEGRATION */}
       {activeTab === 'supabase' && (
         <SupabaseSyncTab onNotify={(type, message) => setNotification({ type, message })} />
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start space-x-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {confirmDialog.title}
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  {confirmDialog.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[11px] text-amber-300 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>
+                {language === 'my'
+                  ? 'သတိပြုရန် - ဤလုပ်ဆောင်ချက်သည် မာစတာဒေတာများ (ဘဏ်ခွဲ၊ User၊ ငွေလဲနှုန်း) ကို မထိခိုက်ပါ။'
+                  : 'Notice: This will not delete your configured branches, user accounts, or exchange rates.'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                {language === 'my' ? 'မလုပ်တော့ပါ (Cancel)' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={handleExecuteConfirmAction}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-bold shadow-lg transition-colors flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+              >
+                {isProcessingAction && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{confirmDialog.confirmButtonText}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

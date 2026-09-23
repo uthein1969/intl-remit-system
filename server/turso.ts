@@ -1944,5 +1944,19 @@ export async function deleteTursoExchangeRate(id: string) {
   return { success: true };
 }
 
+export async function clearTursoTable(tableName: 'remittance_transactions' | 'audit_logs' | 'customer_profiles') {
+  const allowed = ['remittance_transactions', 'audit_logs', 'customer_profiles'];
+  if (!allowed.includes(tableName)) {
+    throw new Error(`Table ${tableName} is not allowed to be cleared.`);
+  }
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const countRes = await client.execute(`SELECT COUNT(*) as cnt FROM ${tableName};`).catch(() => ({ rows: [{ cnt: 0 }] }));
+  const count = Number(countRes.rows[0]?.cnt || 0);
+  await client.execute(`DELETE FROM ${tableName};`);
+  return { success: true, table: tableName, count };
+}
+
+
 
 

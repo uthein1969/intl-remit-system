@@ -22,6 +22,7 @@ import {
   deleteTursoBranch,
   saveTursoExchangeRates,
   deleteTursoExchangeRate,
+  clearTursoTable,
   TURSO_SCHEMA_SQL 
 } from './server/turso.js';
 
@@ -208,6 +209,20 @@ app.delete('/api/turso/exchange-rates', async (req, res) => {
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || 'Failed to delete exchange rate' });
+  }
+});
+
+app.post('/api/turso/clear-table', async (req, res) => {
+  try {
+    const { table } = req.body || {};
+    const allowed = ['remittance_transactions', 'audit_logs', 'customer_profiles'];
+    if (!allowed.includes(table)) {
+      return res.status(400).json({ success: false, error: 'Table not allowed to clear' });
+    }
+    const result = await clearTursoTable(table);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to clear table' });
   }
 });
 

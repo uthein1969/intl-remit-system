@@ -165,3 +165,30 @@ export async function fetchTursoSchema(): Promise<string> {
     return '';
   }
 }
+
+export async function clearTursoRemoteTable(table: 'remittance_transactions' | 'audit_logs' | 'customer_profiles') {
+  try {
+    const { ok, data } = await safeFetchJson('/api/turso/clear-table', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table })
+    });
+    if (ok && data?.success) {
+      return data;
+    }
+  } catch {
+    // fallback to direct web client
+  }
+
+  if (table === 'remittance_transactions') {
+    const { tursoWebClearTransactions } = await import('./tursoWebClient');
+    return await tursoWebClearTransactions();
+  } else if (table === 'audit_logs') {
+    const { tursoWebClearAuditLogs } = await import('./tursoWebClient');
+    return await tursoWebClearAuditLogs();
+  } else {
+    const { tursoWebClearCustomerProfiles } = await import('./tursoWebClient');
+    return await tursoWebClearCustomerProfiles();
+  }
+}
+
