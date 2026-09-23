@@ -192,3 +192,22 @@ export async function clearTursoRemoteTable(table: 'remittance_transactions' | '
   }
 }
 
+export async function searchTursoCustomers(query: string): Promise<any[]> {
+  try {
+    const q = encodeURIComponent(query || '');
+    const { ok, data } = await safeFetchJson(`/api/turso/customers/search?q=${q}`);
+    if (ok && data?.success && Array.isArray(data.customers)) {
+      return data.customers;
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { tursoWebSearchCustomers } = await import('./tursoWebClient');
+    return await tursoWebSearchCustomers(query);
+  } catch {
+    return [];
+  }
+}
+

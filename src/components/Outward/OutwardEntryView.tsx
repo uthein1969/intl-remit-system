@@ -27,14 +27,18 @@ import {
   Layers,
   Loader2,
   Calendar,
-  Clock
+  Clock,
+  Search,
+  Users,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
-import { RemittanceScope, PayoutMethod, RemittanceTransaction, BlacklistEntry } from '../../types';
+import { RemittanceScope, PayoutMethod, RemittanceTransaction, BlacklistEntry, Customer } from '../../types';
 import { VoucherModal } from '../VoucherModal';
 import { DobDatePicker, formatToDDMMYYYY } from '../Common/DobDatePicker';
 import { DocumentLightboxModal } from '../Common/DocumentLightboxModal';
+import { CustomerSearchAutoFill } from './CustomerSearchAutoFill';
 import { 
   createSampleMyanmarNrcSvg, 
   createSampleMyanmarNrcBackSvg, 
@@ -93,15 +97,16 @@ export const OutwardEntryView: React.FC = () => {
   const [senderPhone, setSenderPhone] = useState('');
   const [senderAddress, setSenderAddress] = useState('');
   const [senderCountryCode, setSenderCountryCode] = useState(userCountryCode || 'MM');
-  const [senderFatherName, setSenderFatherName] = useState('U Tin Aung');
-  const [senderDateOfBirth, setSenderDateOfBirth] = useState('14/07/1988');
-  const [senderOccupation, setSenderOccupation] = useState('Company Staff');
+  const [senderFatherName, setSenderFatherName] = useState('');
+  const [senderDateOfBirth, setSenderDateOfBirth] = useState('');
+  const [senderOccupation, setSenderOccupation] = useState('');
   const [senderSourceOfFund, setSenderSourceOfFund] = useState('Salary / Business Income');
 
   // Sender Document Attachments
   const [senderNrcFrontDoc, setSenderNrcFrontDoc] = useState<{ url?: string; name?: string; type?: string; size?: string } | null>(null);
   const [senderNrcBackDoc, setSenderNrcBackDoc] = useState<{ url?: string; name?: string; type?: string; size?: string } | null>(null);
   const [senderPassportDoc, setSenderPassportDoc] = useState<{ url?: string; name?: string; type?: string; size?: string } | null>(null);
+  const [selectedSenderCustomer, setSelectedSenderCustomer] = useState<Customer | null>(null);
 
   // Receiver
   const [receiverName, setReceiverName] = useState('');
@@ -111,6 +116,7 @@ export const OutwardEntryView: React.FC = () => {
   const [receiverPhone, setReceiverPhone] = useState('');
   const [receiverAddress, setReceiverAddress] = useState('');
   const [receiverCountryCode, setReceiverCountryCode] = useState(() => (initialScope === 'DOMESTIC' ? userCountryCode : (userCountryCode === 'MM' ? 'TH' : 'MM')));
+  const [selectedReceiverCustomer, setSelectedReceiverCustomer] = useState<Customer | null>(null);
 
   // Helper for currency-specific default fees
   const getDefaultFees = (currency: string) => {
@@ -457,16 +463,25 @@ export const OutwardEntryView: React.FC = () => {
 
   const totalPayableAmount = Number(sendAmount) + Number(serviceFee) + Number(commissionFee);
 
-  // Quick fill customer data
-  const handleSelectSenderCustomer = (customerId: string) => {
-    const cust = db.customers.find(c => c.id === customerId);
+  // Quick fill & auto-fill sender customer data from customer_profiles
+  const handleSelectSenderCustomer = (custOrId: string | Customer) => {
+    let cust: Customer | undefined;
+    if (typeof custOrId === 'string') {
+      cust = db.customers.find(c => c.id === custOrId);
+    } else {
+      cust = custOrId;
+    }
     if (cust) {
-      setSenderName(cust.fullNameEn);
+      setSelectedSenderCustomer(cust);
+      setSenderName(cust.fullNameEn || '');
       setSenderNameMm(cust.fullNameMm || '');
-      setSenderNrc(cust.nrcNumber);
+      setSenderNrc(cust.nrcNumber || '');
       setSenderPassport(cust.passportNumber || cust.passbookNumber || '');
-      setSenderPhone(cust.phone);
-      setSenderAddress(cust.address);
+      setSenderPhone(cust.phone || '');
+      setSenderAddress(cust.address || '');
+      if (cust.fatherName) setSenderFatherName(cust.fatherName);
+      if (cust.occupation) setSenderOccupation(cust.occupation);
+      if (cust.dateOfBirth || cust.dob) setSenderDateOfBirth(formatToDDMMYYYY(cust.dateOfBirth || cust.dob));
       if (cust.passportNumber && !cust.nrcNumber) {
         setSenderIdType('PASSPORT');
       } else if (cust.nrcNumber && !cust.passportNumber) {
@@ -477,17 +492,71 @@ export const OutwardEntryView: React.FC = () => {
     }
   };
 
-  const handleSelectReceiverCustomer = (customerId: string) => {
-    const cust = db.customers.find(c => c.id === customerId);
+  const handleClearSenderCustomer = () => {
+    setSelectedSenderCustomer(null);
+    setSenderName('');
+    setSenderNameMm('');
+    setSenderNrc('');
+    setSenderPassport('');
+    setSenderPhone('');
+    setSenderAddress('');
+    setSenderFatherName('');
+    setSenderOccupation('');
+    setSenderDateOfBirth('');
+  };
+
+  // Quick fill & auto-fill receiver customer data from customer_profiles
+  const handleSelectReceiverCustomer = (custOrId: string | Customer) => {
+    let cust: Customer | undefined;
+    if (typeof custOrId === 'string') {
+      cust = db.customers.find(c => c.id === custOrId);
+    } else {
+      cust = custOrId;
+    }
     if (cust) {
-      setReceiverName(cust.fullNameEn);
+      setSelectedReceiverCustomer(cust);
+      setReceiverName(cust.fullNameEn || '');
       setReceiverNameMm(cust.fullNameMm || '');
-      setReceiverNrc(cust.nrcNumber);
+      setReceiverNrc(cust.nrcNumber || '');
       setReceiverPassport(cust.passportNumber || cust.passbookNumber || '');
-      setReceiverPhone(cust.phone);
-      setReceiverAddress(cust.address);
+      setReceiverPhone(cust.phone || '');
+      setReceiverAddress(cust.address || '');
     }
   };
+
+  const handleClearReceiverCustomer = () => {
+    setSelectedReceiverCustomer(null);
+    setReceiverName('');
+    setReceiverNameMm('');
+    setReceiverNrc('');
+    setReceiverPassport('');
+    setReceiverPhone('');
+    setReceiverAddress('');
+  };
+
+  // Inline suggestions for Sender Name (search by contain from customer_profiles)
+  const senderNameSuggestions = useMemo(() => {
+    if (selectedSenderCustomer || !senderName.trim() || senderName.trim().length < 2) return [];
+    const q = senderName.trim().toLowerCase();
+    return db.customers.filter(c => 
+      c.fullNameEn?.toLowerCase().includes(q) || 
+      c.fullNameMm?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.nrcNumber?.toLowerCase().includes(q)
+    ).slice(0, 5);
+  }, [senderName, selectedSenderCustomer, db.customers]);
+
+  // Inline suggestions for Receiver Name (search by contain from customer_profiles)
+  const receiverNameSuggestions = useMemo(() => {
+    if (selectedReceiverCustomer || !receiverName.trim() || receiverName.trim().length < 2) return [];
+    const q = receiverName.trim().toLowerCase();
+    return db.customers.filter(c => 
+      c.fullNameEn?.toLowerCase().includes(q) || 
+      c.fullNameMm?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.nrcNumber?.toLowerCase().includes(q)
+    ).slice(0, 5);
+  }, [receiverName, selectedReceiverCustomer, db.customers]);
 
   // Helper to generate sample Front NRC
   const handleAttachSampleNrcFront = () => {
@@ -1232,10 +1301,40 @@ export const OutwardEntryView: React.FC = () => {
                 >
                   <option value="" disabled>{language === 'my' ? '-- ဖောက်သည် အမြန်ရွေးရန် --' : '-- Customer Picker --'}</option>
                   {db.customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber})</option>
+                    <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber || c.passportNumber || c.phone})</option>
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Customer Profile Auto Search (customer_profiles table) */}
+            <div className="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-500/30 space-y-2 shadow-inner">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{language === 'my' ? 'ငွေလွှဲသူ Customer အချက်အလက် အလိုအလျောက် ရှာဖွေဖြည့်သွင်းခြင်း' : 'Auto Search & Auto-Fill Sender from customer_profiles'}</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-500/15 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded border border-emerald-500/30">
+                    customer_profiles ({db.customers.length})
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  {language === 'my' ? '🔍 Contain ရှာဖွေမှု (အမည်၊ ဖုန်း၊ NRC၊ Passport)' : '🔍 Search by Contain (Name, Phone, NRC, Passport)'}
+                </span>
+              </div>
+
+              <CustomerSearchAutoFill
+                label={language === 'my' ? 'ငွေလွှဲသူ Customer ရှာရန်' : 'Sender Customer Profile'}
+                placeholder={language === 'my' ? '🔍 အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport နံပါတ် ရိုက်ထည့်ရှာပါ (Auto Search & Fill)...' : '🔍 Search Sender by Name, Phone, NRC, Passport...'}
+                onSelectCustomer={handleSelectSenderCustomer}
+                selectedCustomer={selectedSenderCustomer}
+                onClearCustomer={handleClearSenderCustomer}
+                language={language}
+                themeColor="emerald"
+                localCustomers={db.customers}
+                roleTag="SENDER"
+              />
             </div>
 
             {/* OCR Function Checkbox (Default: Unchecked / Disabled) */}
@@ -1357,16 +1456,58 @@ export const OutwardEntryView: React.FC = () => {
 
             {/* Names & ID Type Switcher */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
+              <div className="relative">
                 <label className="block text-slate-400 mb-1 font-medium">{t.senderName} *</label>
                 <input
                   type="text"
                   required
                   value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
+                  onChange={(e) => {
+                    setSenderName(e.target.value);
+                    if (selectedSenderCustomer && e.target.value !== selectedSenderCustomer.fullNameEn) {
+                      setSelectedSenderCustomer(null);
+                    }
+                  }}
                   placeholder="e.g. U Zaw Win Htet"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
                 />
+
+                {/* Inline suggestions popup when typing in Sender Name */}
+                {senderNameSuggestions.length > 0 && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-emerald-500/60 rounded-xl shadow-2xl p-1.5 space-y-1">
+                    <div className="text-[10px] text-emerald-400 font-bold px-2 py-0.5 flex items-center justify-between border-b border-slate-800 pb-1">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-emerald-400" />
+                        <span>{language === 'my' ? 'customer_profiles တွင် ကိုက်ညီသူများ (Auto-Fill):' : 'Matching customer_profiles (Click to Auto-Fill):'}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">{senderNameSuggestions.length} found</span>
+                    </div>
+                    {senderNameSuggestions.map((cust) => (
+                      <button
+                        key={cust.id}
+                        type="button"
+                        onClick={() => handleSelectSenderCustomer(cust)}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-emerald-950/60 text-xs flex items-center justify-between group transition-colors cursor-pointer"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-white group-hover:text-emerald-300 truncate">{cust.fullNameEn}</span>
+                            {cust.fullNameMm && <span className="text-slate-400 text-[11px] truncate">({cust.fullNameMm})</span>}
+                          </div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                            {cust.phone && <span>📞 {cust.phone}</span>}
+                            {cust.nrcNumber && <span className="text-amber-300">🆔 {cust.nrcNumber}</span>}
+                            {cust.passportNumber && <span className="text-sky-300">🛂 {cust.passportNumber}</span>}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-[10px] bg-emerald-600 group-hover:bg-emerald-500 text-white font-bold px-2 py-1 rounded shadow-xs flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          <span>{language === 'my' ? 'တန်းဖြည့်မည်' : 'Fill'}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1920,7 +2061,7 @@ export const OutwardEntryView: React.FC = () => {
                   type="text"
                   value={senderFatherName}
                   onChange={(e) => setSenderFatherName(e.target.value)}
-                  placeholder="U Tin Aung"
+                  placeholder={language === 'my' ? 'အဘအမည် (Blank)' : 'Father Name (Blank)'}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
                 />
               </div>
@@ -1931,7 +2072,7 @@ export const OutwardEntryView: React.FC = () => {
                   type="text"
                   value={senderOccupation}
                   onChange={(e) => setSenderOccupation(e.target.value)}
-                  placeholder="Company Staff"
+                  placeholder={language === 'my' ? 'အလုပ်အကိုင် (Blank)' : 'Occupation (Blank)'}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
                 />
               </div>
@@ -1950,7 +2091,7 @@ export const OutwardEntryView: React.FC = () => {
               <div>
                 <DobDatePicker
                   id="sender-dob-entry"
-                  label={language === 'my' ? 'မွေးသက္ကရာဇ် (Date of Birth)' : 'Date of Birth'}
+                  label={language === 'my' ? 'မွေးသက္ကရာဇ် (Date of Birth - DD/MM/YYYY)' : 'Date of Birth (DD/MM/YYYY)'}
                   placeholder="DD/MM/YYYY"
                   value={senderDateOfBirth}
                   onChange={(formattedDob) => setSenderDateOfBirth(formattedDob)}
@@ -1987,23 +2128,95 @@ export const OutwardEntryView: React.FC = () => {
               >
                 <option value="" disabled>{language === 'my' ? '-- ဖောက်သည် အမြန်ရွေးရန် --' : '-- Quick Load Customer --'}</option>
                 {db.customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber})</option>
+                  <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber || c.passportNumber || c.phone})</option>
                 ))}
               </select>
             </div>
           </div>
 
+          {/* Customer Profile Auto Search (customer_profiles table) for Receiver */}
+          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-sky-500/30 space-y-2 shadow-inner">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{language === 'my' ? 'ငွေလက်ခံသူ Customer အချက်အလက် အလိုအလျောက် ရှာဖွေဖြည့်သွင်းခြင်း' : 'Auto Search & Auto-Fill Receiver from customer_profiles'}</span>
+                </span>
+                <span className="text-[10px] bg-sky-500/15 text-sky-300 font-mono font-bold px-2 py-0.5 rounded border border-sky-500/30">
+                  customer_profiles ({db.customers.length})
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                {language === 'my' ? '🔍 Contain ရှာဖွေမှု (အမည်၊ ဖုန်း၊ NRC၊ Passport)' : '🔍 Search by Contain (Name, Phone, NRC, Passport)'}
+              </span>
+            </div>
+
+            <CustomerSearchAutoFill
+              label={language === 'my' ? 'ငွေလက်ခံသူ Customer ရှာရန်' : 'Receiver Customer Profile'}
+              placeholder={language === 'my' ? '🔍 အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport နံပါတ် ရိုက်ထည့်ရှာပါ (Auto Search & Fill)...' : '🔍 Search Receiver by Name, Phone, NRC, Passport...'}
+              onSelectCustomer={handleSelectReceiverCustomer}
+              selectedCustomer={selectedReceiverCustomer}
+              onClearCustomer={handleClearReceiverCustomer}
+              language={language}
+              themeColor="sky"
+              localCustomers={db.customers}
+              roleTag="RECEIVER"
+            />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-            <div>
+            <div className="relative">
               <label className="block text-slate-400 mb-1 font-medium">{t.receiverName} *</label>
               <input
                 type="text"
                 required
                 value={receiverName}
-                onChange={(e) => setReceiverName(e.target.value)}
+                onChange={(e) => {
+                  setReceiverName(e.target.value);
+                  if (selectedReceiverCustomer && e.target.value !== selectedReceiverCustomer.fullNameEn) {
+                    setSelectedReceiverCustomer(null);
+                  }
+                }}
                 placeholder="e.g. Somchai Prasert / Ma Su Myat"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
               />
+
+              {/* Inline suggestions popup when typing in Receiver Name */}
+              {receiverNameSuggestions.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-sky-500/60 rounded-xl shadow-2xl p-1.5 space-y-1">
+                  <div className="text-[10px] text-sky-400 font-bold px-2 py-0.5 flex items-center justify-between border-b border-slate-800 pb-1">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-sky-400" />
+                      <span>{language === 'my' ? 'customer_profiles တွင် ကိုက်ညီသူများ (Auto-Fill):' : 'Matching customer_profiles (Click to Auto-Fill):'}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">{receiverNameSuggestions.length} found</span>
+                  </div>
+                  {receiverNameSuggestions.map((cust) => (
+                    <button
+                      key={cust.id}
+                      type="button"
+                      onClick={() => handleSelectReceiverCustomer(cust)}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-sky-950/60 text-xs flex items-center justify-between group transition-colors cursor-pointer"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-white group-hover:text-sky-300 truncate">{cust.fullNameEn}</span>
+                          {cust.fullNameMm && <span className="text-slate-400 text-[11px] truncate">({cust.fullNameMm})</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          {cust.phone && <span>📞 {cust.phone}</span>}
+                          {cust.nrcNumber && <span className="text-amber-300">🆔 {cust.nrcNumber}</span>}
+                          {cust.passportNumber && <span className="text-sky-300">🛂 {cust.passportNumber}</span>}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[10px] bg-sky-600 group-hover:bg-sky-500 text-white font-bold px-2 py-1 rounded shadow-xs flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        <span>{language === 'my' ? 'တန်းဖြည့်မည်' : 'Fill'}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>

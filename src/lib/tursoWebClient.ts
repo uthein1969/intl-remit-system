@@ -1626,4 +1626,53 @@ export async function tursoWebClearCustomerProfiles(): Promise<{ success: boolea
   }
 }
 
+export async function tursoWebSearchCustomers(query: string): Promise<any[]> {
+  try {
+    const client = getTursoWebClient();
+    const q = (query || '').trim();
+    let rows: any[] = [];
+    if (!q) {
+      const res = await client.execute('SELECT * FROM customer_profiles ORDER BY full_name_en ASC LIMIT 30;').catch(() => ({ rows: [] }));
+      rows = res.rows as any[];
+    } else {
+      const pattern = `%${q}%`;
+      const res = await client.execute({
+        sql: `SELECT * FROM customer_profiles 
+              WHERE full_name_en LIKE ? 
+                 OR full_name_mm LIKE ? 
+                 OR nrc_number LIKE ? 
+                 OR passport_number LIKE ? 
+                 OR passbook_number LIKE ? 
+                 OR phone LIKE ? 
+                 OR customer_code LIKE ? 
+                 OR address LIKE ?
+              ORDER BY full_name_en ASC 
+              LIMIT 30;`,
+        args: [pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern]
+      }).catch(() => ({ rows: [] }));
+      rows = res.rows as any[];
+    }
+    return rows.map((r: any) => ({
+      id: String(r.id),
+      customerCode: String(r.customer_code || ''),
+      fullNameEn: String(r.full_name_en || ''),
+      fullNameMm: String(r.full_name_mm || ''),
+      nrcNumber: String(r.nrc_number || ''),
+      passportNumber: String(r.passport_number || r.passbook_number || ''),
+      passbookNumber: String(r.passbook_number || r.passport_number || ''),
+      phone: String(r.phone || ''),
+      address: String(r.address || ''),
+      customerType: String(r.customer_type || 'SENDER'),
+      riskRating: String(r.risk_rating || 'LOW'),
+      totalTransactions: Number(r.total_transactions) || 0,
+      totalVolumeMMK: Number(r.total_volume_mmk) || 0,
+      notes: String(r.notes || ''),
+      createdAt: String(r.created_at || ''),
+    }));
+  } catch (err) {
+    console.warn('[Turso Web] Failed to search customer profiles:', err);
+    return [];
+  }
+}
+
 

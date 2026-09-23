@@ -23,6 +23,7 @@ import {
   saveTursoExchangeRates,
   deleteTursoExchangeRate,
   clearTursoTable,
+  searchTursoCustomers,
   TURSO_SCHEMA_SQL 
 } from './server/turso.js';
 
@@ -118,6 +119,17 @@ app.post('/api/turso/sync-pull', async (req, res) => {
 
 app.get('/api/turso/schema', (req, res) => {
   res.json({ success: true, schemaSql: TURSO_SCHEMA_SQL });
+});
+
+// Search customers in customer_profiles table
+app.get('/api/turso/customers/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const customers = await searchTursoCustomers(q);
+    res.json({ success: true, customers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to search customers' });
+  }
 });
 
 // Turso Authentication & User endpoints

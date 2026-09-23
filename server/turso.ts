@@ -1957,6 +1957,56 @@ export async function clearTursoTable(tableName: 'remittance_transactions' | 'au
   return { success: true, table: tableName, count };
 }
 
+export async function searchTursoCustomers(query: string) {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const q = (query || '').trim();
+  let rows: any[] = [];
+  
+  if (!q) {
+    const res = await client.execute('SELECT * FROM customer_profiles ORDER BY full_name_en ASC LIMIT 30;').catch(() => ({ rows: [] }));
+    rows = res.rows as any[];
+  } else {
+    const pattern = `%${q}%`;
+    const res = await client.execute({
+      sql: `SELECT * FROM customer_profiles 
+            WHERE full_name_en LIKE ? 
+               OR full_name_mm LIKE ? 
+               OR nrc_number LIKE ? 
+               OR passport_number LIKE ? 
+               OR passbook_number LIKE ? 
+               OR phone LIKE ? 
+               OR customer_code LIKE ? 
+               OR address LIKE ?
+            ORDER BY full_name_en ASC 
+            LIMIT 30;`,
+      args: [pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern]
+    }).catch((err) => {
+      console.warn('Error querying customer_profiles in Turso:', err);
+      return { rows: [] };
+    });
+    rows = res.rows as any[];
+  }
+
+  return rows.map((row: any) => ({
+    id: String(row.id),
+    customerCode: String(row.customer_code || ''),
+    fullNameEn: String(row.full_name_en || ''),
+    fullNameMm: String(row.full_name_mm || ''),
+    nrcNumber: String(row.nrc_number || ''),
+    passportNumber: String(row.passport_number || row.passbook_number || ''),
+    passbookNumber: String(row.passbook_number || row.passport_number || ''),
+    phone: String(row.phone || ''),
+    address: String(row.address || ''),
+    customerType: String(row.customer_type || 'SENDER'),
+    riskRating: String(row.risk_rating || 'LOW'),
+    totalTransactions: Number(row.total_transactions) || 0,
+    totalVolumeMMK: Number(row.total_volume_mmk) || 0,
+    notes: String(row.notes || ''),
+    createdAt: String(row.created_at || ''),
+  }));
+}
+
 
 
 

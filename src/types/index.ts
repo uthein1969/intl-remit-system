@@ -197,6 +197,10 @@ export interface Customer {
   totalTransactions: number;
   totalVolumeMMK: number;
   notes?: string;
+  fatherName?: string;
+  occupation?: string;
+  dateOfBirth?: string;
+  dob?: string;
   createdAt: string;
 }
 
