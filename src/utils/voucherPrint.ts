@@ -99,6 +99,8 @@ export function generateVoucherHtml({
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     
     body {
@@ -110,8 +112,8 @@ export function generateVoucherHtml({
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     .page-container {
@@ -793,19 +795,21 @@ export function printVoucherDocument(params: {
     }
     iframe = document.createElement('iframe');
     iframe.id = frameId;
+    iframe.name = frameId;
     iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
+    iframe.style.top = '-9999px';
+    iframe.style.left = '-9999px';
     iframe.style.width = '210mm';
     iframe.style.height = '297mm';
     iframe.style.border = '0';
-    iframe.style.opacity = '0.01'; // Imperceptible to human eye, but 100% visible to browser print engine
-    iframe.style.zIndex = '-99999';
-    iframe.style.pointerEvents = 'none';
+    iframe.style.opacity = '1'; // Must be 1 so browser print preview doesn't render 1% faint white paper
+    iframe.style.zIndex = '-1';
+    iframe.style.visibility = 'visible';
     document.body.appendChild(iframe);
 
-    const frameDoc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!frameDoc || !iframe.contentWindow) {
+    const frameWindow = iframe.contentWindow;
+    const frameDoc = frameWindow?.document || iframe.contentDocument;
+    if (!frameDoc || !frameWindow) {
       window.print();
       return { success: true };
     }
@@ -817,8 +821,8 @@ export function printVoucherDocument(params: {
     // Trigger print cleanly after iframe rendering
     setTimeout(() => {
       try {
-        iframe?.contentWindow?.focus();
-        iframe?.contentWindow?.print();
+        frameWindow.focus();
+        frameWindow.print();
       } catch (printErr) {
         console.warn('Iframe print error, falling back to window.print():', printErr);
         try {
@@ -827,7 +831,7 @@ export function printVoucherDocument(params: {
           openVoucherInNewTab(params);
         }
       }
-    }, 300);
+    }, 350);
 
     return { success: true };
   } catch (err) {

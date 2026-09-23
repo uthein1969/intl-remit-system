@@ -175,7 +175,20 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
 
   const handlePrint = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    window.print();
+    setFeedbackMsg(
+      language === 'my' 
+        ? 'ပြေစာ ပုံနှိပ်ခြင်းကို စတင်နေပါသည် (Preparing Print View...)' 
+        : 'Preparing voucher for printing...'
+    );
+    setTimeout(() => setFeedbackMsg(null), 3000);
+
+    printVoucherDocument({
+      transaction,
+      branch,
+      partner,
+      operatorProfile,
+      language,
+    });
   };
 
   const handleOpenNewTab = (e?: React.MouseEvent) => {
