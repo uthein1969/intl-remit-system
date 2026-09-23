@@ -626,6 +626,8 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
         senderPassbookAttachmentName: formData.senderPassportAttachmentName || formData.senderPassbookAttachmentName,
         senderPassbookAttachmentType: formData.senderPassportAttachmentType || formData.senderPassbookAttachmentType,
         senderPassbookAttachmentSize: formData.senderPassportAttachmentSize || formData.senderPassbookAttachmentSize,
+        senderBranchName: db.branches.find(b => b.id === formData.sendingBranchId)?.nameEn || formData.senderBranchName,
+        receiverBranchName: db.branches.find(b => b.id === formData.payoutBranchId)?.nameEn || formData.receiverBranchName,
         blacklistAlert: !!senderBlacklistMatch || !!receiverBlacklistMatch
       };
 
@@ -688,6 +690,8 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
         senderPassbookAttachmentName: formData.senderPassportAttachmentName || formData.senderPassbookAttachmentName,
         senderPassbookAttachmentType: formData.senderPassportAttachmentType || formData.senderPassbookAttachmentType,
         senderPassbookAttachmentSize: formData.senderPassportAttachmentSize || formData.senderPassbookAttachmentSize,
+        senderBranchName: db.branches.find(b => b.id === formData.sendingBranchId)?.nameEn || formData.senderBranchName,
+        receiverBranchName: db.branches.find(b => b.id === formData.payoutBranchId)?.nameEn || formData.receiverBranchName,
         blacklistAlert: !!senderBlacklistMatch || !!receiverBlacklistMatch
       };
 
@@ -1827,6 +1831,27 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
                   ))}
                 </select>
               </div>
+
+              {formData.scope === 'DOMESTIC' && (
+                <div>
+                  <label className="block text-amber-400 font-semibold mb-1">
+                    {language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch) *' : 'Receiver Branch (Destination) *'}
+                  </label>
+                  <select
+                    value={formData.payoutBranchId || ''}
+                    onChange={(e) => setFormData({ ...formData, payoutBranchId: e.target.value })}
+                    className="w-full bg-slate-900 border border-amber-500/50 rounded-lg px-3 py-2 text-white focus:border-amber-400 focus:outline-none"
+                  >
+                    {db.branches
+                      .filter(b => b.countryCode === 'MM')
+                      .map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.code} - {b.nameEn} ({b.city})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-400 font-semibold mb-1">

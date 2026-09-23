@@ -4,17 +4,61 @@ import { formatToDDMMYYYYWithTime } from '../lib/dateUtils';
 export function generateVoucherHtml({
   transaction,
   branch,
+  senderBranch,
+  receiverBranch,
+  senderBranchName,
+  receiverBranchName,
+  branches,
   partner,
   operatorProfile,
   language = 'my',
+  autoPrint = false,
 }: {
   transaction: RemittanceTransaction;
   branch?: Branch;
+  senderBranch?: Branch;
+  receiverBranch?: Branch;
+  senderBranchName?: string;
+  receiverBranchName?: string;
+  branches?: Branch[];
   partner?: Company;
   operatorProfile?: OperatorProfile;
   language?: Language;
+  autoPrint?: boolean;
 }): string {
   const isOutward = transaction.type === 'OUTWARD';
+
+  // Resolve Sender Branch
+  const resolvedSenderBranch = senderBranch || 
+    (branches ? branches.find(b => b.id === transaction.sendingBranchId || b.id === transaction.branchId) : undefined) || 
+    branch;
+
+  const resolvedSenderBranchName = senderBranchName || transaction.senderBranchName || (
+    resolvedSenderBranch ? (
+      language === 'my' && resolvedSenderBranch.nameMm
+        ? `${resolvedSenderBranch.nameMm} (${resolvedSenderBranch.nameEn})`
+        : resolvedSenderBranch.nameEn
+    ) : (transaction.sendingBranchId || (language === 'my' ? 'ရန်ကုန် ပင်မရုံးချုပ် ဘဏ်ခွဲ' : 'Yangon Head Office Branch'))
+  );
+
+  // Resolve Receiver Branch
+  const resolvedReceiverBranch = receiverBranch || 
+    (branches && transaction.payoutBranchId ? branches.find(b => b.id === transaction.payoutBranchId) : undefined) ||
+    (branches && transaction.scope === 'DOMESTIC' ? branches.find(b => b.id !== (resolvedSenderBranch?.id || transaction.sendingBranchId)) : undefined);
+
+  const resolvedReceiverBranchName = receiverBranchName || transaction.receiverBranchName || (
+    resolvedReceiverBranch ? (
+      language === 'my' && resolvedReceiverBranch.nameMm
+        ? `${resolvedReceiverBranch.nameMm} (${resolvedReceiverBranch.nameEn})`
+        : resolvedReceiverBranch.nameEn
+    ) : partner ? (
+      language === 'my' && partner.nameMm ? `${partner.nameMm} (${partner.nameEn})` : partner.nameEn
+    ) : (
+      transaction.scope === 'DOMESTIC'
+        ? (language === 'my' ? 'မန္တလေး ၇၈ လမ်း ဘဏ်ခွဲ' : 'Mandalay 78th Street Branch')
+        : (language === 'my' ? 'မိတ်ဖက် ငွေလွှဲကောင်တာ' : 'Agent Payout Counter')
+    )
+  );
 
   const createdDate = formatToDDMMYYYYWithTime(transaction.createdDate || Date.now());
 
@@ -645,6 +689,10 @@ export function generateVoucherHtml({
           <span class="label">${language === 'my' ? 'နိုင်ငံ' : 'Country'}:</span>
           <span class="value"> ${transaction.senderCountryCode || 'MM'}</span>
         </div>
+        <div class="party-row">
+          <span class="label">${language === 'my' ? 'ငွေလွှဲပို့သည့် ဘဏ်ခွဲ' : 'Sender Branch'}:</span>
+          <span class="value" style="font-weight: 600; color: #0f172a;"> ${resolvedSenderBranchName}</span>
+        </div>
       </div>
 
       <div class="party-card">
@@ -673,6 +721,10 @@ export function generateVoucherHtml({
         <div class="party-row">
           <span class="label">${language === 'my' ? 'ခရီးဆုံး နိုင်ငံ' : 'Destination'}:</span>
           <span class="value"> ${transaction.receiverCountryCode || 'N/A'}</span>
+        </div>
+        <div class="party-row">
+          <span class="label">${language === 'my' ? 'ငွေလက်ခံမည့် ဘဏ်ခွဲ' : 'Receiver Branch'}:</span>
+          <span class="value" style="font-weight: 600; color: #0f172a;"> ${resolvedReceiverBranchName}</span>
         </div>
       </div>
     </div>
@@ -752,7 +804,7 @@ export function generateVoucherHtml({
             <span>${language === 'my' ? 'ဘဏ်ခွဲ တံဆိပ်တုံး' : 'Branch Stamp'}</span>
           </div>
         </div>
-        <div class="sig-name">${branch ? (language === 'my' ? (branch.nameMm || branch.nameEn) : branch.nameEn) : (language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp')}</div>
+        <div class="sig-name">${resolvedSenderBranch ? (language === 'my' ? (resolvedSenderBranch.nameMm || resolvedSenderBranch.nameEn) : resolvedSenderBranch.nameEn) : (language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp')}</div>
         <div class="sig-title">${language === 'my' ? 'ဗဟိုဘဏ် စည်းမျဉ်းကိုက်' : 'CBM Compliance'}</div>
       </div>
       <div class="sig-col">
@@ -769,8 +821,38 @@ export function generateVoucherHtml({
         : 'This remittance transaction has been screened in compliance with the Central Bank of Myanmar Anti-Money Laundering (AML) & Counter-Terrorism Financing (CFT) guidelines. Beneficiary must present valid original Myanmar NRC for counter collection.'}
     </div>
   </div>
+
+  ${autoPrint ? `
+  <script>
+    // Automatically trigger Print Dialog Box when loaded in standalone/popup window
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try {
+          window.focus();
+          window.print();
+        } catch (err) {
+          console.warn('Auto print error:', err);
+        }
+      }, 350);
+    });
+  </script>
+  ` : ''}
 </body>
 </html>`;
+}
+
+export interface VoucherPrintParams {
+  transaction: RemittanceTransaction;
+  branch?: Branch;
+  senderBranch?: Branch;
+  receiverBranch?: Branch;
+  senderBranchName?: string;
+  receiverBranchName?: string;
+  branches?: Branch[];
+  partner?: Company;
+  operatorProfile?: OperatorProfile;
+  language?: Language;
+  autoPrint?: boolean;
 }
 
 /**
@@ -778,91 +860,82 @@ export function generateVoucherHtml({
  * Avoids browser popup blockers, blank tab blob restrictions in Chrome/Edge,
  * and eliminates 4-blank-page issues from SPA root layout nesting.
  */
-export function printVoucherDocument(params: {
-  transaction: RemittanceTransaction;
-  branch?: Branch;
-  partner?: Company;
-  operatorProfile?: OperatorProfile;
-  language?: Language;
-}): { success: boolean } {
+export function printVoucherDocument(params: VoucherPrintParams): { success: boolean } {
   try {
-    const html = generateVoucherHtml(params);
-
-    const frameId = 'voucher-hidden-print-frame';
-    let iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
-    if (iframe) {
-      iframe.remove();
+    // Check if running in an iframe
+    let isIframe = false;
+    try {
+      isIframe = window.self !== window.top;
+    } catch {
+      isIframe = true;
     }
-    iframe = document.createElement('iframe');
-    iframe.id = frameId;
-    iframe.name = frameId;
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-9999px';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '210mm';
-    iframe.style.height = '297mm';
-    iframe.style.border = '0';
-    iframe.style.opacity = '1'; // Must be 1 so browser print preview doesn't render 1% faint white paper
-    iframe.style.zIndex = '-1';
-    iframe.style.visibility = 'visible';
-    document.body.appendChild(iframe);
 
-    const frameWindow = iframe.contentWindow;
-    const frameDoc = frameWindow?.document || iframe.contentDocument;
-    if (!frameDoc || !frameWindow) {
-      window.print();
+    if (isIframe) {
+      openVoucherInNewTab({ ...params, autoPrint: true });
       return { success: true };
     }
 
-    frameDoc.open();
-    frameDoc.write(html);
-    frameDoc.close();
+    // Check if #printable-voucher is currently mounted in DOM
+    const voucherEl = document.getElementById('printable-voucher');
+    let printContainer = document.getElementById('voucher-print-container');
+    if (!printContainer) {
+      printContainer = document.createElement('div');
+      printContainer.id = 'voucher-print-container';
+      document.body.appendChild(printContainer);
+    }
 
-    // Trigger print cleanly after iframe rendering
-    setTimeout(() => {
-      try {
-        frameWindow.focus();
-        frameWindow.print();
-      } catch (printErr) {
-        console.warn('Iframe print error, falling back to window.print():', printErr);
-        try {
-          window.print();
-        } catch {
-          openVoucherInNewTab(params);
-        }
+    if (voucherEl) {
+      printContainer.innerHTML = voucherEl.outerHTML;
+    } else {
+      const fullHtml = generateVoucherHtml(params);
+      const match = fullHtml.match(/<div class="page-container"[\s\S]*<\/div>\s*<\/body>/i);
+      if (match) {
+        printContainer.innerHTML = match[0].replace(/<\/body>/i, '');
+      } else {
+        printContainer.innerHTML = fullHtml;
       }
-    }, 350);
+    }
+
+    document.body.classList.add('printing-voucher');
+
+    const cleanup = () => {
+      document.body.classList.remove('printing-voucher');
+      if (printContainer) printContainer.innerHTML = '';
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    setTimeout(cleanup, 4000);
+
+    try {
+      window.print();
+    } catch (err) {
+      console.warn('Direct window.print() failed, opening new tab with auto-print:', err);
+      cleanup();
+      openVoucherInNewTab({ ...params, autoPrint: true });
+    }
 
     return { success: true };
   } catch (err) {
     console.error('printVoucherDocument failed:', err);
     try {
-      window.print();
+      openVoucherInNewTab({ ...params, autoPrint: true });
       return { success: true };
     } catch {
-      try {
-        openVoucherInNewTab(params);
-        return { success: true };
-      } catch {
-        return { success: false };
-      }
+      return { success: false };
     }
   }
 }
 
 /**
- * Opens the voucher in a dedicated tab.
- * Uses window.open and direct document.write so it is never blank or blocked.
+ * Opens the voucher in a dedicated tab and automatically triggers the Print Dialog Box.
  */
-export function openVoucherInNewTab(params: {
-  transaction: RemittanceTransaction;
-  branch?: Branch;
-  partner?: Company;
-  operatorProfile?: OperatorProfile;
-  language?: Language;
-}): void {
+export function openVoucherInNewTab(params: VoucherPrintParams): boolean {
   try {
-    const html = generateVoucherHtml(params);
+    const html = generateVoucherHtml({
+      ...params,
+      autoPrint: params.autoPrint !== false,
+    });
     let win = window.open('', '_blank');
     if (!win) {
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -873,23 +946,33 @@ export function openVoucherInNewTab(params: {
       win.document.open();
       win.document.write(html);
       win.document.close();
-      win.focus();
+      try {
+        win.focus();
+      } catch {}
+      return true;
     } else {
-      downloadVoucherHtml(params);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener,noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 3000);
+      return true;
     }
   } catch (err) {
     console.error('Failed to open voucher in new tab, downloading instead:', err);
     downloadVoucherHtml(params);
+    return false;
   }
 }
 
-export function downloadVoucherHtml(params: {
-  transaction: RemittanceTransaction;
-  branch?: Branch;
-  partner?: Company;
-  operatorProfile?: OperatorProfile;
-  language?: Language;
-}): void {
+export function downloadVoucherHtml(params: VoucherPrintParams): void {
   const html = generateVoucherHtml(params);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const blobUrl = URL.createObjectURL(blob);

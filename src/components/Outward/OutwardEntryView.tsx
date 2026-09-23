@@ -949,6 +949,8 @@ export const OutwardEntryView: React.FC = () => {
         payoutAccountNumber,
         sendingBranchId,
         payoutBranchId: scope === 'DOMESTIC' ? payoutBranchId : (payoutBranchId || undefined),
+        senderBranchName: db.branches.find(b => b.id === sendingBranchId)?.nameEn,
+        receiverBranchName: db.branches.find(b => b.id === payoutBranchId)?.nameEn,
         partnerCompanyId,
         purposeId,
         purposeName: selectedPurpose ? (language === 'my' ? selectedPurpose.nameMm : selectedPurpose.nameEn) : 'General',

@@ -75,8 +75,45 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     };
   }, [isOpen]);
 
-  const branch = transaction ? (db.branches.find(b => b.id === transaction.sendingBranchId) || db.branches[0]) : db.branches[0];
+  // Resolve Sender Branch
+  const senderBranch = transaction ? (
+    db.branches.find(b => b.id === transaction.sendingBranchId || b.id === transaction.branchId) ||
+    (transaction.senderBranchName ? db.branches.find(b => b.nameEn === transaction.senderBranchName || b.nameMm === transaction.senderBranchName) : undefined) ||
+    db.branches[0]
+  ) : db.branches[0];
+
+  const senderBranchDisplayName = transaction?.senderBranchName || (
+    senderBranch ? (
+      language === 'my' && senderBranch.nameMm
+        ? `${senderBranch.nameMm} (${senderBranch.nameEn})`
+        : senderBranch.nameEn
+    ) : (transaction?.sendingBranchId || (language === 'my' ? 'ရန်ကုန် ပင်မရုံးချုပ် ဘဏ်ခွဲ' : 'Yangon Head Office Branch'))
+  );
+
+  // Resolve Receiver Branch
+  const receiverBranch = transaction ? (
+    (transaction.payoutBranchId ? db.branches.find(b => b.id === transaction.payoutBranchId) : undefined) ||
+    (transaction.receiverBranchName ? db.branches.find(b => b.nameEn === transaction.receiverBranchName || b.nameMm === transaction.receiverBranchName) : undefined) ||
+    (transaction.scope === 'DOMESTIC' ? (db.branches.find(b => b.id !== (senderBranch?.id || transaction.sendingBranchId)) || db.branches.find(b => b.id === 'BR-002')) : undefined)
+  ) : undefined;
+
   const partner = transaction ? db.companies.find(c => c.id === transaction.partnerCompanyId) : undefined;
+
+  const receiverBranchDisplayName = transaction?.receiverBranchName || (
+    receiverBranch ? (
+      language === 'my' && receiverBranch.nameMm
+        ? `${receiverBranch.nameMm} (${receiverBranch.nameEn})`
+        : receiverBranch.nameEn
+    ) : partner ? (
+      language === 'my' && partner.nameMm ? `${partner.nameMm} (${partner.nameEn})` : partner.nameEn
+    ) : (
+      transaction?.scope === 'DOMESTIC'
+        ? (language === 'my' ? 'မန္တလေး ၇၈ လမ်း ဘဏ်ခွဲ' : 'Mandalay 78th Street Branch')
+        : (language === 'my' ? 'မိတ်ဖက် ငွေလွှဲကောင်တာ' : 'Agent Payout Counter')
+    )
+  );
+
+  const branch = senderBranch;
 
   // Safe file downloader for data URLs and external URLs
   const handleDownloadDoc = (url: string, filename: string) => {
@@ -175,30 +212,103 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
 
   const handlePrint = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    setFeedbackMsg(
-      language === 'my' 
-        ? 'ပြေစာ ပုံနှိပ်ခြင်းကို စတင်နေပါသည် (Preparing Print View...)' 
-        : 'Preparing voucher for printing...'
-    );
-    setTimeout(() => setFeedbackMsg(null), 3000);
 
-    printVoucherDocument({
+    // Check if running inside an iframe (like AI Studio preview, Vercel preview toolbar/embed)
+    let isInsideIframe = false;
+    try {
+      isInsideIframe = window.self !== window.top;
+    } catch {
+      isInsideIframe = true;
+    }
+
+    const printParams = {
       transaction,
-      branch,
+      branch: senderBranch,
+      senderBranch,
+      receiverBranch,
+      senderBranchName: senderBranchDisplayName,
+      receiverBranchName: receiverBranchDisplayName,
+      branches: db.branches,
       partner,
       operatorProfile,
       language,
-    });
+    };
+
+    // Inside an iframe, modern browsers strictly block window.print() modals.
+    // Opening in a new tab bypasses iframe sandbox restrictions and triggers the Print Dialog Box immediately.
+    if (isInsideIframe) {
+      setFeedbackMsg(
+        language === 'my' 
+          ? 'Print Dialog Box ကို စာမျက်နှာသစ်တွင် ဖွင့်လှစ်နေပါသည် (Opening Print View...)' 
+          : 'Opening Print Dialog Box in new tab...'
+      );
+      openVoucherInNewTab({
+        ...printParams,
+        autoPrint: true,
+      });
+      setTimeout(() => setFeedbackMsg(null), 4000);
+      return;
+    }
+
+    // When running in top-level standalone window:
+    setFeedbackMsg(
+      language === 'my' 
+        ? 'ပြေစာ ပုံနှိပ်ခြင်းကို စတင်နေပါသည် (Preparing voucher for printing...)' 
+        : 'Preparing voucher for printing...'
+    );
+
+    const voucherEl = document.getElementById('printable-voucher');
+    let printContainer = document.getElementById('voucher-print-container');
+    if (!printContainer) {
+      printContainer = document.createElement('div');
+      printContainer.id = 'voucher-print-container';
+      document.body.appendChild(printContainer);
+    }
+
+    if (voucherEl) {
+      printContainer.innerHTML = voucherEl.outerHTML;
+    }
+
+    document.body.classList.add('printing-voucher');
+
+    const cleanup = () => {
+      document.body.classList.remove('printing-voucher');
+      if (printContainer) printContainer.innerHTML = '';
+      window.removeEventListener('afterprint', cleanup);
+      setTimeout(() => setFeedbackMsg(null), 1000);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    // Fallback cleanup if afterprint is cancelled or not supported
+    setTimeout(cleanup, 4000);
+
+    // Call window.print() directly and synchronously in user gesture
+    try {
+      window.print();
+    } catch (printErr) {
+      console.warn('Direct window.print() threw error, opening print window:', printErr);
+      cleanup();
+      openVoucherInNewTab({
+        ...printParams,
+        autoPrint: true,
+      });
+    }
   };
 
   const handleOpenNewTab = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     openVoucherInNewTab({
       transaction,
-      branch,
+      branch: senderBranch,
+      senderBranch,
+      receiverBranch,
+      senderBranchName: senderBranchDisplayName,
+      receiverBranchName: receiverBranchDisplayName,
+      branches: db.branches,
       partner,
       operatorProfile,
       language,
+      autoPrint: true,
     });
   };
 
@@ -206,7 +316,12 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
     if (e) e.preventDefault();
     downloadVoucherHtml({
       transaction,
-      branch,
+      branch: senderBranch,
+      senderBranch,
+      receiverBranch,
+      senderBranchName: senderBranchDisplayName,
+      receiverBranchName: receiverBranchDisplayName,
+      branches: db.branches,
       partner,
       operatorProfile,
       language,
@@ -605,6 +720,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   <span className="text-slate-500">{language === 'my' ? 'နိုင်ငံ' : 'Country'}:</span>{' '}
                   <strong className="text-slate-800">{transaction.senderCountryCode}</strong>
                 </div>
+                <div>
+                  <span className="text-slate-500">{language === 'my' ? 'ငွေလွှဲပို့သည့် ဘဏ်ခွဲ' : 'Sender Branch'}:</span>{' '}
+                  <strong className="text-slate-900 font-semibold">{senderBranchDisplayName}</strong>
+                </div>
               </div>
             </div>
 
@@ -643,6 +762,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                 <div>
                   <span className="text-slate-500">{language === 'my' ? 'ခရီးဆုံး နိုင်ငံ' : 'Destination'}:</span>{' '}
                   <strong className="text-slate-800">{transaction.receiverCountryCode}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">{language === 'my' ? 'ငွေလက်ခံမည့် ဘဏ်ခွဲ' : 'Receiver Branch'}:</span>{' '}
+                  <strong className="text-slate-900 font-semibold">{receiverBranchDisplayName}</strong>
                 </div>
               </div>
             </div>
@@ -786,7 +909,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   </span>
                 </div>
               </div>
-              <p className="font-bold text-slate-900 text-xs sm:text-sm">{language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp'}</p>
+              <p className="font-bold text-slate-900 text-xs sm:text-sm">{senderBranchDisplayName || (language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp')}</p>
               <p className="text-[10px] sm:text-[11px] text-slate-500">{language === 'my' ? 'ဗဟိုဘဏ် စည်းမျဉ်းကိုက်' : 'Central Bank Compliance'}</p>
             </div>
             <div className="flex flex-col items-center">

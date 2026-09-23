@@ -54,6 +54,11 @@
 }
 
 
+/* Dedicated print container for isolated, reliable voucher printing */
+#voucher-print-container {
+  display: none;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -75,7 +80,38 @@
     padding: 0 !important;
   }
 
-  /* When printing from the voucher modal, cleanly un-clip modal containers */
+  /* When printing voucher via dedicated container, isolate it 100% cleanly */
+  body.printing-voucher #root {
+    display: none !important;
+  }
+
+  body.printing-voucher #voucher-print-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  body.printing-voucher #voucher-print-container #printable-voucher {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* When printing from the voucher modal directly, un-clip modal containers */
   body.voucher-modal-open {
     background: #ffffff !important;
     overflow: visible !important;
@@ -87,12 +123,7 @@
     min-height: auto !important;
   }
 
-  /* Hide app elements outside the modal in root */
-  body.voucher-modal-open #root > *:not(.fixed) {
-    display: none !important;
-  }
-
-  /* Reset modal backdrop positioning & overflow so it doesn't clip children to white */
+  /* Reset modal backdrop positioning & overflow so it doesn't clip children */
   body.voucher-modal-open .fixed.inset-0 {
     position: static !important;
     inset: auto !important;

@@ -279,6 +279,8 @@ export interface RemittanceTransaction {
   payoutBranchId?: string;
   branchId?: string;
   partnerCompanyId?: string;
+  senderBranchName?: string;
+  receiverBranchName?: string;
   
   purposeId: string;
   purposeName: string;
