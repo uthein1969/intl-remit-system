@@ -613,24 +613,24 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
           <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
             <button
               onClick={() => setFilterStatus('PENDING_APPROVAL')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                filterStatus === 'PENDING_APPROVAL' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
+                filterStatus === 'PENDING_APPROVAL' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
               }`}
             >
               {language === 'my' ? 'စိစစ်ရန်ကျန်' : 'Pending'} ({pendingCount})
             </button>
             <button
               onClick={() => setFilterStatus('APPROVED')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                filterStatus === 'APPROVED' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
+                filterStatus === 'APPROVED' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
               }`}
             >
               {language === 'my' ? 'အတည်ပြုပြီး' : 'Approved'} ({approvedCount})
             </button>
             <button
               onClick={() => setFilterStatus('ALL')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                filterStatus === 'ALL' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
+                filterStatus === 'ALL' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
               }`}
             >
               {t.all} ({allCount})

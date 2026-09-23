@@ -390,62 +390,62 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
               type="button"
               id="tab-btn-backup-restore"
               onClick={() => setActiveTab('backup')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer text-black font-bold ${
                 activeTab === 'backup' 
-                  ? 'bg-emerald-600 text-white shadow-md font-bold border border-emerald-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' 
+                  : 'hover:bg-[#C1ECE3]'
               }`}
               title={language === 'my' ? 'အရန်သိမ်းဆည်းမှု နှင့် ပြန်လည်ရယူခြင်း ကဏ္ဍ' : 'Switch to Backup & Restore view'}
             >
-              <Database className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'အရန်သိမ်း/ပြန်ယူ (Backup & Restore)' : 'Backup & Restore'}</span>
+              <Database className="w-3.5 h-3.5 text-black" />
+              <span className="text-black">{language === 'my' ? 'အရန်သိမ်း/ပြန်ယူ (Backup & Restore)' : 'Backup & Restore'}</span>
             </button>
 
             <button
               type="button"
               id="tab-btn-audit-trail"
               onClick={() => setActiveTab('audit')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer text-black font-bold ${
                 activeTab === 'audit' 
-                  ? 'bg-indigo-600 text-white shadow-md font-bold border border-indigo-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' 
+                  : 'hover:bg-[#C1ECE3]'
               }`}
               title={language === 'my' ? 'လုပ်ဆောင်ချက်မှတ်တမ်းများ ကဏ္ဍ' : 'Switch to Audit Trail'}
             >
-              <History className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'မှတ်တမ်း (Audit Trail)' : 'Audit Trail'} ({db.auditLogs.length})</span>
+              <History className="w-3.5 h-3.5 text-black" />
+              <span className="text-black">{language === 'my' ? 'မှတ်တမ်း (Audit Trail)' : 'Audit Trail'} ({db.auditLogs.length})</span>
             </button>
 
             <button
               type="button"
               id="tab-btn-turso-sync"
               onClick={() => setActiveTab('turso')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer text-black font-bold ${
                 activeTab === 'turso' 
-                  ? 'bg-emerald-600 text-white shadow-md font-bold border border-emerald-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' 
+                  : 'hover:bg-[#C1ECE3]'
               }`}
               title={language === 'my' ? 'Turso Cloud (LibSQL) ချိတ်ဆက်မှု ကဏ္ဍ' : 'Switch to Turso Cloud (LibSQL) Sync'}
             >
-              <Database className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Turso Cloud (LibSQL)</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <Database className="w-3.5 h-3.5 text-black" />
+              <span className="text-black">Turso Cloud (LibSQL)</span>
+              <span className="w-2 h-2 rounded-full bg-slate-900" />
             </button>
 
             <button
               type="button"
               id="tab-btn-supabase-sync"
               onClick={() => setActiveTab('supabase')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg transition-all cursor-pointer text-black font-bold ${
                 activeTab === 'supabase' 
-                  ? 'bg-teal-600 text-white shadow-md font-bold border border-teal-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' 
+                  : 'hover:bg-[#C1ECE3]'
               }`}
               title={language === 'my' ? 'Supabase Cloud ချိတ်ဆက်မှု ကဏ္ဍ' : 'Switch to Supabase Cloud Sync'}
             >
-              <Server className="w-3.5 h-3.5 text-teal-300" />
-              <span>Supabase Cloud (PostgreSQL)</span>
-              <span className="w-2 h-2 rounded-full bg-teal-400" />
+              <Server className="w-3.5 h-3.5 text-black" />
+              <span className="text-black">Supabase Cloud (PostgreSQL)</span>
+              <span className="w-2 h-2 rounded-full bg-slate-900" />
             </button>
           </div>
         </div>

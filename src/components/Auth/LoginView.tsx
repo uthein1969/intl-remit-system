@@ -410,7 +410,7 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#b2e0d4] text-slate-900 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#D1F2EB] text-slate-900 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Bar: Brand, CBM Badge & Language Switcher */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6">
         <div className="flex items-center space-x-3">

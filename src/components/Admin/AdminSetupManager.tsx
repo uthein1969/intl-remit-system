@@ -679,22 +679,22 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                 onSelectSubTab(tab.id);
                 setSearchQuery('');
               }}
-              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                 isActive
-                  ? 'bg-blue-50/80 border-blue-400 text-blue-900 shadow-sm'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-[#A2D9CE] border-slate-700 text-black shadow-sm'
+                  : 'bg-[#D1F2EB] border-slate-300 text-black hover:bg-[#C1ECE3]'
               }`}
             >
               <div className="flex items-center justify-between">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                <Icon className="w-4 h-4 text-black" />
                 <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                  isActive ? 'bg-slate-900 text-white' : 'bg-[#C1ECE3] text-black'
                 }`}>
                   {tab.count}
                 </span>
               </div>
               <div className="mt-2.5">
-                <span className={`text-xs font-bold block truncate ${isActive ? 'text-blue-900' : 'text-slate-800'}`}>
+                <span className="text-xs font-bold block truncate text-black">
                   {language === 'my' ? tab.labelMm : tab.labelEn}
                 </span>
               </div>

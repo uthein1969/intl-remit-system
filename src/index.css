@@ -4,7 +4,7 @@
   --brand: #2563EB;
   --brand-hover: #1D4ED8;
   --sidebar: #D1F2EB;
-  --bg: #b2e0d4;
+  --bg: #D1F2EB;
   --card-bg: #D1F2EB;
   --line: #A2D9CE;
   --text-muted: #3B6B63;
@@ -15,7 +15,7 @@
 
 @layer base {
   html, body, #root {
-    background-color: #b2e0d4 !important;
+    background-color: #D1F2EB !important;
     color: var(--text-main);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
@@ -77,31 +77,32 @@ thead,
 tfoot {
   background-color: #C1ECE3 !important;
   border-color: #A2D9CE !important;
-  color: #0E6251 !important;
+  color: #000000 !important;
 }
 
 /* In-page dark note containers */
 div[class*="bg-black/"]:not(.fixed):not(.absolute) {
   background-color: #C1ECE3 !important;
-  color: #0E6251 !important;
+  color: #000000 !important;
 }
 
 /* Table styling for Mint mode */
 table {
-  color: #1E293B !important;
+  color: #000000 !important;
   background-color: #D1F2EB !important;
 }
 thead th {
   background-color: #B5E8DC !important;
-  color: #0E6251 !important;
+  color: #000000 !important;
   border-bottom: 2px solid #85D4C3 !important;
 }
 tbody td {
   border-color: #BCE7DE !important;
+  color: #000000 !important;
 }
 tfoot td, tfoot th {
   background-color: #B5E8DC !important;
-  color: #0E6251 !important;
+  color: #000000 !important;
   border-top: 2px solid #85D4C3 !important;
 }
 tbody tr:hover {
@@ -146,44 +147,174 @@ textarea::placeholder {
   border-color: #A2D9CE !important;
 }
 
-/* 5. Typography Contrast in Mint Light Mode */
+/* 5. Typography: Change green, white, gold, and sky-blue text color to Black color in all pages */
 h1, h2, h3, h4, h5, h6 {
-  color: #0F172A;
+  color: #000000 !important;
 }
 
-.text-white:not(button):not(button *):not(a):not(a *):not([class*="bg-blue"] *):not([class*="bg-sky"] *):not([class*="bg-emerald"] *):not([class*="bg-rose"] *):not([class*="bg-amber"] *):not([class*="bg-indigo"] *):not([class*="bg-teal"] *):not([class*="bg-purple"] *):not([class*="bg-orange"] *):not([class*="bg-red"] *) {
-  color: #0F172A !important;
+/* Green text (emerald, green, teal) to Black */
+[class*="text-emerald-"],
+[class*="text-green-"],
+[class*="text-teal-"] {
+  color: #000000 !important;
 }
 
-.text-slate-100 {
-  color: #0F172A !important;
+/* Gold / Yellow text (amber, yellow) to Black */
+[class*="text-amber-"],
+[class*="text-yellow-"] {
+  color: #000000 !important;
 }
+
+/* Sky blue & cyan text to Black across all pages */
+[class*="text-sky-"],
+[class*="text-cyan-"],
+[class*="text-blue-"] {
+  color: #000000 !important;
+}
+
+/* White text to Black across all pages */
+.text-white:not(button[class*="bg-rose"]):not(button[class*="bg-rose"] *):not(button[class*="bg-red"]):not(button[class*="bg-red"] *),
+[class*="text-white"]:not(button[class*="bg-rose"]):not(button[class*="bg-rose"] *):not(button[class*="bg-red"]):not(button[class*="bg-red"] *),
+.text-slate-100,
 .text-slate-200 {
+  color: #000000 !important;
+}
+
+/* Also ensure muted text is deep dark for maximum readability */
+.text-slate-300 {
   color: #1E293B !important;
 }
-.text-slate-300 {
-  color: #334155 !important;
-}
 .text-slate-400 {
-  color: #475569 !important;
+  color: #1E293B !important;
 }
 .text-slate-500 {
-  color: #475569 !important;
+  color: #334155 !important;
 }
 
-/* 6. Neutral secondary action buttons */
-button[class*="bg-slate-800"]:not([class*="text-white"]),
-button[class*="bg-slate-900"]:not([class*="text-white"]),
-button[class*="hover:bg-slate-800"]:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-indigo"]) {
-  background-color: #C1ECE3 !important;
-  border-color: #A2D9CE !important;
-  color: #0E6251 !important;
+/* Selected Menu & Select Buttons: Text color is pure Black with NO change, and appears on select buttons */
+nav button,
+nav button *,
+aside button,
+aside button *,
+select,
+select *,
+option,
+button[aria-selected="true"],
+button[aria-selected="true"] *,
+button[class*="bg-blue-50"],
+button[class*="bg-blue-50"] *,
+button[class*="bg-blue-100"],
+button[class*="bg-blue-100"] *,
+button[class*="bg-teal-50"],
+button[class*="bg-teal-50"] *,
+button[class*="bg-emerald-50"],
+button[class*="bg-emerald-50"] * {
+  color: #000000 !important;
 }
 
-button[class*="bg-slate-800"]:hover,
-button[class*="bg-slate-900"]:hover {
-  background-color: #A3E4D7 !important;
-  color: #0B5345 !important;
+/* Selected navigation menu items */
+aside nav button[class*="border-blue-600"],
+aside nav button[class*="border-emerald-600"],
+aside nav button[class*="border-slate-900"],
+aside nav button[class*="bg-[#A2D9CE]"],
+aside nav button[class*="bg-blue-50"],
+aside nav button[class*="bg-emerald-50"] {
+  background-color: #A2D9CE !important;
+  border-left-color: #0F172A !important;
+  border-left-width: 4px !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+aside nav button[class*="border-blue-600"] *,
+aside nav button[class*="border-emerald-600"] *,
+aside nav button[class*="border-slate-900"] *,
+aside nav button[class*="bg-[#A2D9CE]"] *,
+aside nav button[class*="bg-blue-50"] *,
+aside nav button[class*="bg-emerald-50"] * {
+  color: #000000 !important;
+}
+
+/* HTML <select> dropdowns and options */
+select,
+select:focus,
+select:active,
+select option,
+select option:checked {
+  color: #000000 !important;
+  background-color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+
+/* SVG icons inheriting green, gold, sky-blue, or white render black */
+svg[class*="text-emerald-"],
+svg[class*="text-green-"],
+svg[class*="text-teal-"],
+svg[class*="text-amber-"],
+svg[class*="text-yellow-"],
+svg[class*="text-sky-"],
+svg[class*="text-cyan-"],
+svg[class*="text-blue-"] {
+  color: #000000 !important;
+  stroke: currentColor;
+}
+
+/* 6. All Button Color changed to Page Color (#D1F2EB) in all pages */
+button,
+button[type="button"],
+button[type="submit"],
+button[type="reset"],
+[role="button"],
+button[class*="bg-"],
+button[class*="hover:bg-"],
+button[class*="active:bg-"] {
+  background-color: #D1F2EB !important;
+  background-image: none !important;
+  color: #000000 !important;
+  border: 1px solid #85D4C3 !important;
+}
+
+button:hover,
+button[type="button"]:hover,
+button[type="submit"]:hover,
+button[type="reset"]:hover,
+[role="button"]:hover,
+button[class*="hover:bg-"]:hover {
+  background-color: #BCE7DE !important;
+  color: #000000 !important;
+  border-color: #70C7B5 !important;
+}
+
+button:active,
+[role="button"]:active {
+  background-color: #A2D9CE !important;
+  color: #000000 !important;
+}
+
+/* Ensure all text, spans, and icons inside buttons are black */
+button *,
+button *:not([class*="badge"]),
+[role="button"] * {
+  color: #000000 !important;
+}
+
+button svg,
+[role="button"] svg {
+  color: #000000 !important;
+  stroke: currentColor;
+}
+
+/* Selected navigation menu items & active toggle buttons */
+aside nav button[class*="border-slate-900"],
+aside nav button[class*="bg-[#A2D9CE]"],
+aside nav button[class*="border-blue-600"],
+aside nav button[class*="border-emerald-600"],
+button[aria-selected="true"],
+button.active {
+  background-color: #A2D9CE !important;
+  border-left-color: #0F172A !important;
+  border-left-width: 4px !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
 }
 
 /* 7. Soft elevation shadows */
