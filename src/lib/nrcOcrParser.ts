@@ -37,6 +37,56 @@ export function normalizeNrc(raw: string): string {
   return raw.trim();
 }
 
+const MM_DIGITS_MAP: Record<string, string> = {
+  '၀': '0', '၁': '1', '၂': '2', '၃': '3', '၄': '4',
+  '၅': '5', '၆': '6', '၇': '7', '၈': '8', '၉': '9'
+};
+
+/**
+ * Canonicalizes an NRC string for exact comparison:
+ * - Trims whitespace and spaces inside
+ * - Converts Myanmar digits to Arabic digits (၀-၉ -> 0-9)
+ * - Converts citizenship types: (နိုင်) -> (N), (ဧည့်) -> (A), (ပြု) -> (P), (သီ) -> (T)
+ * - Uppercases English letters
+ */
+export function canonicalizeNrc(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  let str = raw.trim().toUpperCase().replace(/\s+/g, '');
+  // Convert Myanmar numerals to Arabic numerals
+  str = str.replace(/[၀-၉]/g, ch => MM_DIGITS_MAP[ch] || ch);
+  // Normalize Myanmar citizenship types to standard English code
+  str = str.replace(/\(နိုင်\)/g, '(N)')
+           .replace(/\(ဧည့်\)/g, '(A)')
+           .replace(/\(ပြု\)/g, '(P)')
+           .replace(/\(သီ\)/g, '(T)')
+           .replace(/\(သ\)/g, '(T)');
+  return str;
+}
+
+/**
+ * Strictly checks if two NRC strings are an EXACT match.
+ * Requires complete match across state, township, type, and all digits.
+ * If any character or digit is altered, added, or deleted (e.g. backspace), returns false.
+ */
+export function isExactNrcMatch(nrcA?: string, nrcB?: string): boolean {
+  if (!nrcA || !nrcB) return false;
+  const a = canonicalizeNrc(nrcA);
+  const b = canonicalizeNrc(nrcB);
+  if (!a || !b) return false;
+  
+  // 1. Strict equality check on canonicalized representation
+  if (a === b) return true;
+
+  // 2. Also check if both normalize into identical standard formats
+  const normA = normalizeNrc(a);
+  const normB = normalizeNrc(b);
+  if (normA && normB && normA === normB) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Extracts NRC details from uploaded file:
  * 1. Checks if file or dataUrl is SVG and extracts text nodes directly

@@ -47,6 +47,7 @@ import {
   clearIndexedDb, 
   LOCAL_STORAGE_DB_KEY 
 } from './indexedDbStorage';
+import { isExactNrcMatch } from './nrcOcrParser';
 
 async function safeFetchJson(url: string, options?: RequestInit): Promise<{ ok: boolean; data?: any; isHtml?: boolean }> {
   try {
@@ -98,6 +99,7 @@ interface RemittanceContextType {
   
   // Screening
   checkBlacklist: (nrc: string, passport?: string, name?: string) => BlacklistEntry | null;
+  checkExactNrcBlacklist: (nrc: string, requiredRiskLevel?: 'CRITICAL') => BlacklistEntry | null;
   
   // Outward & Inward Transactions
   createOutwardRemittance: (txData: Partial<RemittanceTransaction>) => Promise<RemittanceTransaction>;
@@ -1178,61 +1180,64 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     logActionDirect(action, entityType, entityId, details, previousValue, newValue);
   }, [currentUser]);
 
-  // Blacklist screening
+  // Strictly checks blacklist by exact NRC number (with optional riskLevel filter, e.g. 'CRITICAL')
+  // Fails immediately if any character is deleted (backspaced) or changed
+  const checkExactNrcBlacklist = useCallback((nrc: string, requiredRiskLevel?: 'CRITICAL'): BlacklistEntry | null => {
+    if (!nrc || typeof nrc !== 'string') return null;
+    const clean = nrc.trim();
+    if (!clean) return null;
+
+    for (const item of (db?.blacklist || [])) {
+      if (!item.active) continue;
+      if (requiredRiskLevel && item.riskLevel !== requiredRiskLevel) continue;
+      if (isExactNrcMatch(clean, item.nrcNumber)) {
+        return item;
+      }
+    }
+    return null;
+  }, [db?.blacklist]);
+
+  // General Blacklist screening with exact NRC requirement
   const checkBlacklist = useCallback((nrc: string, passport?: string, name?: string): BlacklistEntry | null => {
     if (!nrc && !passport && !name) return null;
-    const cleanNrc = (nrc || '').trim().toLowerCase().replace(/\s+/g, '');
+    const cleanNrc = (nrc || '').trim();
     const cleanPass = (passport || '').trim().toLowerCase().replace(/\s+/g, '');
     const cleanName = (name || '').trim().toLowerCase();
 
-    for (const item of db.blacklist) {
+    for (const item of (db?.blacklist || [])) {
       if (!item.active) continue;
       
-      const itemNrc = (item.nrcNumber || '').trim().toLowerCase().replace(/\s+/g, '');
+      const itemNrc = (item.nrcNumber || '').trim();
       const itemPass = (item.passportNumber || item.passbookNumber || '').trim().toLowerCase().replace(/\s+/g, '');
       const itemEn = (item.fullNameEn || '').trim().toLowerCase();
       const itemMm = (item.fullNameMm || '').trim().toLowerCase();
 
-      // NRC screening: require at least 8 characters to avoid false alarms on partial prefixes (e.g. "12", "12/", "1")
-      if (cleanNrc && itemNrc && cleanNrc.length >= 8) {
-        const normCleanNrc = cleanNrc.replace(/[^a-z0-9]/g, '');
-        const normItemNrc = itemNrc.replace(/[^a-z0-9]/g, '');
-        if (
-          cleanNrc === itemNrc ||
-          normCleanNrc === normItemNrc ||
-          (cleanNrc.length >= itemNrc.length && cleanNrc.includes(itemNrc)) ||
-          (itemNrc.length >= 8 && cleanNrc.length >= itemNrc.length - 2 && itemNrc.includes(cleanNrc))
-        ) {
-          return item;
-        }
+      // NRC screening: strictly exact match only! No partial prefix or substring match.
+      if (cleanNrc && itemNrc && isExactNrcMatch(cleanNrc, itemNrc)) {
+        return item;
       }
 
-      // Passport / Passbook screening: require at least 6 characters
+      // Passport / Passbook screening: exact match only
       if (cleanPass && itemPass && cleanPass.length >= 6) {
         const normCleanPass = cleanPass.replace(/[^a-z0-9]/g, '');
         const normItemPass = itemPass.replace(/[^a-z0-9]/g, '');
-        if (
-          cleanPass === itemPass ||
-          normCleanPass === normItemPass ||
-          (cleanPass.length >= itemPass.length && cleanPass.includes(itemPass)) ||
-          (itemPass.length >= 6 && cleanPass.length >= itemPass.length - 2 && itemPass.includes(cleanPass))
-        ) {
+        if (cleanPass === itemPass || normCleanPass === normItemPass) {
           return item;
         }
       }
 
-      // Name screening: require at least 4 characters
+      // Name screening: require at least 4 characters and exact match
       if (cleanName && cleanName.length >= 4) {
         if (
-          (itemEn && itemEn.length >= 4 && (cleanName === itemEn || (cleanName.length >= itemEn.length && cleanName.includes(itemEn)))) ||
-          (itemMm && itemMm.length >= 4 && (cleanName === itemMm || (cleanName.length >= itemMm.length && cleanName.includes(itemMm))))
+          (itemEn && cleanName === itemEn) ||
+          (itemMm && cleanName === itemMm)
         ) {
           return item;
         }
       }
     }
     return null;
-  }, [db.blacklist]);
+  }, [db?.blacklist]);
 
   // Helper to extract numeric rate from an exchange rate row (supports camelCase and snake_case)
   const extractNumericRate = (r: any): number => {
@@ -4412,6 +4417,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentUser,
         switchUser,
         checkBlacklist,
+        checkExactNrcBlacklist,
         createOutwardRemittance,
         createInwardRemittance,
         approveTransaction,

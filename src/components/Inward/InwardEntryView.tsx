@@ -1338,28 +1338,28 @@ export const InwardEntryView: React.FC = () => {
                   return (
                     <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                       <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                          <Building2 className="w-4 h-4" />
+                        <div className="w-8 h-8 rounded-lg bg-[#D1F2EB] text-black border border-[#85D4C3] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          <Building2 className="w-4 h-4 text-black" />
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
                             <span className="font-bold text-white text-xs">
                               {language === 'my' && curBranch.nameMm ? `${curBranch.nameMm} (${curBranch.nameEn})` : curBranch.nameEn}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800 font-mono text-[10px] font-bold">
+                            <span className="px-1.5 py-0.5 rounded bg-[#D1F2EB] text-black border border-[#85D4C3] font-mono text-[10px] font-bold">
                               {curBranch.code}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold">
+                            <span className="px-1.5 py-0.5 rounded bg-[#D1F2EB] text-black border border-[#85D4C3] text-[10px] font-bold">
                               {curBranch.status}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-[11px] mt-1">
                             <span className="flex items-center space-x-1">
-                              <MapPin className="w-3 h-3 text-indigo-400" />
+                              <MapPin className="w-3 h-3 text-black" />
                               <span>{curBranch.address}, {curBranch.city}</span>
                             </span>
                             <span className="flex items-center space-x-1">
-                              <Phone className="w-3 h-3 text-indigo-400" />
+                              <Phone className="w-3 h-3 text-black" />
                               <span className="font-mono text-slate-300">{curBranch.phone}</span>
                             </span>
                           </div>

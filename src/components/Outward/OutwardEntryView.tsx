@@ -54,6 +54,7 @@ export const OutwardEntryView: React.FC = () => {
     language, 
     t, 
     checkBlacklist, 
+    checkExactNrcBlacklist,
     getExchangeRate, 
     getCorridorExchangeRate,
     createOutwardRemittance, 
@@ -379,17 +380,27 @@ export const OutwardEntryView: React.FC = () => {
     }
   }, [scope, userCountryCode]);
 
-  // Real-time screening on sender NRC / Passport / Name
+  // Real-time screening on sender NRC for CRITICAL Blacklist (Strictly exact NRC match only)
+  // If backspace is pressed or any number is changed, does NOT show "FLAGGED" label
   useEffect(() => {
-    const match = checkBlacklist(senderNrc, senderPassport, senderName);
+    if (!senderNrc || senderIdType !== 'NRC') {
+      setSenderMatch(null);
+      return;
+    }
+    const match = checkExactNrcBlacklist(senderNrc, 'CRITICAL');
     setSenderMatch(match);
-  }, [senderNrc, senderPassport, senderName, checkBlacklist]);
+  }, [senderNrc, senderIdType, checkExactNrcBlacklist]);
 
-  // Real-time screening on receiver NRC / Passport / Name
+  // Real-time screening on receiver NRC for CRITICAL Blacklist (Strictly exact NRC match only)
+  // If backspace is pressed or any number is changed, does NOT show "FLAGGED" label
   useEffect(() => {
-    const match = checkBlacklist(receiverNrc, receiverPassport, receiverName);
+    if (!receiverNrc) {
+      setReceiverMatch(null);
+      return;
+    }
+    const match = checkExactNrcBlacklist(receiverNrc, 'CRITICAL');
     setReceiverMatch(match);
-  }, [receiverNrc, receiverPassport, receiverName, checkBlacklist]);
+  }, [receiverNrc, checkExactNrcBlacklist]);
 
   // Calculations
   const calculatedReceiveAmount = (() => {
@@ -914,21 +925,24 @@ export const OutwardEntryView: React.FC = () => {
       return;
     }
 
-    // Hard block if Blacklist Critical
-    if (senderMatch && senderMatch.riskLevel === 'CRITICAL') {
+    // Hard block if Blacklist Critical (Screened strictly by exact NRC)
+    const currentSenderMatch = senderIdType === 'NRC' ? checkExactNrcBlacklist(senderNrc, 'CRITICAL') : null;
+    const currentReceiverMatch = receiverNrc ? checkExactNrcBlacklist(receiverNrc, 'CRITICAL') : null;
+
+    if (currentSenderMatch && currentSenderMatch.riskLevel === 'CRITICAL') {
       setErrorMessage(
         language === 'my' 
-          ? `ငွေလွှဲပို့သူသည် နာမည်ပျက်စာရင်း (${senderMatch.reason}) တွင် ပါဝင်နေသဖြင့် တားမြစ်ထားပါသည်` 
-          : `Sender is flagged on CRITICAL Blacklist (${senderMatch.reason}). Submission blocked.`
+          ? `ငွေလွှဲပို့သူသည် နာမည်ပျက်စာရင်း (${currentSenderMatch.reason}) တွင် ပါဝင်နေသဖြင့် တားမြစ်ထားပါသည်` 
+          : `Sender is flagged on CRITICAL Blacklist (${currentSenderMatch.reason}). Submission blocked.`
       );
       return;
     }
 
-    if (receiverMatch && receiverMatch.riskLevel === 'CRITICAL') {
+    if (currentReceiverMatch && currentReceiverMatch.riskLevel === 'CRITICAL') {
       setErrorMessage(
         language === 'my' 
-          ? `ငွေလွှဲလက်ခံသူသည် နာမည်ပျက်စာရင်း (${receiverMatch.reason}) တွင် ပါဝင်နေသဖြင့် တားမြစ်ထားပါသည်` 
-          : `Receiver is flagged on CRITICAL Blacklist (${receiverMatch.reason}). Submission blocked.`
+          ? `ငွေလွှဲလက်ခံသူသည် နာမည်ပျက်စာရင်း (${currentReceiverMatch.reason}) တွင် ပါဝင်နေသဖြင့် တားမြစ်ထားပါသည်` 
+          : `Receiver is flagged on CRITICAL Blacklist (${currentReceiverMatch.reason}). Submission blocked.`
       );
       return;
     }
@@ -1053,94 +1067,100 @@ export const OutwardEntryView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Title & Scope selector */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Sleek Compact Header Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <div className="flex items-center space-x-2.5">
+              <span className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
                 <Send className="w-4 h-4" />
               </span>
-              <h2 className="text-xl font-bold text-white tracking-tight">
-                {t.outwardEntryTitle}
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight leading-tight">
+                  {t.outwardEntryTitle}
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {t.outwardEntrySubtitle}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {t.outwardEntrySubtitle}
-            </p>
           </div>
 
-          {/* Scope Switch & Active Branch Badge */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            {/* Live System Date & Time Display */}
-            <div className="flex items-center space-x-2 text-xs text-slate-300 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 font-mono shadow-inner">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
-              <span>{new Date(entryDateTime).toLocaleDateString()}</span>
-              <span className="text-slate-500">|</span>
-              <Clock className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-              <span className="text-sky-300 font-semibold">{liveCurrentTime}</span>
+          {/* Controls: Date/Time + Scope Switch + Sending Branch */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Live Clock & Timestamp Picker */}
+            <div className="flex items-center space-x-1.5 bg-slate-950/80 border border-slate-700/80 px-2.5 py-1.5 rounded-xl text-xs font-mono shadow-inner">
+              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <input
+                type="datetime-local"
+                value={entryDateTime}
+                onChange={(e) => setEntryDateTime(e.target.value)}
+                className="bg-transparent text-xs font-mono text-white focus:outline-none cursor-pointer"
+                title={language === 'my' ? 'ငွေလွှဲချိန် သတ်မှတ်ရန်' : 'Transaction Date & Time'}
+              />
+              <button
+                type="button"
+                onClick={handleResetToCurrentTime}
+                className="text-[10px] text-sky-400 hover:text-sky-300 ml-1 p-0.5"
+                title={language === 'my' ? 'ယခုအချိန် ပြန်သတ်မှတ်မည်' : 'Reset to current system time'}
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
             </div>
 
-            <div className="flex items-center space-x-2 text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
-              <Building2 className="w-4 h-4 text-sky-400" />
-              <span>{language === 'my' ? 'ဆောင်ရွက်သည့် ဘဏ်ခွဲ' : 'Sending Branch'}: </span>
-              <strong className="text-white font-semibold">
-                {db.branches.find(b => b.id === sendingBranchId)?.nameEn || 'Yangon HQ'} ({db.branches.find(b => b.id === sendingBranchId)?.code || sendingBranchId})
-              </strong>
+            {/* Scope Switch */}
+            <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-700/80">
+              <button
+                type="button"
+                onClick={() => handleScopeChange('INTERNATIONAL')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  scope === 'INTERNATIONAL'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t.international}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScopeChange('DOMESTIC')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  scope === 'DOMESTIC'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t.domestic}
+              </button>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => handleScopeChange('INTERNATIONAL')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    scope === 'INTERNATIONAL'
-                      ? 'bg-sky-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {t.international}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleScopeChange('DOMESTIC')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    scope === 'DOMESTIC'
-                      ? 'bg-emerald-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {t.domestic}
-                </button>
-              </div>
-
-              {/* Default Status Badge & Reset Button */}
-              <div className="hidden sm:flex items-center space-x-1.5">
-                <div 
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border flex items-center gap-1.5 ${
-                    isMyanmarLogin 
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                      : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                  }`}
-                  title={language === 'my' 
-                    ? `မူရင်းသတ်မှတ်ချက်: ${isMyanmarLogin ? 'မြန်မာ Login ဖြစ်သဖြင့် Domestic & NRC' : 'နိုင်ငံခြား Login ဖြစ်သဖြင့် International & Passport'}`
-                    : `Default Status Policy: ${isMyanmarLogin ? 'Myanmar Login -> Domestic & NRC' : 'Other Country Login -> International & Passport'}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                  <span>
-                    {language === 'my' ? 'မူရင်း:' : 'Default:'} {isMyanmarLogin ? 'Domestic & NRC' : 'Intl & Passport'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleApplyCountryDefaultStatus}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  title={language === 'my' ? 'မူရင်းသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset to country default status'}
-                >
-                  ↺ Reset
-                </button>
-              </div>
+            {/* Sending Branch badge */}
+            <div className="flex items-center space-x-1.5 text-xs text-slate-300 bg-slate-800/90 px-2.5 py-1.5 rounded-xl border border-slate-700">
+              <Building2 className="w-3.5 h-3.5 text-sky-400" />
+              <span className="font-semibold text-white truncate max-w-[130px] sm:max-w-none">
+                {db.branches.find(b => b.id === sendingBranchId)?.nameEn || 'Yangon HQ'}
+              </span>
             </div>
+
+            {/* Default Status Badge */}
+            <div 
+              className={`hidden sm:flex px-2 py-1 rounded-lg text-[10px] font-bold border items-center gap-1.5 ${
+                isMyanmarLogin 
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <span>{isMyanmarLogin ? 'Domestic / NRC' : 'Intl / Passport'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyCountryDefaultStatus}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 transition-colors cursor-pointer"
+              title={language === 'my' ? 'မူရင်းသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset to country default status'}
+            >
+              ↺
+            </button>
           </div>
         </div>
       </div>
@@ -1217,55 +1237,13 @@ export const OutwardEntryView: React.FC = () => {
       )}
 
       {/* Main Entry Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* TOP SECTION: Transaction Date & Time (User Request #1) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                <span>{language === 'my' ? 'ရက်စွဲ နှင့် အချိန် (Transaction Date & Time)' : 'Transaction Date & Time'}</span>
-                <span className="px-2 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-mono font-medium">
-                  {new Date(entryDateTime).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
-                <span>{language === 'my' ? 'ငွေလွှဲပေးပို့မှု ပြုလုပ်သည့် ရက်စွဲနှင့် စနစ်အချိန်' : 'Remittance execution timestamp registered in audit ledger'}</span>
-                <span className="text-slate-600 hidden sm:inline">•</span>
-                <span className="text-amber-400 font-mono font-medium flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>Live: {liveCurrentTime}</span>
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center space-x-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl shadow-inner">
-              <Calendar className="w-4 h-4 text-sky-400 shrink-0" />
-              <input
-                type="datetime-local"
-                value={entryDateTime}
-                onChange={(e) => setEntryDateTime(e.target.value)}
-                className="bg-transparent text-xs font-mono text-white focus:outline-none cursor-pointer"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleResetToCurrentTime}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 border border-slate-700 text-xs font-medium flex items-center space-x-1.5 transition-colors cursor-pointer"
-              title={language === 'my' ? 'ယခုအချိန် ပြန်သတ်မှတ်မည်' : 'Reset to current system time'}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'ယခုအချိန်' : 'Current Time'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* UPPER FRAME: Sender Information */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Balanced 2-Column Grid Layout: Left (Sender & Financials), Right (Receiver & Routing) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          {/* LEFT COLUMN: Sender Information & Financials */}
+          <div className="space-y-5">
+            {/* UPPER FRAME: Sender Information */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-emerald-400" />
@@ -1338,53 +1316,43 @@ export const OutwardEntryView: React.FC = () => {
             </div>
 
             {/* OCR Function Checkbox (Default: Unchecked / Disabled) */}
-            <div className={`p-3 rounded-xl border transition-all ${
+            <div className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-2 transition-all ${
               isOcrEnabled
-                ? 'bg-emerald-950/40 border-emerald-500/50 shadow-sm'
-                : 'bg-slate-900/90 border-slate-800'
+                ? 'bg-emerald-950/40 border-emerald-500/50 shadow-xs'
+                : 'bg-slate-950/70 border-slate-800'
             }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <label htmlFor="outward-ocr-toggle-checkbox" className="flex items-start sm:items-center space-x-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    id="outward-ocr-toggle-checkbox"
-                    checked={isOcrEnabled}
-                    onChange={(e) => {
-                      const val = e.target.checked;
-                      setIsOcrEnabled(val);
-                      if (!val) {
-                        setNrcOcrResult(null);
-                        setIsScanningNrc(false);
-                      }
-                    }}
-                    className="w-4 h-4 mt-0.5 sm:mt-0 rounded text-emerald-600 bg-slate-950 border-slate-600 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer accent-emerald-500"
-                  />
-                  <div className="text-xs">
-                    <span className="font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className={`w-3.5 h-3.5 ${isOcrEnabled ? 'text-emerald-400' : 'text-slate-400'}`} />
-                      <span>{language === 'my' ? 'AI OCR အလိုအလျောက် စာဖတ်စနစ် အသုံးပြုမည်' : 'Enable AI OCR Auto-Fill Function'}</span>
-                    </span>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {language === 'my'
-                        ? 'အမှန်ခြစ်ထားပါက (ON) မှတ်ပုံတင်ဖိုင် တင်သွင်းသည်နှင့် အချက်အလက်များ အလိုအလျောက် ဖတ်ရှုဖြည့်သွင်းပေးပါမည်။ အမှန်ခြစ်ဖြုတ်ထားပါက (Default OFF) ဖိုင်သာတင်မည်ဖြစ်ပြီး OCR စနစ် အလုပ်မလုပ်ပါ။'
-                        : 'When checked (ON), uploaded NRC documents auto-fill sender details. When unchecked (Default OFF), documents attach without OCR.'}
-                    </p>
-                  </div>
-                </label>
+              <label htmlFor="outward-ocr-toggle-checkbox" className="flex items-center space-x-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="outward-ocr-toggle-checkbox"
+                  checked={isOcrEnabled}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setIsOcrEnabled(val);
+                    if (!val) {
+                      setNrcOcrResult(null);
+                      setIsScanningNrc(false);
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-emerald-600 bg-slate-950 border-slate-600 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className={`w-3.5 h-3.5 ${isOcrEnabled ? 'text-emerald-400' : 'text-slate-400'}`} />
+                  <span>{language === 'my' ? 'AI OCR အလိုအလျောက် စာဖတ်စနစ်' : 'AI OCR Auto-Fill'}</span>
+                </span>
+              </label>
 
-                <div className="shrink-0 self-start sm:self-center">
-                  {isOcrEnabled ? (
-                    <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>{language === 'my' ? 'Status: ON (OCR အလုပ်လုပ်နေပါသည်)' : 'Status: ON (OCR Active)'}</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                      <span className="w-2 h-2 rounded-full bg-slate-500" />
-                      <span>{language === 'my' ? 'Status: OFF ပုံမှန် (OCR မလုပ်ပါ)' : 'Status: OFF Default (No OCR)'}</span>
-                    </span>
-                  )}
-                </div>
+              <div className="shrink-0">
+                {isOcrEnabled ? (
+                  <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>ON (Active)</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {language === 'my' ? 'Status: OFF (မလုပ်ပါ)' : 'Status: OFF'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -2101,473 +2069,477 @@ export const OutwardEntryView: React.FC = () => {
             </div>
           </div>
 
-        {/* LOWER FRAME: Receiver Information */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
-                <UserCheck2 className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  {t.receiverInformation}
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {language === 'my' ? 'ငွေလက်ခံသူ၏ ကိုယ်ရေးအချက်အလက်များနှင့် လိပ်စာ' : 'Receiver identity, ID / Passport & destination country'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-[11px] font-semibold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-full border border-sky-500/20">
-                {language === 'my' ? 'ငွေလက်ခံသူ' : 'Receiver Details'}
-              </span>
-              <select
-                onChange={(e) => handleSelectReceiverCustomer(e.target.value)}
-                className="bg-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1 border border-slate-700 focus:outline-none"
-                defaultValue=""
-              >
-                <option value="" disabled>{language === 'my' ? '-- ဖောက်သည် အမြန်ရွေးရန် --' : '-- Quick Load Customer --'}</option>
-                {db.customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber || c.passportNumber || c.phone})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Customer Profile Auto Search (customer_profiles table) for Receiver */}
-          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-sky-500/30 space-y-2 shadow-inner">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5 text-sky-400" />
-                  <span>{language === 'my' ? 'ငွေလက်ခံသူ Customer အချက်အလက် အလိုအလျောက် ရှာဖွေဖြည့်သွင်းခြင်း' : 'Auto Search & Auto-Fill Receiver from customer_profiles'}</span>
-                </span>
-                <span className="text-[10px] bg-sky-500/15 text-sky-300 font-mono font-bold px-2 py-0.5 rounded border border-sky-500/30">
-                  customer_profiles ({db.customers.length})
+            {/* Section 3: Financials, Exchange Rate & Settlement */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <Calculator className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    {t.financialDetails}
+                  </h3>
+                </div>
+                <span className="text-xs text-slate-400 font-mono">
+                  Rate ID: LIVE-{sourceCurrency}/{targetCurrency}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400">
-                {language === 'my' ? '🔍 Contain ရှာဖွေမှု (အမည်၊ ဖုန်း၊ NRC၊ Passport)' : '🔍 Search by Contain (Name, Phone, NRC, Passport)'}
-              </span>
-            </div>
 
-            <CustomerSearchAutoFill
-              label={language === 'my' ? 'ငွေလက်ခံသူ Customer ရှာရန်' : 'Receiver Customer Profile'}
-              placeholder={language === 'my' ? '🔍 အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport နံပါတ် ရိုက်ထည့်ရှာပါ (Auto Search & Fill)...' : '🔍 Search Receiver by Name, Phone, NRC, Passport...'}
-              onSelectCustomer={handleSelectReceiverCustomer}
-              selectedCustomer={selectedReceiverCustomer}
-              onClearCustomer={handleClearReceiverCustomer}
-              language={language}
-              themeColor="sky"
-              localCustomers={db.customers}
-              roleTag="RECEIVER"
-            />
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                {/* Source Currency */}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.sourceCurrency}</label>
+                  <select
+                    value={sourceCurrency}
+                    onChange={(e) => setSourceCurrency(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:border-sky-500 focus:outline-none"
+                  >
+                    {db.currencies.map(c => (
+                      <option key={c.id} value={c.code}>{c.code} - {language === 'my' ? c.nameMm : c.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-            <div className="relative">
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverName} *</label>
-              <input
-                type="text"
-                required
-                value={receiverName}
-                onChange={(e) => {
-                  setReceiverName(e.target.value);
-                  if (selectedReceiverCustomer && e.target.value !== selectedReceiverCustomer.fullNameEn) {
-                    setSelectedReceiverCustomer(null);
-                  }
-                }}
-                placeholder="e.g. Somchai Prasert / Ma Su Myat"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
-              />
+                {/* Target Currency */}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.targetCurrency}</label>
+                  <select
+                    value={targetCurrency}
+                    onChange={(e) => setTargetCurrency(e.target.value)}
+                    disabled={scope === 'DOMESTIC'}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:border-sky-500 focus:outline-none disabled:opacity-60"
+                  >
+                    {db.currencies.map(c => (
+                      <option key={c.id} value={c.code}>{c.code} - {language === 'my' ? c.nameMm : c.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Inline suggestions popup when typing in Receiver Name */}
-              {receiverNameSuggestions.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-sky-500/60 rounded-xl shadow-2xl p-1.5 space-y-1">
-                  <div className="text-[10px] text-sky-400 font-bold px-2 py-0.5 flex items-center justify-between border-b border-slate-800 pb-1">
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-sky-400" />
-                      <span>{language === 'my' ? 'customer_profiles တွင် ကိုက်ညီသူများ (Auto-Fill):' : 'Matching customer_profiles (Click to Auto-Fill):'}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">{receiverNameSuggestions.length} found</span>
+                {/* Send Amount */}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.sendAmount} *</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="any"
+                      value={sendAmount}
+                      onChange={(e) => setSendAmount(Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
                   </div>
-                  {receiverNameSuggestions.map((cust) => (
-                    <button
-                      key={cust.id}
-                      type="button"
-                      onClick={() => handleSelectReceiverCustomer(cust)}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-sky-950/60 text-xs flex items-center justify-between group transition-colors cursor-pointer"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-white group-hover:text-sky-300 truncate">{cust.fullNameEn}</span>
-                          {cust.fullNameMm && <span className="text-slate-400 text-[11px] truncate">({cust.fullNameMm})</span>}
+                </div>
+
+                {/* Exchange Rate */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400 font-medium">{t.exchangeRate}</label>
+                    {sourceCurrency !== targetCurrency && (
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                        1 {sourceCurrency === 'MMK' ? targetCurrency : sourceCurrency} = {exchangeRate.toLocaleString()} MMK
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      value={exchangeRate}
+                      onChange={(e) => setExchangeRate(Number(e.target.value))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-emerald-400 font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-400 font-bold">
+                      {sourceCurrency === targetCurrency ? targetCurrency : 'MMK'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fee Settings Row: Service Fee & Commission Fee */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs pt-1 border-t border-slate-800/80">
+                {/* Service Fee */}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'my' ? 'ဝန်ဆောင်ခ (Service Fee)' : 'Service Fee'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={serviceFee}
+                      onChange={(e) => setServiceFee(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
+                  </div>
+                </div>
+
+                {/* Commission Fee */}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {language === 'my' ? 'ကော်မရှင်ကြေး (Commission Fee)' : 'Commission Fee'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={commissionFee}
+                      onChange={(e) => setCommissionFee(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
+                  </div>
+                </div>
+
+                {/* Quick Presets / Information */}
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-2 pt-5">
+                  <span className="text-[11px] text-slate-400">{language === 'my' ? 'အမြန်ပြင်ဆင်ရန်:' : 'Presets:'}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setServiceFee(0); setCommissionFee(0); }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    0 {sourceCurrency} ({language === 'my' ? 'အခမဲ့' : 'Free'})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fees = getDefaultFees(sourceCurrency);
+                      setServiceFee(fees.service);
+                      setCommissionFee(fees.commission);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    {sourceCurrency === 'MMK' ? '15,000 / 5,000 MMK' : sourceCurrency === 'THB' ? '100 / 50 THB' : `${getDefaultFees(sourceCurrency).service} / ${getDefaultFees(sourceCurrency).commission} ${sourceCurrency}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fees = getDefaultFees(sourceCurrency);
+                      setServiceFee(fees.service + fees.commission);
+                      setCommissionFee(0);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    {sourceCurrency === 'MMK' ? '10,000 MMK' : sourceCurrency === 'THB' ? '150 THB' : `${getDefaultFees(sourceCurrency).service + getDefaultFees(sourceCurrency).commission} ${sourceCurrency}`}
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-time calculated Result Box */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="border-r border-slate-800 pr-4">
+                  <span className="text-slate-400 text-xs block">{t.receiveAmount} (လက်ခံရရှိငွေ)</span>
+                  <span className="text-2xl font-black text-emerald-400 font-mono mt-1 block">
+                    {calculatedReceiveAmount.toLocaleString()} {targetCurrency}
+                  </span>
+                </div>
+
+                <div className="border-r border-slate-800 pr-4">
+                  <div className="flex justify-between items-center text-xs text-slate-400">
+                    <span>{t.serviceFee}:</span>
+                    <span className="font-mono text-white font-semibold">{serviceFee.toLocaleString()} {sourceCurrency}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-400 mt-1">
+                    <span>{t.commissionFee}:</span>
+                    <span className="font-mono text-white font-semibold">{commissionFee.toLocaleString()} {sourceCurrency}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-800">
+                    <span>{language === 'my' ? 'အခကြေးငွေ စုစုပေါင်း' : 'Total Fees'}:</span>
+                    <span className="font-mono text-sky-400 font-bold">{(serviceFee + commissionFee).toLocaleString()} {sourceCurrency}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 text-xs block">{t.totalPayable} (စုစုပေါင်းပေးချေငွေ)</span>
+                  <span className="text-xl font-black text-white font-mono mt-1 block">
+                    {totalPayableAmount.toLocaleString()} {sourceCurrency}
+                  </span>
+                </div>
+              </div>
+
+              {/* USD Base Checkbox & Conversion Row */}
+              <div className="pt-2 border-t border-slate-800/80">
+                <div className={`p-3.5 rounded-xl border transition-all ${
+                  isUsdBase 
+                    ? 'bg-sky-950/40 border-sky-600/70 shadow-md shadow-sky-950/30' 
+                    : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <label className="flex items-start sm:items-center space-x-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isUsdBase}
+                        onChange={(e) => setIsUsdBase(e.target.checked)}
+                        className="w-4 h-4 rounded text-sky-600 bg-slate-800 border-slate-600 focus:ring-sky-500 mt-0.5 sm:mt-0 cursor-pointer"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-white text-xs sm:text-sm">
+                            {language === 'my' ? '"USD Base" တွက်ချက်မှု ထည့်သွင်းမည် (USD Base)' : '"USD Base" Conversion'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            isUsdBase ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            USD Base
+                          </span>
                         </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                          {cust.phone && <span>📞 {cust.phone}</span>}
-                          {cust.nrcNumber && <span className="text-amber-300">🆔 {cust.nrcNumber}</span>}
-                          {cust.passportNumber && <span className="text-sky-300">🛂 {cust.passportNumber}</span>}
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          {language === 'my' 
+                            ? `သက်ဆိုင်ရာနိုင်ငံ၏ Outward Currency (${targetCurrency}) ကို USD ဒေါ်လာတန်ဖိုးသို့ ပြောင်းလဲတွက်ချက်ပြီး Report နှင့် Voucher များတွင် ဖော်ပြပေးပါမည်` 
+                            : `Convert destination outward currency (${targetCurrency}) into USD equivalent for report columns and vouchers`}
+                        </span>
+                      </div>
+                    </label>
+
+                    {isUsdBase && (
+                      <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 border border-sky-700/60 p-2.5 rounded-xl text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-slate-400 text-[11px]">
+                            {targetCurrency === 'USD' ? 'Rate:' : `1 USD =`}
+                          </span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={usdExchangeRate}
+                            onChange={(e) => setUsdExchangeRate(Number(e.target.value))}
+                            className="w-24 bg-slate-950 border border-sky-500/80 rounded-lg px-2.5 py-1 text-sky-300 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-sky-400 text-center"
+                            title={`Exchange rate in ${targetCurrency} per 1 USD`}
+                          />
+                          <span className="text-slate-300 font-mono font-bold text-xs">{targetCurrency}</span>
+                          <button
+                            type="button"
+                            onClick={() => setUsdExchangeRate(getUsdRateForCurrency(targetCurrency))}
+                            className="text-[10px] text-sky-400 hover:text-sky-200 px-1.5 py-0.5 bg-sky-950 rounded border border-sky-800"
+                            title="Reset to default market rate"
+                          >
+                            ↺ Auto
+                          </button>
+                        </div>
+
+                        <div className="h-6 w-px bg-slate-700 hidden sm:block" />
+
+                        <div className="text-right">
+                          <span className="text-[10px] text-sky-400 block font-semibold">USD Equivalent (ဒေါ်လာတန်ဖိုး)</span>
+                          <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
+                            $ {calculatedUsdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                          </span>
                         </div>
                       </div>
-                      <span className="shrink-0 text-[10px] bg-sky-600 group-hover:bg-sky-500 text-white font-bold px-2 py-1 rounded shadow-xs flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        <span>{language === 'my' ? 'တန်းဖြည့်မည်' : 'Fill'}</span>
-                      </span>
-                    </button>
-                  ))}
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverNameMm}</label>
-              <input
-                type="text"
-                value={receiverNameMm}
-                onChange={(e) => setReceiverNameMm(e.target.value)}
-                placeholder="e.g. မဆုမြတ်ထက်"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">
-                {t.receiverNrc} {receiverMatch ? <span className="text-rose-400 font-bold">(FLAGGED)</span> : ''}
-              </label>
-              <input
-                type="text"
-                value={receiverNrc}
-                onChange={(e) => setReceiverNrc(e.target.value)}
-                placeholder="12/BAHANA(N)291840 or Foreign ID"
-                className={`w-full bg-slate-800 border rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:outline-none ${
-                  receiverMatch ? 'border-rose-500 bg-rose-950/30' : 'border-slate-700 focus:border-sky-500'
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverPassbook}</label>
-              <input
-                type="text"
-                value={receiverPassport}
-                onChange={(e) => setReceiverPassport(e.target.value)}
-                placeholder="Passport No / ID"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:border-sky-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverPhone} *</label>
-              <input
-                type="text"
-                required
-                value={receiverPhone}
-                onChange={(e) => setReceiverPhone(e.target.value)}
-                placeholder="+66-89-123-9988"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverCountry}</label>
-              <select
-                value={receiverCountryCode}
-                onChange={(e) => {
-                  setReceiverCountryCode(e.target.value);
-                  const country = db.countries.find(c => c.code === e.target.value);
-                  if (country && country.currencyCode) {
-                    setTargetCurrency(country.currencyCode);
-                  }
-                }}
-                disabled={scope === 'DOMESTIC'}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-sky-500 focus:outline-none disabled:opacity-60"
-              >
-                {db.countries.map(c => (
-                  <option key={c.id} value={c.code}>{c.flagEmoji} {language === 'my' ? c.nameMm : c.nameEn}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-slate-400 mb-1 font-medium">{t.receiverAddress}</label>
-              <input
-                type="text"
-                value={receiverAddress}
-                onChange={(e) => setReceiverAddress(e.target.value)}
-                placeholder="Pratunam Market, Ratchathewi, Bangkok, Thailand"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Financials, Exchange Rate & Settlement */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div className="flex items-center space-x-2">
-              <Calculator className="w-5 h-5 text-amber-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                {t.financialDetails}
-              </h3>
-            </div>
-            <span className="text-xs text-slate-400 font-mono">
-              Rate ID: LIVE-{sourceCurrency}/{targetCurrency}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            {/* Source Currency */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.sourceCurrency}</label>
-              <select
-                value={sourceCurrency}
-                onChange={(e) => setSourceCurrency(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:border-sky-500 focus:outline-none"
-              >
-                {db.currencies.map(c => (
-                  <option key={c.id} value={c.code}>{c.code} - {language === 'my' ? c.nameMm : c.nameEn}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Target Currency */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.targetCurrency}</label>
-              <select
-                value={targetCurrency}
-                onChange={(e) => setTargetCurrency(e.target.value)}
-                disabled={scope === 'DOMESTIC'}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:border-sky-500 focus:outline-none disabled:opacity-60"
-              >
-                {db.currencies.map(c => (
-                  <option key={c.id} value={c.code}>{c.code} - {language === 'my' ? c.nameMm : c.nameEn}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Send Amount */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">{t.sendAmount} *</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="any"
-                  value={sendAmount}
-                  onChange={(e) => setSendAmount(Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
-                />
-                <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
-              </div>
-            </div>
-
-            {/* Exchange Rate */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-slate-400 font-medium">{t.exchangeRate}</label>
-                {sourceCurrency !== targetCurrency && (
-                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                    1 {sourceCurrency === 'MMK' ? targetCurrency : sourceCurrency} = {exchangeRate.toLocaleString()} MMK
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="any"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(Number(e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-emerald-400 font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
-                />
-                <span className="absolute right-3 top-2.5 text-slate-400 font-bold">
-                  {sourceCurrency === targetCurrency ? targetCurrency : 'MMK'}
-                </span>
               </div>
             </div>
           </div>
+          {/* END OF LEFT COLUMN */}
 
-          {/* Fee Settings Row: Service Fee & Commission Fee */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs pt-1 border-t border-slate-800/80">
-            {/* Service Fee */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">
-                {language === 'my' ? 'ဝန်ဆောင်ခ (Service Fee)' : 'Service Fee'}
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={serviceFee}
-                  onChange={(e) => setServiceFee(Number(e.target.value) || 0)}
-                  onFocus={(e) => e.target.select()}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
-                />
-                <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
-              </div>
-            </div>
-
-            {/* Commission Fee */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">
-                {language === 'my' ? 'ကော်မရှင်ကြေး (Commission Fee)' : 'Commission Fee'}
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={commissionFee}
-                  onChange={(e) => setCommissionFee(Number(e.target.value) || 0)}
-                  onFocus={(e) => e.target.select()}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-sm focus:border-sky-500 focus:outline-none"
-                />
-                <span className="absolute right-3 top-2.5 text-slate-400 font-bold">{sourceCurrency}</span>
-              </div>
-            </div>
-
-            {/* Quick Presets / Information */}
-            <div className="sm:col-span-2 flex flex-wrap items-center gap-2 pt-5">
-              <span className="text-[11px] text-slate-400">{language === 'my' ? 'အမြန်ပြင်ဆင်ရန်:' : 'Presets:'}</span>
-              <button
-                type="button"
-                onClick={() => { setServiceFee(0); setCommissionFee(0); }}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                0 {sourceCurrency} ({language === 'my' ? 'အခမဲ့' : 'Free'})
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const fees = getDefaultFees(sourceCurrency);
-                  setServiceFee(fees.service);
-                  setCommissionFee(fees.commission);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                {sourceCurrency === 'MMK' ? '15,000 / 5,000 MMK' : sourceCurrency === 'THB' ? '100 / 50 THB' : `${getDefaultFees(sourceCurrency).service} / ${getDefaultFees(sourceCurrency).commission} ${sourceCurrency}`}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const fees = getDefaultFees(sourceCurrency);
-                  setServiceFee(fees.service + fees.commission);
-                  setCommissionFee(0);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
-              >
-                {sourceCurrency === 'MMK' ? '10,000 MMK' : sourceCurrency === 'THB' ? '150 THB' : `${getDefaultFees(sourceCurrency).service + getDefaultFees(sourceCurrency).commission} ${sourceCurrency}`}
-              </button>
-            </div>
-          </div>
-
-          {/* Real-time calculated Result Box */}
-          <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="border-r border-slate-800 pr-4">
-              <span className="text-slate-400 text-xs block">{t.receiveAmount} (လက်ခံရရှိငွေ)</span>
-              <span className="text-2xl font-black text-emerald-400 font-mono mt-1 block">
-                {calculatedReceiveAmount.toLocaleString()} {targetCurrency}
-              </span>
-            </div>
-
-            <div className="border-r border-slate-800 pr-4">
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>{t.serviceFee}:</span>
-                <span className="font-mono text-white font-semibold">{serviceFee.toLocaleString()} {sourceCurrency}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs text-slate-400 mt-1">
-                <span>{t.commissionFee}:</span>
-                <span className="font-mono text-white font-semibold">{commissionFee.toLocaleString()} {sourceCurrency}</span>
-              </div>
-              <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-800">
-                <span>{language === 'my' ? 'အခကြေးငွေ စုစုပေါင်း' : 'Total Fees'}:</span>
-                <span className="font-mono text-sky-400 font-bold">{(serviceFee + commissionFee).toLocaleString()} {sourceCurrency}</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-slate-400 text-xs block">{t.totalPayable} (စုစုပေါင်းပေးချေငွေ)</span>
-              <span className="text-xl font-black text-white font-mono mt-1 block">
-                {totalPayableAmount.toLocaleString()} {sourceCurrency}
-              </span>
-            </div>
-          </div>
-
-          {/* USD Base Checkbox & Conversion Row */}
-          <div className="pt-2 border-t border-slate-800/80">
-            <div className={`p-3.5 rounded-xl border transition-all ${
-              isUsdBase 
-                ? 'bg-sky-950/40 border-sky-600/70 shadow-md shadow-sky-950/30' 
-                : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <label className="flex items-start sm:items-center space-x-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={isUsdBase}
-                    onChange={(e) => setIsUsdBase(e.target.checked)}
-                    className="w-4 h-4 rounded text-sky-600 bg-slate-800 border-slate-600 focus:ring-sky-500 mt-0.5 sm:mt-0 cursor-pointer"
-                  />
+          {/* RIGHT COLUMN: Receiver Information & Purpose / Routing Details */}
+          <div className="space-y-5">
+            {/* LOWER FRAME: Receiver Information */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                    <UserCheck2 className="w-4 h-4" />
+                  </div>
                   <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-white text-xs sm:text-sm">
-                        {language === 'my' ? '"USD Base" တွက်ချက်မှု ထည့်သွင်းမည် (USD Base)' : '"USD Base" Conversion'}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        isUsdBase ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        USD Base
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      {language === 'my' 
-                        ? `သက်ဆိုင်ရာနိုင်ငံ၏ Outward Currency (${targetCurrency}) ကို USD ဒေါ်လာတန်ဖိုးသို့ ပြောင်းလဲတွက်ချက်ပြီး Report နှင့် Voucher များတွင် ဖော်ပြပေးပါမည်` 
-                        : `Convert destination outward currency (${targetCurrency}) into USD equivalent for report columns and vouchers`}
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      {t.receiverInformation}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {language === 'my' ? 'ငွေလက်ခံသူ၏ ကိုယ်ရေးအချက်အလက်များနှင့် လိပ်စာ' : 'Receiver identity, ID / Passport & destination country'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-semibold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-full border border-sky-500/20">
+                    {language === 'my' ? 'ငွေလက်ခံသူ' : 'Receiver Details'}
+                  </span>
+                  <select
+                    onChange={(e) => handleSelectReceiverCustomer(e.target.value)}
+                    className="bg-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1 border border-slate-700 focus:outline-none"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>{language === 'my' ? '-- ဖောက်သည် အမြန်ရွေးရန် --' : '-- Quick Load Customer --'}</option>
+                    {db.customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.fullNameEn} ({c.nrcNumber || c.passportNumber || c.phone})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Customer Profile Auto Search (customer_profiles table) for Receiver */}
+              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-sky-500/30 space-y-2 shadow-inner">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{language === 'my' ? 'ငွေလက်ခံသူ Customer အချက်အလက် အလိုအလျောက် ရှာဖွေဖြည့်သွင်းခြင်း' : 'Auto Search & Auto-Fill Receiver from customer_profiles'}</span>
+                    </span>
+                    <span className="text-[10px] bg-sky-500/15 text-sky-300 font-mono font-bold px-2 py-0.5 rounded border border-sky-500/30">
+                      customer_profiles ({db.customers.length})
                     </span>
                   </div>
-                </label>
+                  <span className="text-[10px] text-slate-400">
+                    {language === 'my' ? '🔍 Contain ရှာဖွေမှု (အမည်၊ ဖုန်း၊ NRC၊ Passport)' : '🔍 Search by Contain (Name, Phone, NRC, Passport)'}
+                  </span>
+                </div>
 
-                {isUsdBase && (
-                  <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 border border-sky-700/60 p-2.5 rounded-xl text-xs">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-slate-400 text-[11px]">
-                        {targetCurrency === 'USD' ? 'Rate:' : `1 USD =`}
-                      </span>
-                      <input
-                        type="number"
-                        step="any"
-                        value={usdExchangeRate}
-                        onChange={(e) => setUsdExchangeRate(Number(e.target.value))}
-                        className="w-24 bg-slate-950 border border-sky-500/80 rounded-lg px-2.5 py-1 text-sky-300 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-sky-400 text-center"
-                        title={`Exchange rate in ${targetCurrency} per 1 USD`}
-                      />
-                      <span className="text-slate-300 font-mono font-bold text-xs">{targetCurrency}</span>
-                      <button
-                        type="button"
-                        onClick={() => setUsdExchangeRate(getUsdRateForCurrency(targetCurrency))}
-                        className="text-[10px] text-sky-400 hover:text-sky-200 px-1.5 py-0.5 bg-sky-950 rounded border border-sky-800"
-                        title="Reset to default market rate"
-                      >
-                        ↺ Auto
-                      </button>
+                <CustomerSearchAutoFill
+                  label={language === 'my' ? 'ငွေလက်ခံသူ Customer ရှာရန်' : 'Receiver Customer Profile'}
+                  placeholder={language === 'my' ? '🔍 အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport နံပါတ် ရိုက်ထည့်ရှာပါ (Auto Search & Fill)...' : '🔍 Search Receiver by Name, Phone, NRC, Passport...'}
+                  onSelectCustomer={handleSelectReceiverCustomer}
+                  selectedCustomer={selectedReceiverCustomer}
+                  onClearCustomer={handleClearReceiverCustomer}
+                  language={language}
+                  themeColor="sky"
+                  localCustomers={db.customers}
+                  roleTag="RECEIVER"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="relative">
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverName} *</label>
+                  <input
+                    type="text"
+                    required
+                    value={receiverName}
+                    onChange={(e) => {
+                      setReceiverName(e.target.value);
+                      if (selectedReceiverCustomer && e.target.value !== selectedReceiverCustomer.fullNameEn) {
+                        setSelectedReceiverCustomer(null);
+                      }
+                    }}
+                    placeholder="e.g. Somchai Prasert / Ma Su Myat"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                  />
+
+                  {/* Inline suggestions popup when typing in Receiver Name */}
+                  {receiverNameSuggestions.length > 0 && (
+                    <div className="absolute z-30 left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-sky-500/60 rounded-xl shadow-2xl p-1.5 space-y-1">
+                      <div className="text-[10px] text-sky-400 font-bold px-2 py-0.5 flex items-center justify-between border-b border-slate-800 pb-1">
+                        <span className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-sky-400" />
+                          <span>{language === 'my' ? 'customer_profiles တွင် ကိုက်ညီသူများ (Auto-Fill):' : 'Matching customer_profiles (Click to Auto-Fill):'}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{receiverNameSuggestions.length} found</span>
+                      </div>
+                      {receiverNameSuggestions.map((cust) => (
+                        <button
+                          key={cust.id}
+                          type="button"
+                          onClick={() => handleSelectReceiverCustomer(cust)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-sky-950/60 text-xs flex items-center justify-between group transition-colors cursor-pointer"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white group-hover:text-sky-300 truncate">{cust.fullNameEn}</span>
+                              {cust.fullNameMm && <span className="text-slate-400 text-[11px] truncate">({cust.fullNameMm})</span>}
+                            </div>
+                            <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                              {cust.phone && <span>📞 {cust.phone}</span>}
+                              {cust.nrcNumber && <span className="text-amber-300">🆔 {cust.nrcNumber}</span>}
+                              {cust.passportNumber && <span className="text-sky-300">🛂 {cust.passportNumber}</span>}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-[10px] bg-sky-600 group-hover:bg-sky-500 text-white font-bold px-2 py-1 rounded shadow-xs flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            <span>{language === 'my' ? 'တန်းဖြည့်မည်' : 'Fill'}</span>
+                          </span>
+                        </button>
+                      ))}
                     </div>
+                  )}
+                </div>
 
-                    <div className="h-6 w-px bg-slate-700 hidden sm:block" />
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverNameMm}</label>
+                  <input
+                    type="text"
+                    value={receiverNameMm}
+                    onChange={(e) => setReceiverNameMm(e.target.value)}
+                    placeholder="e.g. မဆုမြတ်ထက်"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] text-sky-400 block font-semibold">USD Equivalent (ဒေါ်လာတန်ဖိုး)</span>
-                      <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
-                        $ {calculatedUsdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                      </span>
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">
+                    {t.receiverNrc} {receiverMatch ? <span className="text-rose-400 font-bold">(FLAGGED)</span> : ''}
+                  </label>
+                  <input
+                    type="text"
+                    value={receiverNrc}
+                    onChange={(e) => setReceiverNrc(e.target.value)}
+                    placeholder="12/BAHANA(N)291840 or Foreign ID"
+                    className={`w-full bg-slate-800 border rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:outline-none ${
+                      receiverMatch ? 'border-rose-500 bg-rose-950/30' : 'border-slate-700 focus:border-sky-500'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverPassbook}</label>
+                  <input
+                    type="text"
+                    value={receiverPassport}
+                    onChange={(e) => setReceiverPassport(e.target.value)}
+                    placeholder="Passport No / ID"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverPhone} *</label>
+                  <input
+                    type="text"
+                    required
+                    value={receiverPhone}
+                    onChange={(e) => setReceiverPhone(e.target.value)}
+                    placeholder="+66-89-123-9988"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverCountry}</label>
+                  <select
+                    value={receiverCountryCode}
+                    onChange={(e) => {
+                      setReceiverCountryCode(e.target.value);
+                      const country = db.countries.find(c => c.code === e.target.value);
+                      if (country && country.currencyCode) {
+                        setTargetCurrency(country.currencyCode);
+                      }
+                    }}
+                    disabled={scope === 'DOMESTIC'}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-sky-500 focus:outline-none disabled:opacity-60"
+                  >
+                    {db.countries.map(c => (
+                      <option key={c.id} value={c.code}>{c.flagEmoji} {language === 'my' ? c.nameMm : c.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-400 mb-1 font-medium">{t.receiverAddress}</label>
+                  <input
+                    type="text"
+                    value={receiverAddress}
+                    onChange={(e) => setReceiverAddress(e.target.value)}
+                    placeholder="Pratunam Market, Ratchathewi, Bangkok, Thailand"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
         {/* Section 4: Purpose, Method, Bank Partner & Attachment */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
@@ -2575,7 +2547,7 @@ export const OutwardEntryView: React.FC = () => {
             {language === 'my' ? 'ငွေလွှဲရည်ရွယ်ချက် နှင့် ထုတ်ပေးမည့် ပုံစံ' : 'Purpose & Routing Details'}
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
             {/* Sending Branch */}
             <div>
               <label className="block text-slate-400 mb-1 font-medium">
@@ -2681,22 +2653,22 @@ export const OutwardEntryView: React.FC = () => {
             </div>
 
             {/* Attach Deposit Proof Section */}
-            <div className="sm:col-span-3 bg-slate-950/80 border border-slate-700/80 rounded-2xl p-4.5 space-y-4 shadow-md">
+            <div className="sm:col-span-2 bg-slate-950/80 border border-slate-700/80 rounded-2xl p-4.5 space-y-4 shadow-md">
               {/* Header & Category Switcher */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                 <div className="space-y-0.5">
                   <div className="flex items-center space-x-2">
-                    <span className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
-                      <Receipt className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-[#D1F2EB] text-black border border-[#85D4C3] flex items-center justify-center">
+                      <Receipt className="w-4 h-4 text-black" />
                     </span>
                     <h4 className="text-sm font-bold text-white tracking-wide">
                       {language === 'my' ? 'ငွေသွင်းပြေစာ ပူးတွဲဖိုင် (Attach Deposit Proof)' : 'Attach Deposit Proof'}
                     </h4>
-                    {scope === 'DOMESTIC' && (
-                      <span className="px-2 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800 text-[10px] font-bold">
-                        {language === 'my' ? 'ပြည်တွင်းငွေလွှဲ' : 'Domestic Remittance'}
-                      </span>
-                    )}
+                    <span className="px-2 py-0.5 rounded-full bg-[#D1F2EB] text-black border border-[#85D4C3] text-[10px] font-bold">
+                      {scope === 'DOMESTIC' 
+                        ? (language === 'my' ? 'ပြည်တွင်းငွေလွှဲ' : 'Domestic Remittance')
+                        : (language === 'my' ? 'အပြည်ပြည်ဆိုင်ရာငွေလွှဲ' : 'International Remittance')}
+                    </span>
                   </div>
                   <p className="text-[11px] text-slate-400">
                     {language === 'my'
@@ -2715,11 +2687,11 @@ export const OutwardEntryView: React.FC = () => {
                     }}
                     className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                       proofCategory === 'DEPOSIT_RECEIPT'
-                        ? 'bg-sky-600 text-white shadow'
+                        ? 'bg-[#D1F2EB] text-black border border-[#85D4C3] shadow-xs'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <Receipt className="w-3.5 h-3.5" />
+                    <Receipt className="w-3.5 h-3.5 text-black" />
                     <span>{language === 'my' ? 'ဘဏ်ငွေသွင်းပြေစာ (Deposit Slip)' : 'Deposit Slip'}</span>
                   </button>
                   <button
@@ -2727,11 +2699,11 @@ export const OutwardEntryView: React.FC = () => {
                     onClick={() => setProofCategory('CUSTOM')}
                     className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                       proofCategory === 'CUSTOM'
-                        ? 'bg-slate-700 text-white shadow'
+                        ? 'bg-[#D1F2EB] text-black border border-[#85D4C3] shadow-xs'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5" />
+                    <Layers className="w-3.5 h-3.5 text-black" />
                     <span>{language === 'my' ? 'အခြားပူးတွဲဖိုင်' : 'Other Doc'}</span>
                   </button>
                 </div>
@@ -2740,9 +2712,9 @@ export const OutwardEntryView: React.FC = () => {
               {/* CATEGORY 2: BANK DEPOSIT SLIP VOUCHER */}
               {proofCategory === 'DEPOSIT_RECEIPT' && (
                 <div className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 bg-sky-950/40 p-2.5 rounded-xl border border-sky-900/60">
-                    <div className="text-xs text-sky-200 flex items-center space-x-2">
-                      <Receipt className="w-4 h-4 text-sky-400 shrink-0" />
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-[#D1F2EB] p-2.5 rounded-xl border border-[#85D4C3]">
+                    <div className="text-xs text-black font-semibold flex items-center space-x-2">
+                      <Receipt className="w-4 h-4 text-black shrink-0" />
                       <span>
                         {language === 'my'
                           ? 'ဘဏ်ငွေသွင်းပြေစာ (Bank Cash Deposit Slip) ပူးတွဲစနစ် - ငွေသွင်းသူ၊ ဘဏ်ခွဲနှင့် တံဆိပ်တုံး ပါဝင်သော ပြေစာ'
@@ -2754,9 +2726,9 @@ export const OutwardEntryView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleAttachSampleDepositSlip}
-                        className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                        className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-[#D1F2EB] hover:bg-[#b2e0d4] text-black border border-[#85D4C3] text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
                       >
-                        <Sparkles className="w-3 h-3" />
+                        <Sparkles className="w-3 h-3 text-black" />
                         <span>{language === 'my' ? '⚡ ငွေသွင်းပြေစာ နမူနာ ထုတ်ယူတွဲမည်' : '⚡ Generate Deposit Slip Voucher'}</span>
                       </button>
                     </div>
@@ -2831,9 +2803,9 @@ export const OutwardEntryView: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-dashed border-slate-700 hover:border-sky-500/50 rounded-xl p-5 text-center space-y-3 transition-colors bg-slate-900/50">
-                      <div className="w-10 h-10 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto">
-                        <Receipt className="w-5 h-5" />
+                    <div className="border border-dashed border-slate-700 hover:border-slate-500 rounded-xl p-5 text-center space-y-3 transition-colors bg-slate-900/50">
+                      <div className="w-10 h-10 rounded-full bg-[#D1F2EB] text-black border border-[#85D4C3] flex items-center justify-center mx-auto">
+                        <Receipt className="w-5 h-5 text-black" />
                       </div>
                       <p className="text-xs text-slate-400 max-w-md mx-auto">
                         {language === 'my'
@@ -2844,12 +2816,12 @@ export const OutwardEntryView: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleAttachSampleDepositSlip}
-                          className="px-4 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-[#D1F2EB] hover:bg-[#b2e0d4] text-black border border-[#85D4C3] text-xs font-bold transition-colors cursor-pointer"
                         >
                           + {language === 'my' ? 'ငွေသွင်းပြေစာ နမူနာ ထုတ်ယူတွဲမည်' : 'Generate Bank Deposit Slip'}
                         </button>
-                        <label className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shadow-sm">
-                          <Upload className="w-4 h-4" />
+                        <label className="px-4 py-2 rounded-xl bg-[#D1F2EB] hover:bg-[#b2e0d4] text-black border border-[#85D4C3] text-xs font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shadow-xs">
+                          <Upload className="w-4 h-4 text-black" />
                           <span>{language === 'my' ? 'ငွေသွင်းပြေစာ ဓာတ်ပုံတင်မည်' : 'Upload Deposit Slip'}</span>
                           <input
                             type="file"
@@ -2937,28 +2909,28 @@ export const OutwardEntryView: React.FC = () => {
             return (
               <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-start space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Building2 className="w-4 h-4" />
+                  <div className="w-9 h-9 rounded-xl bg-[#D1F2EB] text-black border border-[#85D4C3] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                    <Building2 className="w-4 h-4 text-black" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="font-bold text-white text-sm">
                         {language === 'my' && curBranch.nameMm ? `${curBranch.nameMm} (${curBranch.nameEn})` : curBranch.nameEn}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 font-mono text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded bg-[#D1F2EB] text-black border border-[#85D4C3] font-mono text-[10px] font-bold">
                         {curBranch.code}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 rounded bg-[#D1F2EB] text-black border border-[#85D4C3] text-[10px] font-bold">
                         {curBranch.status}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400 text-xs mt-1.5">
                       <span className="flex items-center space-x-1">
-                        <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                        <MapPin className="w-3.5 h-3.5 text-black" />
                         <span>{curBranch.address}, {curBranch.city}</span>
                       </span>
                       <span className="flex items-center space-x-1">
-                        <Phone className="w-3.5 h-3.5 text-sky-500" />
+                        <Phone className="w-3.5 h-3.5 text-black" />
                         <span className="font-mono text-slate-300 font-semibold">{curBranch.phone}</span>
                       </span>
                     </div>
@@ -2973,13 +2945,27 @@ export const OutwardEntryView: React.FC = () => {
             );
           })()}
         </div>
+      </div>
+    </div>
 
         {/* Submit & Action Buttons */}
-        <div className="flex items-center justify-end space-x-3 pt-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-lg">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 font-mono">
+              <span className="text-slate-400">{language === 'my' ? 'ပေးချေရမည့်စုစုပေါင်း:' : 'Total Payable:'}</span>
+              <strong className="text-white font-bold">{totalPayableAmount.toLocaleString()} {sourceCurrency}</strong>
+            </div>
+            <span className="text-slate-600 hidden sm:inline">➜</span>
+            <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-emerald-500/30 font-mono">
+              <span className="text-slate-400">{language === 'my' ? 'လက်ခံရရှိငွေ:' : 'Receive:'}</span>
+              <strong className="text-emerald-400 font-bold">{calculatedReceiveAmount.toLocaleString()} {targetCurrency}</strong>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02] disabled:opacity-50"
+            className="flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
           >
             <Send className="w-4 h-4" />
             <span>{isSubmitting ? 'Submitting...' : t.submitForApproval}</span>
