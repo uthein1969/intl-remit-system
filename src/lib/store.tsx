@@ -638,10 +638,25 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const existing = (tx.transactionNo ? map.get(tx.transactionNo) : undefined) || 
                              (tx.id ? map.get(tx.id) : undefined);
 
+            // Never downgrade an already completed / approved status to PENDING_APPROVAL
+            let resolvedStatus = tx.status || existing?.status || 'PENDING_APPROVAL';
+            if (existing?.status === 'APPROVED_AND_PAID_OUT' || existing?.status === 'PAID_OUT') {
+              resolvedStatus = existing.status;
+            } else if ((existing?.status === 'APPROVED' || existing?.status === 'APPROVED_AND_SENT') && tx.status === 'PENDING_APPROVAL') {
+              resolvedStatus = existing.status;
+            }
+
             const merged: RemittanceTransaction = {
               ...(existing || {} as RemittanceTransaction),
               ...tx,
               id: existing?.id || tx.id || `TX-${Date.now()}`,
+              status: resolvedStatus as RemittanceStatus,
+              approverName: tx.approverName || tx.approvedBy || existing?.approverName || '',
+              approvedDate: tx.approvedDate || tx.approvedAt || existing?.approvedDate || '',
+              creatorName: tx.creatorName || tx.createdBy || existing?.creatorName || '',
+              createdDate: tx.createdDate || tx.createdAt || existing?.createdDate || '',
+              senderCountryCode: tx.senderCountryCode || tx.fromCountry || existing?.senderCountryCode || 'MM',
+              receiverCountryCode: tx.receiverCountryCode || tx.toCountry || existing?.receiverCountryCode || 'MM',
               sendAmount: Number(tx.sendAmount) || 0,
               receiveAmount: Number(tx.receiveAmount || tx.payoutAmount) || 0,
               exchangeRate: Number(tx.exchangeRate) || 1,
@@ -649,7 +664,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               totalPayableAmount: Number(tx.totalPayableAmount || tx.totalCollected) || 0,
               payoutBranchId: tx.payoutBranchId || tx.payout_branch_id || existing?.payoutBranchId || '',
               sendingBranchId: tx.sendingBranchId || tx.sending_branch_id || existing?.sendingBranchId || '',
-              scope: tx.scope || existing?.scope || 'DOMESTIC',
+              scope: tx.scope || existing?.scope || (tx.type === 'INWARD' ? 'DOMESTIC' : 'OUTWARD'),
               isSentToDestination: tx.isSentToDestination ?? tx.is_sent_to_destination ?? existing?.isSentToDestination ?? false,
               sentDate: tx.sentDate || tx.sent_date || existing?.sentDate || '',
               sentByUserId: tx.sentByUserId || tx.sent_by_user_id || existing?.sentByUserId || '',
@@ -2313,7 +2328,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // 6. Complete Inward Payout (Cash / Account)
   const payoutInwardTransaction = async (id: string, note?: string): Promise<boolean> => {
-    const tx = db.transactions.find(t => t.id === id);
+    const tx = db.transactions.find(t => t.id === id || (t.transactionNo && t.transactionNo === id));
     if (!tx) return false;
 
     const nowStr = new Date().toISOString();
@@ -2324,14 +2339,15 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       approverName: `${currentUser.fullName} (${currentUser.role})`,
       approvalNote: note || 'Funds successfully disbursed and paid out to beneficiary.',
       paidOutDate: nowStr,
+      approvedDate: nowStr,
     };
 
     // Synchronize corresponding Outward Remittance if linked
     const linkedOutward = db.transactions.find(t => 
       t.type === 'OUTWARD' && (
-        (tx.linkedTransactionId && t.id === tx.linkedTransactionId) ||
-        (tx.linkedTransactionNo && t.transactionNo === tx.linkedTransactionNo) ||
-        (t.mtcn === tx.mtcn)
+        (tx.linkedTransactionId && (t.id === tx.linkedTransactionId || t.transactionNo === tx.linkedTransactionId)) ||
+        (tx.linkedTransactionNo && (t.transactionNo === tx.linkedTransactionNo || t.id === tx.linkedTransactionNo)) ||
+        (Boolean(t.mtcn && tx.mtcn && String(t.mtcn).trim() === String(tx.mtcn).trim()))
       )
     );
 
@@ -2350,12 +2366,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setDb(prev => ({
       ...prev,
       transactions: prev.transactions.map(t => {
-        if (t.id === id) return updatedTx;
-        if (linkedOutward && t.id === linkedOutward.id) {
+        if (t.id === tx.id || t.transactionNo === tx.transactionNo) return updatedTx;
+        if (linkedOutward && (t.id === linkedOutward.id || t.transactionNo === linkedOutward.transactionNo)) {
           return {
             ...t,
             status: 'APPROVED_AND_PAID_OUT',
             paidOutDate: nowStr,
+            approvedDate: t.approvedDate || nowStr,
             approvalNote: (t.approvalNote ? t.approvalNote + ' | ' : '') + `Approved and paid out at destination branch by ${currentUser.fullName}`
           };
         }
@@ -2366,7 +2383,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     syncLiveTransactionToCloud(updatedTx, auditRecord);
     if (linkedOutward) {
-      syncLiveTransactionToCloud({ ...linkedOutward, status: 'APPROVED_AND_PAID_OUT', paidOutDate: nowStr }, auditRecord);
+      syncLiveTransactionToCloud({ 
+        ...linkedOutward, 
+        status: 'APPROVED_AND_PAID_OUT', 
+        paidOutDate: nowStr,
+        approvedDate: linkedOutward.approvedDate || nowStr 
+      }, auditRecord);
     }
 
     return true;

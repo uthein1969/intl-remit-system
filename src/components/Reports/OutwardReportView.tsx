@@ -149,6 +149,7 @@ export const OutwardReportView: React.FC = () => {
           tx.senderName.toLowerCase().includes(q) ||
           tx.receiverName.toLowerCase().includes(q) ||
           tx.senderNrc.toLowerCase().includes(q) ||
+          (tx.receiverNrc && tx.receiverNrc.toLowerCase().includes(q)) ||
           (tx.creatorName && tx.creatorName.toLowerCase().includes(q)) ||
           (tx.approverName && tx.approverName.toLowerCase().includes(q))
         );
@@ -329,14 +330,16 @@ export const OutwardReportView: React.FC = () => {
         grandTotalSummary.totalVolumeMMK
       ]);
 
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute('download', `Total_Outward_Report_DayByDay_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } else {
       const headers = [
         'Transaction No',
@@ -347,7 +350,9 @@ export const OutwardReportView: React.FC = () => {
         'Sender Name',
         'Sender NRC',
         'Receiver Name',
+        'Receiver NRC',
         'Destination',
+        'Receiver Branch',
         'Send Amount',
         'Currency',
         'Exchange Rate',
@@ -364,6 +369,11 @@ export const OutwardReportView: React.FC = () => {
       ];
       const rows = filteredTxs.map(tx => {
         const branch = db.branches.find(b => b.id === tx.sendingBranchId);
+        const payoutBranch = (tx.payoutBranchId ? db.branches.find(b => b.id === tx.payoutBranchId) : undefined) ||
+                             (tx.receiverBranchName ? db.branches.find(b => b.nameEn?.toLowerCase() === tx.receiverBranchName?.toLowerCase()) : undefined);
+        const receiverBranchStr = payoutBranch 
+          ? `${payoutBranch.code} - ${payoutBranch.nameEn}` 
+          : (tx.receiverBranchName || tx.payoutBranchId || '-');
         const country = db.countries.find(c => c.code === (branch?.countryCode || tx.senderCountryCode || 'MM'));
         return [
           tx.transactionNo,
@@ -371,10 +381,12 @@ export const OutwardReportView: React.FC = () => {
           formatToDDMMYYYY(tx.createdDate),
           `"${country?.nameEn || tx.senderCountryCode || 'Myanmar'}"`,
           `"${branch ? `${branch.code} - ${branch.nameEn}` : (tx.sendingBranchId || 'BR-001')}"`,
-          `"${tx.senderName}"`,
-          `"${tx.senderNrc}"`,
-          `"${tx.receiverName}"`,
+          `"${tx.senderName || ''}"`,
+          `"${tx.senderNrc || ''}"`,
+          `"${tx.receiverName || ''}"`,
+          `"${tx.receiverNrc || ''}"`,
           tx.receiverCountryCode,
+          `"${receiverBranchStr}"`,
           tx.sendAmount,
           tx.sourceCurrency,
           tx.exchangeRate,
@@ -391,14 +403,16 @@ export const OutwardReportView: React.FC = () => {
         ];
       });
 
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute('download', `Outward_Remittance_Detailed_Report_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
   };
 
@@ -888,6 +902,7 @@ export const OutwardReportView: React.FC = () => {
                   <th className="px-4 py-3">{t.branch}</th>
                   <th className="px-4 py-3">{t.senderName}</th>
                   <th className="px-4 py-3">{t.receiverName}</th>
+                  <th className="px-4 py-3">{language === 'my' ? 'လက်ခံမည့်ဘဏ်ခွဲ' : 'Receiver Branch'}</th>
                   <th className="px-4 py-3">{t.sendAmount}</th>
                   <th className="px-4 py-3">{t.receiveAmount}</th>
                   <th className="px-4 py-3 text-right">USD Base ($)</th>
@@ -899,7 +914,7 @@ export const OutwardReportView: React.FC = () => {
               <tbody className="divide-y divide-slate-800">
                 {filteredTxs.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="text-center py-10 text-slate-500">
+                    <td colSpan={12} className="text-center py-10 text-slate-500">
                       {t.noData}
                     </td>
                   </tr>
@@ -927,7 +942,25 @@ export const OutwardReportView: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-200">{tx.receiverName}</div>
-                        <div className="text-[10px] text-slate-500">{tx.receiverCountryCode}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {tx.receiverNrc ? `${tx.receiverNrc} • ` : ''}{tx.receiverCountryCode}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const payoutBranch = (tx.payoutBranchId ? db.branches.find(b => b.id === tx.payoutBranchId) : undefined) ||
+                                               (tx.receiverBranchName ? db.branches.find(b => b.nameEn?.toLowerCase() === tx.receiverBranchName?.toLowerCase()) : undefined);
+                          return (
+                            <div>
+                              <span className="font-mono text-emerald-400 font-semibold text-[11px] block">
+                                {payoutBranch ? payoutBranch.code : (tx.payoutBranchId || '-')}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {payoutBranch ? payoutBranch.nameEn : (tx.receiverBranchName || (tx.receiverCountryCode !== 'MM' ? tx.receiverCountryCode : '-'))}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-200">
                         {Number(tx.sendAmount || 0).toLocaleString()} {tx.sourceCurrency}

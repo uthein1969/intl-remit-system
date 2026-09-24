@@ -195,9 +195,18 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
     const success = await payoutInwardTransaction(tx.id, 'Counter cash payout verified with original Myanmar NRC');
     if (success) {
       confetti({ particleCount: 70, spread: 60 });
-      const updated = { ...tx, status: 'APPROVED_AND_PAID_OUT' as RemittanceStatus, paidOutDate: new Date().toISOString() };
+      const nowStr = new Date().toISOString();
+      const updated: RemittanceTransaction = { 
+        ...tx, 
+        status: 'APPROVED_AND_PAID_OUT' as RemittanceStatus, 
+        paidOutDate: nowStr,
+        approvedDate: nowStr,
+        approverName: `${currentUser.fullName} (${currentUser.role})`
+      };
       setVoucherTx(updated);
       setShowVoucherModal(true);
+      // Auto-switch to PAID_OUT tab so the checker clearly sees the updated status
+      setFilterStatus('PAID_OUT');
     }
   };
 

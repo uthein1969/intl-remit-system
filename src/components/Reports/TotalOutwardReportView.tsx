@@ -152,6 +152,7 @@ export const TotalOutwardReportView: React.FC = () => {
           tx.senderName.toLowerCase().includes(q) ||
           tx.receiverName.toLowerCase().includes(q) ||
           tx.senderNrc.toLowerCase().includes(q) ||
+          (tx.receiverNrc && tx.receiverNrc.toLowerCase().includes(q)) ||
           (tx.creatorName && tx.creatorName.toLowerCase().includes(q)) ||
           (tx.approverName && tx.approverName.toLowerCase().includes(q))
         );
@@ -451,14 +452,16 @@ export const TotalOutwardReportView: React.FC = () => {
       grandTotalSummary.totalVolumeMMK
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `Total_Outward_Report_DayByDay_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handlePrint = () => {

@@ -405,7 +405,11 @@ export async function tursoWebSyncPush(data: {
               ?, ?, ?
             )
             ON CONFLICT(id) DO UPDATE SET
-              status=excluded.status,
+              status=CASE 
+                WHEN remittance_transactions.status IN ('PAID_OUT', 'APPROVED_AND_PAID_OUT') THEN remittance_transactions.status
+                WHEN remittance_transactions.status IN ('APPROVED', 'APPROVED_AND_SENT') AND excluded.status = 'PENDING_APPROVAL' THEN remittance_transactions.status
+                ELSE excluded.status
+              END,
               sender_name=excluded.sender_name,
               sender_name_mm=excluded.sender_name_mm,
               sender_nrc=excluded.sender_nrc,
@@ -433,8 +437,8 @@ export async function tursoWebSyncPush(data: {
               bank_account_no=excluded.bank_account_no,
               created_by=excluded.created_by,
               created_at=excluded.created_at,
-              approved_by=excluded.approved_by,
-              approved_at=excluded.approved_at,
+              approved_by=COALESCE(NULLIF(excluded.approved_by, ''), remittance_transactions.approved_by),
+              approved_at=COALESCE(NULLIF(excluded.approved_at, ''), remittance_transactions.approved_at),
               rejected_reason=excluded.rejected_reason,
               source_of_funds=excluded.source_of_funds,
               remittance_type=excluded.remittance_type,

@@ -148,6 +148,7 @@ export const InwardReportView: React.FC = () => {
           tx.receiverName.toLowerCase().includes(q) ||
           tx.receiverNrc.toLowerCase().includes(q) ||
           tx.senderName.toLowerCase().includes(q) ||
+          (tx.senderNrc && tx.senderNrc.toLowerCase().includes(q)) ||
           (tx.creatorName && tx.creatorName.toLowerCase().includes(q)) ||
           (tx.approverName && tx.approverName.toLowerCase().includes(q))
         );
@@ -259,18 +260,49 @@ export const InwardReportView: React.FC = () => {
         grandTotalSummary.totalPayoutMMK
       ]);
 
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute('download', `Total_Inward_Report_DayByDay_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } else {
-      const headers = ['Transaction No', 'MTCN', 'Date', 'Country', 'Payout Branch', 'Beneficiary', 'NRC', 'Sender', 'Sender Passport', 'Passport Attached', 'Origin Country', 'Origin Amount', 'Origin Currency', 'Exchange Rate', 'Payout Amount (MMK)', 'Payout Method', 'Status', 'Operator / Maker', 'Approver / Checker'];
+      const headers = [
+        'Transaction No',
+        'MTCN',
+        'Date',
+        'Country',
+        'Payout Branch',
+        'Beneficiary',
+        'Beneficiary NRC',
+        'Sender',
+        'Sender NRC',
+        'Sender Branch',
+        'Sender Passport',
+        'Passport Attached',
+        'Origin Country',
+        'Origin Amount',
+        'Origin Currency',
+        'Exchange Rate',
+        'Payout Amount (MMK)',
+        'Payout Method',
+        'Status',
+        'Operator / Maker',
+        'Approver / Checker'
+      ];
       const rows = filteredTxs.map(tx => {
-        const branch = db.branches.find(b => b.id === tx.payoutBranchId);
+        const branch = db.branches.find(b => b.id === (tx.payoutBranchId || tx.branchId));
+        const sendingBranch = (tx.sendingBranchId ? db.branches.find(b => b.id === tx.sendingBranchId) : undefined) ||
+                              (tx.senderBranchName ? db.branches.find(b => b.nameEn?.toLowerCase() === tx.senderBranchName?.toLowerCase()) : undefined);
+        const linkedOutward = !sendingBranch ? db.transactions.find(t => t.type === 'OUTWARD' && t.mtcn === tx.mtcn) : undefined;
+        const resolvedSendingBranch = sendingBranch || (linkedOutward?.sendingBranchId ? db.branches.find(b => b.id === linkedOutward.sendingBranchId) : undefined);
+        const senderBranchStr = resolvedSendingBranch 
+          ? `${resolvedSendingBranch.code} - ${resolvedSendingBranch.nameEn}` 
+          : (tx.sendingBranchId || (linkedOutward?.sendingBranchId ? `${linkedOutward.sendingBranchId}` : (tx.scope === 'DOMESTIC' ? 'BR-001 - Yangon HQ' : (tx.senderCountryCode !== 'MM' ? tx.senderCountryCode : '-'))));
         const country = db.countries.find(c => c.code === (branch?.countryCode || tx.senderCountryCode || 'MM'));
         return [
           tx.transactionNo,
@@ -278,9 +310,11 @@ export const InwardReportView: React.FC = () => {
           formatToDDMMYYYY(tx.createdDate),
           `"${country?.nameEn || tx.senderCountryCode || 'Myanmar'}"`,
           `"${branch ? `${branch.code} - ${branch.nameEn}` : (tx.payoutBranchId || 'BR-001')}"`,
-          `"${tx.receiverName}"`,
-          `"${tx.receiverNrc}"`,
-          `"${tx.senderName}"`,
+          `"${tx.receiverName || ''}"`,
+          `"${tx.receiverNrc || ''}"`,
+          `"${tx.senderName || ''}"`,
+          `"${tx.senderNrc || ''}"`,
+          `"${senderBranchStr}"`,
           `"${tx.senderPassport || tx.senderPassbook || ''}"`,
           (tx.senderPassportAttachment || tx.senderPassbookAttachment) ? 'YES' : 'NO',
           tx.senderCountryCode,
@@ -295,14 +329,16 @@ export const InwardReportView: React.FC = () => {
         ];
       });
 
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute('download', `Inward_Remittance_Detailed_Report_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
   };
 
@@ -755,6 +791,7 @@ export const InwardReportView: React.FC = () => {
                   <th className="px-4 py-3">{t.payoutBranch}</th>
                   <th className="px-4 py-3">{t.receiverName}</th>
                   <th className="px-4 py-3">{t.senderName}</th>
+                  <th className="px-4 py-3">{language === 'my' ? 'ငွေလွှဲပေးပို့သည့်ဘဏ်ခွဲ' : 'Sender Branch'}</th>
                   <th className="px-4 py-3">{t.sendAmount}</th>
                   <th className="px-4 py-3">{t.receiveAmount}</th>
                   <th className="px-4 py-3">User / Operator</th>
@@ -765,7 +802,7 @@ export const InwardReportView: React.FC = () => {
               <tbody className="divide-y divide-slate-800">
                 {filteredTxs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-10 text-slate-500">
+                    <td colSpan={11} className="text-center py-10 text-slate-500">
                       {t.noData}
                     </td>
                   </tr>
@@ -793,7 +830,27 @@ export const InwardReportView: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-200">{tx.senderName}</div>
-                        <div className="text-[10px] text-slate-500">{tx.senderCountryCode}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {tx.senderNrc ? `${tx.senderNrc} • ` : ''}{tx.senderCountryCode}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const sendingBranch = (tx.sendingBranchId ? db.branches.find(b => b.id === tx.sendingBranchId) : undefined) ||
+                                                (tx.senderBranchName ? db.branches.find(b => b.nameEn?.toLowerCase() === tx.senderBranchName?.toLowerCase()) : undefined);
+                          const linkedOutward = !sendingBranch ? db.transactions.find(t => t.type === 'OUTWARD' && t.mtcn === tx.mtcn) : undefined;
+                          const resolvedSendingBranch = sendingBranch || (linkedOutward?.sendingBranchId ? db.branches.find(b => b.id === linkedOutward.sendingBranchId) : undefined);
+                          return (
+                            <div>
+                              <span className="font-mono text-sky-400 font-semibold text-[11px] block">
+                                {resolvedSendingBranch ? resolvedSendingBranch.code : (tx.sendingBranchId || (tx.scope === 'DOMESTIC' ? 'BR-001' : (tx.senderCountryCode !== 'MM' ? tx.senderCountryCode : '-')))}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {resolvedSendingBranch ? resolvedSendingBranch.nameEn : (tx.scope === 'DOMESTIC' ? 'Yangon HQ' : '-')}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-200">
                         {Number(tx.sendAmount || 0).toLocaleString()} {tx.sourceCurrency}
