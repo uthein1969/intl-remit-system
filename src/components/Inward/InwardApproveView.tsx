@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
-import { RemittanceTransaction } from '../../types';
+import { RemittanceTransaction, RemittanceStatus } from '../../types';
 import { VoucherModal } from '../VoucherModal';
 import { EditInwardModal } from './EditInwardModal';
 import { DocumentLightboxModal } from '../Common/DocumentLightboxModal';
@@ -168,11 +168,15 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
   });
 
   const pendingCount = locationFilteredTxs.filter(t => t.status === 'PENDING_APPROVAL').length;
-  const paidOutCount = locationFilteredTxs.filter(t => t.status === 'PAID_OUT').length;
+  const paidOutCount = locationFilteredTxs.filter(t => t.status === 'PAID_OUT' || t.status === 'APPROVED_AND_PAID_OUT').length;
   const allCount = locationFilteredTxs.length;
 
   const filteredTxs = locationFilteredTxs.filter(tx => {
-    if (filterStatus !== 'ALL' && tx.status !== filterStatus) return false;
+    if (filterStatus === 'PAID_OUT') {
+      if (tx.status !== 'PAID_OUT' && tx.status !== 'APPROVED_AND_PAID_OUT') return false;
+    } else if (filterStatus !== 'ALL' && tx.status !== filterStatus) {
+      return false;
+    }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -191,7 +195,8 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
     const success = await payoutInwardTransaction(tx.id, 'Counter cash payout verified with original Myanmar NRC');
     if (success) {
       confetti({ particleCount: 70, spread: 60 });
-      setVoucherTx(tx);
+      const updated = { ...tx, status: 'APPROVED_AND_PAID_OUT' as RemittanceStatus, paidOutDate: new Date().toISOString() };
+      setVoucherTx(updated);
       setShowVoucherModal(true);
     }
   };
@@ -233,7 +238,7 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                 filterStatus === 'PAID_OUT' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
               }`}
             >
-              {language === 'my' ? 'ငွေထုတ်ယူပြီး' : 'Disbursed / Paid'} ({paidOutCount})
+              {language === 'my' ? 'အတည်ပြု & ငွေထုတ်ပြီး (Approved and Paid Out)' : 'Approved and Paid Out'} ({paidOutCount})
             </button>
             <button
               onClick={() => setFilterStatus('ALL')}
@@ -443,13 +448,17 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        tx.status === 'PAID_OUT' || tx.status === 'APPROVED'
+                        tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           : tx.status === 'PENDING_APPROVAL'
-                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30 animate-pulse'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
                           : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                       }`}>
-                        {tx.status}
+                        {tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
+                          ? (language === 'my' ? 'Approved and Paid Out' : 'Approved and Paid Out')
+                          : tx.status === 'PENDING_APPROVAL'
+                          ? (language === 'my' ? 'Pending Payout' : 'Pending Payout')
+                          : tx.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -860,10 +869,11 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                       setShowReviewModal(false);
                       await handleAuthorizePayout(txToPayout);
                     }}
-                    className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-bold text-xs shadow-lg transition-all flex items-center space-x-1.5 cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 active:bg-teal-700 text-white font-bold text-xs shadow-lg shadow-teal-950/40 transition-all flex items-center space-x-2 cursor-pointer hover:scale-[1.02]"
+                    title={language === 'my' ? 'အတည်ပြုပြီး လက်ခံသူအား ငွေထုတ်ပေးမည်' : 'Approve & Pay Out Cash to Beneficiary'}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{language === 'my' ? 'ငွေထုတ်ပေးမည် (Authorize Payout)' : 'Authorize Payout & Issue Voucher'}</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                    <span>{language === 'my' ? 'Approve & Pay Out (အတည်ပြုပြီး ငွေထုတ်ပေးမည်)' : 'Approve & Pay Out'}</span>
                   </button>
                 )}
               </div>

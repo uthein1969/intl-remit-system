@@ -127,8 +127,14 @@ export const TotalInwardReportView: React.FC = () => {
       }
       
       // Status Filter
-      if (selectedStatus !== 'ALL' && tx.status !== selectedStatus) {
-        return false;
+      if (selectedStatus !== 'ALL') {
+        if (selectedStatus === 'PAID_OUT' || selectedStatus === 'APPROVED_AND_PAID_OUT') {
+          if (tx.status !== 'PAID_OUT' && tx.status !== 'APPROVED_AND_PAID_OUT') return false;
+        } else if (selectedStatus === 'APPROVED' || selectedStatus === 'APPROVED_AND_SENT') {
+          if (tx.status !== 'APPROVED' && tx.status !== 'APPROVED_AND_SENT') return false;
+        } else if (tx.status !== selectedStatus) {
+          return false;
+        }
       }
       
       // Country Filter
@@ -625,6 +631,8 @@ export const TotalInwardReportView: React.FC = () => {
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 cursor-pointer text-sm h-[38px]"
             >
               <option value="ALL">All Status</option>
+              <option value="APPROVED_AND_PAID_OUT">APPROVED AND PAID OUT</option>
+              <option value="APPROVED_AND_SENT">APPROVED AND SENT</option>
               <option value="PAID_OUT">PAID OUT</option>
               <option value="APPROVED">APPROVED</option>
               <option value="PENDING_APPROVAL">PENDING APPROVAL</option>

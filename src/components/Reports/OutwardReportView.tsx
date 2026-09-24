@@ -965,13 +965,23 @@ export const OutwardReportView: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          tx.status === 'APPROVED' || tx.status === 'PAID_OUT'
+                          tx.status === 'APPROVED_AND_SENT' || tx.status === 'APPROVED' || tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
                             ? 'bg-emerald-500/20 text-emerald-300'
                             : tx.status === 'PENDING_APPROVAL'
                             ? 'bg-amber-500/20 text-amber-300'
                             : 'bg-rose-500/20 text-rose-300'
                         }`}>
-                          {tx.status}
+                          {tx.status === 'APPROVED_AND_SENT'
+                            ? (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး' : 'Approved and Sent')
+                            : tx.status === 'APPROVED_AND_PAID_OUT'
+                            ? (language === 'my' ? 'အတည်ပြုပြီး ငွေထုတ်ပြီး' : 'Approved and Paid Out')
+                            : tx.status === 'APPROVED'
+                            ? (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး' : 'Approved and Sent')
+                            : tx.status === 'PAID_OUT'
+                            ? (language === 'my' ? 'ငွေထုတ်ပြီး' : 'Paid Out')
+                            : tx.status === 'PENDING_APPROVAL'
+                            ? (language === 'my' ? 'စိစစ်ဆဲ' : 'Pending')
+                            : tx.status.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">

@@ -64,8 +64,10 @@ export type RemittanceStatus =
   | 'DRAFT' 
   | 'PENDING_APPROVAL' 
   | 'APPROVED' 
+  | 'APPROVED_AND_SENT'
   | 'REJECTED' 
   | 'PAID_OUT' 
+  | 'APPROVED_AND_PAID_OUT'
   | 'COMPLETED'
   | 'ON_HOLD'
   | 'CANCELLED';

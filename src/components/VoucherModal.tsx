@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   ArrowRight,
   Download,
-  Paperclip,
   Eye,
   Phone,
   MapPin,
@@ -555,18 +554,20 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   {language === 'my' ? 'အခြေအနေ' : 'Status'}
                 </span>
                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${
-                  transaction.status === 'APPROVED' || transaction.status === 'PAID_OUT'
+                  transaction.status === 'APPROVED_AND_SENT' || transaction.status === 'APPROVED' || transaction.status === 'APPROVED_AND_PAID_OUT' || transaction.status === 'PAID_OUT'
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                     : transaction.status === 'PENDING_APPROVAL'
                     ? 'bg-amber-100 text-amber-800 border border-amber-300'
                     : 'bg-rose-100 text-rose-800 border border-rose-300'
                 }`}>
                   {transaction.status === 'PENDING_APPROVAL'
-                    ? (language === 'my' ? 'အတည်ပြုရန် ဆိုင်းငံ့' : 'PENDING APPROVAL')
+                    ? (language === 'my' ? 'အတည်ပြုရန် ဆိုင်းငံ့ (Pending)' : 'PENDING APPROVAL')
+                    : transaction.status === 'APPROVED_AND_SENT' || (transaction.status === 'APPROVED' && transaction.isSentToDestination)
+                    ? (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'APPROVED AND SENT')
+                    : transaction.status === 'APPROVED_AND_PAID_OUT' || transaction.status === 'PAID_OUT'
+                    ? (language === 'my' ? 'အတည်ပြုပြီး ငွေထုတ်ပေးပြီး (Approved and Paid Out)' : 'APPROVED AND PAID OUT')
                     : transaction.status === 'APPROVED'
-                    ? (language === 'my' ? 'ခွင့်ပြုပြီး' : 'APPROVED')
-                    : transaction.status === 'PAID_OUT'
-                    ? (language === 'my' ? 'ငွေထုတ်ပြီး' : 'PAID OUT')
+                    ? (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'APPROVED AND SENT')
                     : transaction.status === 'COMPLETED'
                     ? (language === 'my' ? 'အောင်မြင်ပြီး' : 'COMPLETED')
                     : transaction.status.replace(/_/g, ' ')}
@@ -598,114 +599,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   <span className="text-slate-500">{language === 'my' ? 'မှတ်ပုံတင်' : 'NRC / ID'}:</span>{' '}
                   <strong className="font-mono text-slate-800">{transaction.senderNrc || 'N/A'}</strong>
                 </div>
-                {(nrcFrontUrl || nrcBackUrl || transaction.senderNrc) && (
-                  <div className="pt-1.5 border-t border-slate-200 mt-1.5 space-y-1">
-                    <span className="text-slate-500 block text-[11px]">
-                      {language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် (NRC Attachments):' : 'Attached NRC Documents:'}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {nrcFrontUrl && (
-                        <div className="flex items-center space-x-1.5">
-                          <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                            <Paperclip className="w-3 h-3 text-emerald-600" />
-                            <span className="truncate max-w-[110px]">
-                              {transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front.svg'}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setZoomLevel(1);
-                              setPreviewDoc({
-                                title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : "Sender's NRC Front Document",
-                                url: nrcFrontUrl,
-                                name: transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front.svg',
-                                idNumber: transaction.senderNrc,
-                                ownerName: transaction.senderName,
-                                type: 'image/svg+xml'
-                              });
-                            }}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-1.5 py-0.5 no-print cursor-pointer flex items-center space-x-0.5 transition-colors"
-                            title={language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း ကြည့်ရှုမည်' : 'View NRC Front Document'}
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>{language === 'my' ? 'ကြည့်ရှု' : 'View'}</span>
-                          </button>
-                        </div>
-                      )}
-                      {nrcBackUrl && (
-                        <div className="flex items-center space-x-1.5">
-                          <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                            <Paperclip className="w-3 h-3 text-emerald-600" />
-                            <span className="truncate max-w-[110px]">
-                              {transaction.senderNrcBackAttachmentName || 'NRC_Back.svg'}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setZoomLevel(1);
-                              setPreviewDoc({
-                                title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : "Sender's NRC Back Document",
-                                url: nrcBackUrl,
-                                name: transaction.senderNrcBackAttachmentName || 'NRC_Back.svg',
-                                idNumber: transaction.senderNrc,
-                                ownerName: transaction.senderName,
-                                type: 'image/svg+xml'
-                              });
-                            }}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-1.5 py-0.5 no-print cursor-pointer flex items-center space-x-0.5 transition-colors"
-                            title={language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း ကြည့်ရှုမည်' : 'View NRC Back Document'}
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>{language === 'my' ? 'ကြည့်ရှု' : 'View'}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
                 {(transaction.senderPassport || transaction.senderPassbook) && (
                   <div>
                     <span className="text-slate-500">{language === 'my' ? 'နိုင်ငံကူးလက်မှတ်' : 'Passport No'}:</span>{' '}
                     <strong className="font-mono text-slate-800">{transaction.senderPassport || transaction.senderPassbook}</strong>
-                  </div>
-                )}
-                {(passportDocUrl || transaction.senderPassport || transaction.senderPassbook) && (
-                  <div className="pt-1.5 border-t border-slate-200 mt-1.5">
-                    <span className="text-slate-500 block text-[11px] mb-1">
-                      {language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် (Passport Attachment):' : 'Attached Passport Doc:'}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                        <Paperclip className="w-3 h-3 text-indigo-600" />
-                        <span className="truncate max-w-[130px]">
-                          {passportDocName}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (passportDocUrl) {
-                            setZoomLevel(1);
-                            setPreviewDoc({
-                              title: language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် (Attached Passport Document)' : "Sender's Passport Document",
-                              url: passportDocUrl,
-                              name: passportDocName,
-                              idNumber: transaction.senderPassport || transaction.senderPassbook || '',
-                              ownerName: transaction.senderName,
-                              type: transaction.senderPassportAttachmentType || 'image/svg+xml',
-                              size: passportDocSize
-                            });
-                          }
-                        }}
-                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 rounded px-2 py-0.5 no-print cursor-pointer flex items-center space-x-1 transition-colors shadow-2xs"
-                        title={language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် စာရွက်စာတမ်း ကြည့်ရှုမည်' : 'View Passport Document'}
-                      >
-                        <Eye className="w-3 h-3 text-emerald-600" />
-                        <span>{language === 'my' ? 'ကြည့်ရှုမည်' : 'View'}</span>
-                      </button>
-                    </div>
                   </div>
                 )}
                 <div>
@@ -872,23 +769,75 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>{language === 'my' ? 'စိစစ်ပြီး ပူးတွဲစာရွက်စာတမ်းများ (KYC Verified)' : 'Verified KYC Attachments'}:</span>
                 </span>
-                {(transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-emerald-800 text-[11px] font-semibold border border-emerald-300 shadow-2xs">
+                {(nrcFrontUrl || transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (nrcFrontUrl) {
+                        setZoomLevel(1);
+                        setPreviewDoc({
+                          title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : "Sender's NRC Front Document",
+                          url: nrcFrontUrl,
+                          name: transaction.senderNrcFrontAttachmentName || transaction.senderNrcAttachmentName || 'NRC_Front.svg',
+                          idNumber: transaction.senderNrc,
+                          ownerName: transaction.senderName,
+                          type: 'image/svg+xml'
+                        });
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-emerald-800 text-[11px] font-semibold border border-emerald-300 shadow-2xs ${nrcFrontUrl ? 'cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors' : ''}`}
+                    title={nrcFrontUrl ? (language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း စစ်ဆေးမည်' : 'View NRC Front Document') : undefined}
+                  >
                     <Check className="w-3 h-3 text-emerald-600" />
-                    {language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : 'NRC Front Side'}
-                  </span>
+                    <span>{language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : 'NRC Front Side'}</span>
+                  </button>
                 )}
-                {transaction.senderNrcBackAttachment && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-emerald-800 text-[11px] font-semibold border border-emerald-300 shadow-2xs">
+                {(nrcBackUrl || transaction.senderNrcBackAttachment) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (nrcBackUrl) {
+                        setZoomLevel(1);
+                        setPreviewDoc({
+                          title: language === 'my' ? 'ပူးတွဲမှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : "Sender's NRC Back Document",
+                          url: nrcBackUrl,
+                          name: transaction.senderNrcBackAttachmentName || 'NRC_Back.svg',
+                          idNumber: transaction.senderNrc,
+                          ownerName: transaction.senderName,
+                          type: 'image/svg+xml'
+                        });
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-emerald-800 text-[11px] font-semibold border border-emerald-300 shadow-2xs ${nrcBackUrl ? 'cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors' : ''}`}
+                    title={nrcBackUrl ? (language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း စစ်ဆေးမည်' : 'View NRC Back Document') : undefined}
+                  >
                     <Check className="w-3 h-3 text-emerald-600" />
-                    {language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : 'NRC Back Side'}
-                  </span>
+                    <span>{language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : 'NRC Back Side'}</span>
+                  </button>
                 )}
-                {transaction.senderPassportAttachment && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-indigo-800 text-[11px] font-semibold border border-indigo-300 shadow-2xs">
+                {(passportDocUrl || transaction.senderPassportAttachment) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (passportDocUrl) {
+                        setZoomLevel(1);
+                        setPreviewDoc({
+                          title: language === 'my' ? 'ပူးတွဲနိုင်ငံကူးလက်မှတ် (Passport Document)' : "Sender's Passport Document",
+                          url: passportDocUrl,
+                          name: passportDocName,
+                          idNumber: transaction.senderPassport || transaction.senderPassbook || '',
+                          ownerName: transaction.senderName,
+                          type: transaction.senderPassportAttachmentType || 'image/svg+xml',
+                          size: passportDocSize
+                        });
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-indigo-800 text-[11px] font-semibold border border-indigo-300 shadow-2xs ${passportDocUrl ? 'cursor-pointer hover:bg-indigo-100 hover:border-indigo-400 transition-colors' : ''}`}
+                    title={passportDocUrl ? (language === 'my' ? 'နိုင်ငံကူးလက်မှတ် စစ်ဆေးမည်' : 'View Passport Document') : undefined}
+                  >
                     <Check className="w-3 h-3 text-indigo-600" />
-                    {language === 'my' ? 'နိုင်ငံကူးလက်မှတ် (Passport)' : 'Passport Document'}
-                  </span>
+                    <span>{language === 'my' ? 'နိုင်ငံကူးလက်မှတ် (Passport)' : 'Passport Document'}</span>
+                  </button>
                 )}
               </div>
             )}

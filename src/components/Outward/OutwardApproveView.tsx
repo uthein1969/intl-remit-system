@@ -183,11 +183,17 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
   });
 
   const pendingCount = locationFilteredTxs.filter(t => t.status === 'PENDING_APPROVAL').length;
-  const approvedCount = locationFilteredTxs.filter(t => t.status === 'APPROVED').length;
+  const approvedCount = locationFilteredTxs.filter(t => t.status === 'APPROVED' || t.status === 'APPROVED_AND_SENT' || t.status === 'APPROVED_AND_PAID_OUT' || t.status === 'PAID_OUT').length;
   const allCount = locationFilteredTxs.length;
 
   const filteredTxs = locationFilteredTxs.filter(tx => {
-    if (filterStatus !== 'ALL' && tx.status !== filterStatus) return false;
+    if (filterStatus === 'APPROVED') {
+      if (tx.status !== 'APPROVED' && tx.status !== 'APPROVED_AND_SENT' && tx.status !== 'APPROVED_AND_PAID_OUT' && tx.status !== 'PAID_OUT') {
+        return false;
+      }
+    } else if (filterStatus !== 'ALL' && tx.status !== filterStatus) {
+      return false;
+    }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -625,7 +631,7 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                 filterStatus === 'APPROVED' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
               }`}
             >
-              {language === 'my' ? 'အတည်ပြုပြီး' : 'Approved'} ({approvedCount})
+              {language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'Approved and Sent'} ({approvedCount})
             </button>
             <button
               onClick={() => setFilterStatus('ALL')}
@@ -890,7 +896,11 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        tx.status === 'APPROVED' || tx.status === 'PAID_OUT'
+                        tx.status === 'APPROVED_AND_SENT' || (tx.status === 'APPROVED' && tx.isSentToDestination)
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
+                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                          : tx.status === 'APPROVED'
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           : tx.status === 'PENDING_APPROVAL'
                           ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
@@ -898,7 +908,15 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                           ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                           : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                       }`}>
-                        {tx.status}
+                        {tx.status === 'APPROVED_AND_SENT' || (tx.status === 'APPROVED' && tx.isSentToDestination)
+                          ? (language === 'my' ? 'Approved and Sent' : 'Approved and Sent')
+                          : tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
+                          ? (language === 'my' ? 'Approved and Paid Out' : 'Approved and Paid Out')
+                          : tx.status === 'APPROVED'
+                          ? (language === 'my' ? 'Approved and Sent' : 'Approved and Sent')
+                          : tx.status === 'PENDING_APPROVAL'
+                          ? (language === 'my' ? 'Pending Approval' : 'Pending Approval')
+                          : tx.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -938,14 +956,14 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                           </div>
                         ) : (
                           <div className="flex items-center space-x-1.5">
-                            {tx.scope === 'DOMESTIC' && tx.isSentToDestination && (
+                            {tx.scope === 'DOMESTIC' && (tx.isSentToDestination || tx.status === 'APPROVED_AND_SENT' || tx.status === 'APPROVED_AND_PAID_OUT') && (
                               <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold ${
-                                tx.status === 'PAID_OUT'
+                                tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                                   : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
                               }`}>
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                <span>{tx.status === 'PAID_OUT' ? (language === 'my' ? 'ငွေထုတ်ပြီး' : 'Paid Out') : (language === 'my' ? 'Inward ပို့ပြီး' : 'Sent to Inward')}</span>
+                                <span>{tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT' ? (language === 'my' ? 'ငွေထုတ်ပြီး' : 'Paid Out') : (language === 'my' ? 'Inward ပို့ပြီး' : 'Sent to Inward')}</span>
                               </span>
                             )}
                             <button
@@ -1018,15 +1036,17 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                         : 'Domestic Inter-Branch Remittance Dispatch'}
                     </span>
                     <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
-                      selectedTx.isSentToDestination
-                        ? selectedTx.status === 'PAID_OUT'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                          : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                      selectedTx.status === 'APPROVED_AND_PAID_OUT' || selectedTx.status === 'PAID_OUT'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : selectedTx.status === 'APPROVED_AND_SENT' || selectedTx.isSentToDestination
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                         : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                     }`}>
-                      {selectedTx.isSentToDestination 
-                        ? (selectedTx.status === 'PAID_OUT' ? (language === 'my' ? 'ငွေထုတ်ပေးပြီး (Paid Out)' : 'Paid Out') : (language === 'my' ? 'ဘဏ်ခွဲ Inward သို့ လွှဲပို့ပြီး (Dispatched)' : 'Dispatched to Inward'))
-                        : (language === 'my' ? 'အတည်ပြုပြီးပါက Send နှိပ်၍ ပို့ပါမည်' : 'Ready to Dispatch upon Send')}
+                      {selectedTx.status === 'APPROVED_AND_PAID_OUT' || selectedTx.status === 'PAID_OUT'
+                        ? (language === 'my' ? 'အတည်ပြုပြီး ငွေထုတ်ပေးပြီး (Approved and Paid Out)' : 'Approved and Paid Out')
+                        : selectedTx.status === 'APPROVED_AND_SENT' || selectedTx.isSentToDestination
+                        ? (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'Approved and Sent')
+                        : (language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ရန် အသင့်ဖြစ်သည်' : 'Ready to Dispatch upon Approve')}
                     </span>
                   </div>
 
@@ -1910,7 +1930,7 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                         title={language === 'my' ? 'အတည်ပြုပြီး လက်ခံမည့်ဘဏ်ခွဲ Inward သို့ အလိုအလျောက် ပေးပို့မည်' : 'Approve & Auto-Dispatch to Destination Branch Inward'}
                       >
                         <SendHorizontal className="w-4 h-4 text-sky-200" />
-                        <span>{language === 'my' ? 'Approve & Send (အတည်ပြုပြီး လွှဲပို့မည်)' : 'Approve & Send to Branch'}</span>
+                        <span>{language === 'my' ? 'Approve and Send to Branch (အတည်ပြုပြီး လွှဲပို့မည်)' : 'Approve and Send to Branch'}</span>
                       </button>
                     ) : (
                       <button

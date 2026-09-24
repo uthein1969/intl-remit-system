@@ -542,13 +542,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     <div className="flex items-center space-x-1.5">
                       <span className="font-mono text-xs font-bold text-slate-800">{tx.transactionNo}</span>
                       <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded uppercase ${
-                        tx.status === 'APPROVED' || tx.status === 'PAID_OUT'
+                        tx.status === 'APPROVED_AND_SENT' || tx.status === 'APPROVED' || tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : tx.status === 'PENDING_APPROVAL'
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'bg-rose-50 text-rose-700 border border-rose-200'
                       }`}>
-                        {tx.status}
+                        {tx.status === 'APPROVED_AND_SENT'
+                          ? 'Approved and Sent'
+                          : tx.status === 'APPROVED_AND_PAID_OUT'
+                          ? 'Approved and Paid Out'
+                          : tx.status === 'APPROVED'
+                          ? 'Approved and Sent'
+                          : tx.status === 'PAID_OUT'
+                          ? 'Approved and Paid Out'
+                          : tx.status === 'PENDING_APPROVAL'
+                          ? 'Pending'
+                          : tx.status.replace(/_/g, ' ')}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1.5 text-[11px] text-slate-600 mt-0.5">

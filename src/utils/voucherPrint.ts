@@ -86,10 +86,14 @@ export function generateVoucherHtml({
     switch (transaction.status) {
       case 'PENDING_APPROVAL':
         return language === 'my' ? 'အတည်ပြုရန် ဆိုင်းငံ့ (Pending)' : 'PENDING APPROVAL';
+      case 'APPROVED_AND_SENT':
+        return language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'APPROVED AND SENT';
+      case 'APPROVED_AND_PAID_OUT':
+        return language === 'my' ? 'အတည်ပြုပြီး ငွေထုတ်ပေးပြီး (Approved and Paid Out)' : 'APPROVED AND PAID OUT';
       case 'APPROVED':
-        return language === 'my' ? 'ခွင့်ပြုပြီး (Approved)' : 'APPROVED';
+        return language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'APPROVED AND SENT';
       case 'PAID_OUT':
-        return language === 'my' ? 'ငွေထုတ်ပေးပြီး (Paid Out)' : 'PAID OUT';
+        return language === 'my' ? 'အတည်ပြုပြီး ငွေထုတ်ပေးပြီး (Approved and Paid Out)' : 'APPROVED AND PAID OUT';
       case 'ON_HOLD':
         return language === 'my' ? 'ဆိုင်းငံ့ထားသည် (On Hold)' : 'ON HOLD';
       case 'DRAFT':
