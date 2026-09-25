@@ -481,24 +481,24 @@ export const RoleMenuPermissionManager: React.FC = () => {
                 key={c.code}
                 type="button"
                 onClick={() => setSelectedCountryCode(c.code)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50 scale-[1.02]'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-md ring-2 ring-blue-400/50 scale-[1.02] border border-blue-400/50'
+                    : 'bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white border border-slate-700/80 shadow-2xs'
                 }`}
               >
                 <span className="text-base leading-none">{c.flagEmoji}</span>
-                <span>{language === 'my' ? c.nameMm : c.nameEn} ({c.code})</span>
+                <span className="text-white font-bold">{language === 'my' ? c.nameMm : c.nameEn} ({c.code})</span>
                 
                 {hasCustom ? (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected ? 'bg-emerald-400 text-slate-950' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    isSelected ? 'bg-emerald-400 text-slate-950' : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
                   }`}>
                     Custom
                   </span>
                 ) : (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono opacity-70 ${
-                    isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-700 text-slate-400'
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono opacity-80 ${
+                    isSelected ? 'bg-blue-900 text-blue-100' : 'bg-slate-700 text-slate-300'
                   }`}>
                     Default
                   </span>
@@ -765,16 +765,16 @@ export const RoleMenuPermissionManager: React.FC = () => {
           <span className="text-xs font-bold text-slate-700">
             {language === 'my' ? `[${selectedCountryFlag} ${selectedCountryCode}] ပြင်ဆင်မည့် Role:` : `[${selectedCountryFlag} ${selectedCountryCode}] Active Role:`}
           </span>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1.5">
             {(['MAKER', 'CHECKER', 'ADMIN', 'AUDITOR'] as UserRole[]).map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => setSelectedRole(role)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedRole === role
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-200/80 border border-slate-200'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-md border border-blue-400/50 ring-1 ring-blue-400/30'
+                    : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border border-slate-500/40 shadow-xs'
                 }`}
               >
                 {role}
@@ -792,7 +792,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
             <button
               type="button"
               onClick={() => handleQuickPreset('entry_only')}
-              className="px-2.5 py-1 rounded bg-sky-100 hover:bg-sky-200 text-sky-800 text-[11px] font-bold transition-colors border border-sky-300"
+              className="px-3 py-1 rounded-lg bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white text-[11px] font-bold shadow-xs border border-sky-400/40 transition-all cursor-pointer active:scale-95"
             >
               {language === 'my' ? 'Outward + Inward Entry သာ' : 'Entry Only (Standard Maker)'}
             </button>
@@ -801,7 +801,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
             <button
               type="button"
               onClick={() => handleQuickPreset('approve_only')}
-              className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[11px] font-bold transition-colors border border-amber-300"
+              className="px-3 py-1 rounded-lg bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 text-white text-[11px] font-bold shadow-xs border border-amber-400/40 transition-all cursor-pointer active:scale-95"
             >
               {language === 'my' ? 'Outward + Inward Approval သာ' : 'Approval Only (Standard Checker)'}
             </button>
@@ -809,7 +809,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickPreset('all')}
-            className="px-2.5 py-1 rounded bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition-colors border border-slate-200"
+            className="px-3 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-[11px] font-bold shadow-xs border border-emerald-400/40 transition-all cursor-pointer active:scale-95"
           >
             {language === 'my' ? 'အားလုံးဖွင့်မည်' : 'Check All'}
           </button>

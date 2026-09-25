@@ -507,13 +507,13 @@ export function generateVoucherHtml({
       color: #1e293b;
     }
 
-    /* Signatures */
+    /* Signatures & Stamp */
     .sig-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 16px;
-      margin-top: 18px;
-      padding-top: 12px;
+      gap: 18px;
+      margin-top: 24px;
+      padding-top: 14px;
       border-top: 1px solid #cbd5e1;
       text-align: center;
     }
@@ -521,23 +521,24 @@ export function generateVoucherHtml({
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-height: 125px;
     }
     .sig-line {
       width: 100%;
-      height: 60px;
+      height: 80px;
       border-bottom: 1.5px solid #475569;
-      margin-bottom: 7px;
+      margin-bottom: 8px;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      padding-bottom: 2px;
+      padding-bottom: 4px;
     }
     .stamp-box {
-      width: 140px;
-      height: 60px;
+      width: 155px;
+      height: 80px;
       border: 1.5px dashed #94a3b8;
       color: #94a3b8;
-      font-size: 9.5px;
+      font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -552,7 +553,7 @@ export function generateVoucherHtml({
       font-size: 11px;
       font-weight: 700;
       color: #0f172a;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .sig-title {
       font-size: 9.5px;

@@ -133,20 +133,124 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     );
   }
 
-  // Setup tabs list
-  const navTabs: { id: SetupSubTab; labelEn: string; labelMm: string; icon: any; count: number }[] = [
-    { id: 'operator_profile', labelEn: '1. Software Company (Orange Box)', labelMm: '၁။ ဆော့ဖ်ဝဲလ်ကုမ္ပဏီ (လိမ္မော်ရောင်အကွက်)', icon: Building2, count: 1 },
-    { id: 'branch', labelEn: '2. Branches', labelMm: '၂။ ဘဏ်ခွဲများ', icon: Building2, count: db.branches.length },
-    { id: 'user', labelEn: '3. System Users', labelMm: '၃။ အသုံးပြုသူများ', icon: Users, count: db.users.length },
-    { id: 'company', labelEn: '4. Partner Companies', labelMm: '၄။ မိတ်ဖက်ကုမ္ပဏီများ', icon: Building, count: db.companies.length },
-    { id: 'currency', labelEn: '5. Currencies', labelMm: '၅။ ငွေကြေးအမျိုးအစား', icon: Coins, count: db.currencies.length },
-    { id: 'country', labelEn: '6. Countries', labelMm: '၆။ နိုင်ငံများ', icon: Globe2, count: db.countries.length },
-    { id: 'exchange_rate', labelEn: '7. Exchange Rates', labelMm: '၇။ ငွေလဲလှယ်နှုန်းများ', icon: TrendingUp, count: db.exchangeRates.length },
-    { id: 'blacklist', labelEn: '8. Blacklist (NRC & Passport)', labelMm: '၈။ နာမည်ပျက်စာရင်း (NRC & Passport)', icon: ShieldAlert, count: db.blacklist.length },
-    { id: 'purpose', labelEn: '9. Purpose of Remit', labelMm: '၉။ လွှဲပို့ရည်ရွယ်ချက်များ', icon: FileCheck2, count: db.purposes.length },
-    { id: 'customer', labelEn: '10. Customers Master', labelMm: '၁၀။ ဖောက်သည်များ', icon: UserCheck2, count: db.customers.length },
-    { id: 'menu_permission', labelEn: '11. App Menu by Role', labelMm: '၁၁။ မီနူး ခွင့်ပြုချက်များ (Show App Menu)', icon: ShieldCheck, count: 4 },
-    { id: 'default_status', labelEn: '12. Default Status (Country Rule)', labelMm: '၁၂။ မူရင်းအခြေအနေ သတ်မှတ်ချက် (Default Status)', icon: CheckSquare, count: 1 },
+  // Setup tabs list with beauty colors & accents
+  const navTabs: { 
+    id: SetupSubTab; 
+    labelEn: string; 
+    labelMm: string; 
+    icon: any; 
+    count: number;
+    beautyGradient: string;
+    activeGradient: string;
+  }[] = [
+    { 
+      id: 'operator_profile', 
+      labelEn: '1. Software Company (Orange Box)', 
+      labelMm: '၁။ ဆော့ဖ်ဝဲလ်ကုမ္ပဏီ (လိမ္မော်ရောင်အကွက်)', 
+      icon: Building2, 
+      count: 1,
+      beautyGradient: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 border-orange-400/40',
+      activeGradient: 'bg-gradient-to-r from-orange-600 via-amber-600 to-amber-700 border-2 border-amber-200 ring-2 ring-orange-400/50 shadow-lg shadow-orange-600/30'
+    },
+    { 
+      id: 'branch', 
+      labelEn: '2. Branches', 
+      labelMm: '၂။ ဘဏ်ခွဲများ', 
+      icon: Building2, 
+      count: db.branches.length,
+      beautyGradient: 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 border-emerald-400/40',
+      activeGradient: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 border-2 border-emerald-200 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-600/30'
+    },
+    { 
+      id: 'user', 
+      labelEn: '3. System Users', 
+      labelMm: '၃။ အသုံးပြုသူများ', 
+      icon: Users, 
+      count: db.users.length,
+      beautyGradient: 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 border-blue-400/40',
+      activeGradient: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 border-2 border-blue-200 ring-2 ring-blue-400/50 shadow-lg shadow-blue-600/30'
+    },
+    { 
+      id: 'company', 
+      labelEn: '4. Partner Companies', 
+      labelMm: '၄။ မိတ်ဖက်ကုမ္ပဏီများ', 
+      icon: Building, 
+      count: db.companies.length,
+      beautyGradient: 'bg-gradient-to-r from-purple-600 to-fuchsia-700 hover:from-purple-500 hover:to-fuchsia-600 border-purple-400/40',
+      activeGradient: 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-700 border-2 border-purple-200 ring-2 ring-purple-400/50 shadow-lg shadow-purple-600/30'
+    },
+    { 
+      id: 'currency', 
+      labelEn: '5. Currencies', 
+      labelMm: '၅။ ငွေကြေးအမျိုးအစား', 
+      icon: Coins, 
+      count: db.currencies.length,
+      beautyGradient: 'bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 border-yellow-400/40',
+      activeGradient: 'bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 border-2 border-yellow-200 ring-2 ring-yellow-400/50 shadow-lg shadow-amber-600/30'
+    },
+    { 
+      id: 'country', 
+      labelEn: '6. Countries', 
+      labelMm: '၆။ နိုင်ငံများ', 
+      icon: Globe2, 
+      count: db.countries.length,
+      beautyGradient: 'bg-gradient-to-r from-cyan-600 to-sky-700 hover:from-cyan-500 hover:to-sky-600 border-cyan-400/40',
+      activeGradient: 'bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-700 border-2 border-cyan-200 ring-2 ring-cyan-400/50 shadow-lg shadow-cyan-600/30'
+    },
+    { 
+      id: 'exchange_rate', 
+      labelEn: '7. Exchange Rates', 
+      labelMm: '၇။ ငွေလဲလှယ်နှုန်းများ', 
+      icon: TrendingUp, 
+      count: db.exchangeRates.length,
+      beautyGradient: 'bg-gradient-to-r from-rose-600 to-pink-700 hover:from-rose-500 hover:to-pink-600 border-rose-400/40',
+      activeGradient: 'bg-gradient-to-r from-rose-600 via-pink-600 to-red-700 border-2 border-rose-200 ring-2 ring-rose-400/50 shadow-lg shadow-rose-600/30'
+    },
+    { 
+      id: 'blacklist', 
+      labelEn: '8. Blacklist (NRC & Passport)', 
+      labelMm: '၈။ နာမည်ပျက်စာရင်း (NRC & Passport)', 
+      icon: ShieldAlert, 
+      count: db.blacklist.length,
+      beautyGradient: 'bg-gradient-to-r from-red-600 to-rose-800 hover:from-red-500 hover:to-rose-700 border-red-400/40',
+      activeGradient: 'bg-gradient-to-r from-red-600 via-rose-700 to-red-900 border-2 border-red-200 ring-2 ring-red-400/50 shadow-lg shadow-red-600/30'
+    },
+    { 
+      id: 'purpose', 
+      labelEn: '9. Purpose of Remit', 
+      labelMm: '၉။ လွှဲပို့ရည်ရွယ်ချက်များ', 
+      icon: FileCheck2, 
+      count: db.purposes.length,
+      beautyGradient: 'bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 border-teal-400/40',
+      activeGradient: 'bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-800 border-2 border-teal-200 ring-2 ring-teal-400/50 shadow-lg shadow-teal-600/30'
+    },
+    { 
+      id: 'customer', 
+      labelEn: '10. Customers Master', 
+      labelMm: '၁၀။ ဖောက်သည်များ', 
+      icon: UserCheck2, 
+      count: db.customers.length,
+      beautyGradient: 'bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-500 hover:to-blue-600 border-indigo-400/40',
+      activeGradient: 'bg-gradient-to-r from-indigo-600 via-violet-600 to-blue-800 border-2 border-indigo-200 ring-2 ring-indigo-400/50 shadow-lg shadow-indigo-600/30'
+    },
+    { 
+      id: 'menu_permission', 
+      labelEn: '11. App Menu by Role', 
+      labelMm: '၁၁။ မီနူး ခွင့်ပြုချက်များ (Show App Menu)', 
+      icon: ShieldCheck, 
+      count: 4,
+      beautyGradient: 'bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 border-violet-400/40',
+      activeGradient: 'bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-800 border-2 border-violet-200 ring-2 ring-violet-400/50 shadow-lg shadow-violet-600/30'
+    },
+    { 
+      id: 'default_status', 
+      labelEn: '12. Default Status (Country Rule)', 
+      labelMm: '၁၂။ မူရင်းအခြေအနေ သတ်မှတ်ချက် (Default Status)', 
+      icon: CheckSquare, 
+      count: 1,
+      beautyGradient: 'bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 border-emerald-400/40',
+      activeGradient: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-800 border-2 border-emerald-200 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-600/30'
+    },
   ];
 
   const handleOpenAdd = (type: SetupSubTab, presetData?: Partial<RemittancePurpose>) => {
@@ -589,22 +693,22 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
           <button
             type="button"
             onClick={() => onSelectSubTab('operator_profile')}
-            className={`flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg border font-semibold text-xs transition-all cursor-pointer ${
+            className={`flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl border font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95 ${
               currentSubTab === 'operator_profile'
-                ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
-                : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-300 shadow-2xs'
+                ? 'bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 text-white border-amber-300 ring-2 ring-orange-400/50 shadow-md'
+                : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white border-orange-400/50'
             }`}
           >
-            <Building2 className="w-4 h-4 text-inherit" />
-            <span>{language === 'my' ? 'ကုမ္ပဏီ အချက်အလက်' : 'Company Info'}</span>
+            <Building2 className="w-4 h-4 text-white" />
+            <span className="text-white font-bold">{language === 'my' ? 'ကုမ္ပဏီ အချက်အလက်' : 'Company Info'}</span>
           </button>
           {currentSubTab !== 'operator_profile' && currentSubTab !== 'menu_permission' && currentSubTab !== 'default_status' && (
             <button
               onClick={() => handleOpenAdd(currentSubTab)}
-              className="flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm transition-all shrink-0"
+              className="flex items-center justify-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/25 border border-blue-400/40 transition-all shrink-0 cursor-pointer active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              <span>{t.addNew}</span>
+              <Plus className="w-4 h-4 text-white" />
+              <span className="text-white font-bold">{t.addNew}</span>
             </button>
           )}
         </div>
@@ -636,10 +740,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
             <button
               type="button"
               onClick={() => onSelectSubTab('operator_profile')}
-              className="self-start sm:self-center flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-orange-100 text-orange-700 border border-orange-300 font-bold text-xs transition-colors cursor-pointer shadow-2xs active:scale-95"
+              className="self-start sm:self-center flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white border border-orange-300 font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95"
             >
-              <Edit3 className="w-3.5 h-3.5 text-orange-600" />
-              <span>{language === 'my' ? 'ကုမ္ပဏီ အချက်အလက် ပြင်ဆင်ရန် (Form)' : 'Edit Company Info (Form)'}</span>
+              <Edit3 className="w-3.5 h-3.5 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'ကုမ္ပဏီ အချက်အလက် ပြင်ဆင်ရန် (Form)' : 'Edit Company Info (Form)'}</span>
             </button>
           </div>
 
@@ -668,7 +772,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       )}
 
       {/* Sub Tab Navigation Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {navTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentSubTab === tab.id;
@@ -679,22 +783,20 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                 onSelectSubTab(tab.id);
                 setSearchQuery('');
               }}
-              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+              className={`p-3 rounded-xl border text-left transition-all duration-150 flex flex-col justify-between cursor-pointer group ${
                 isActive
-                  ? 'bg-[#A2D9CE] border-slate-700 text-black shadow-sm'
-                  : 'bg-[#D1F2EB] border-slate-300 text-black hover:bg-[#C1ECE3]'
+                  ? `${tab.activeGradient} text-white shadow-md scale-[1.02]`
+                  : `${tab.beautyGradient} text-white shadow-xs hover:shadow-md hover:scale-[1.01]`
               }`}
             >
               <div className="flex items-center justify-between">
-                <Icon className="w-4 h-4 text-black" />
-                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-slate-900 text-white' : 'bg-[#C1ECE3] text-black'
-                }`}>
+                <Icon className="w-4 h-4 text-white drop-shadow-xs" />
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-xs shadow-2xs">
                   {tab.count}
                 </span>
               </div>
               <div className="mt-2.5">
-                <span className="text-xs font-bold block truncate text-black">
+                <span className="text-xs font-bold block truncate text-white drop-shadow-xs">
                   {language === 'my' ? tab.labelMm : tab.labelEn}
                 </span>
               </div>
@@ -748,10 +850,10 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
             </div>
             <button
               onClick={() => handleOpenAdd(currentSubTab)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm transition-all shrink-0"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/25 border border-blue-400/40 transition-all shrink-0 cursor-pointer active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{t.addNew}</span>
+              <Plus className="w-3.5 h-3.5 text-white" />
+              <span className="text-white font-bold">{t.addNew}</span>
             </button>
           </div>
         </div>
@@ -776,7 +878,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     maxDailyLimitMMK: 10000000,
                     requiresDocProof: false
                   })}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[11px] transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400/40 font-bold text-[11px] transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   + Family Allowance
                 </button>
@@ -790,7 +892,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     maxDailyLimitMMK: 20000000,
                     requiresDocProof: false
                   })}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border border-emerald-400/40 font-bold text-[11px] transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   + Salary
                 </button>
@@ -804,7 +906,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     maxDailyLimitMMK: 10000000,
                     requiresDocProof: false
                   })}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 font-semibold text-[11px] transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white border border-teal-400/40 font-bold text-[11px] transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   + Mid Salary
                 </button>
@@ -818,7 +920,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     maxDailyLimitMMK: 50000000,
                     requiresDocProof: true
                   })}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[11px] transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white border border-rose-400/40 font-bold text-[11px] transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   + Medical
                 </button>
@@ -832,7 +934,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     maxDailyLimitMMK: 30000000,
                     requiresDocProof: true
                   })}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 font-semibold text-[11px] transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white border border-purple-400/40 font-bold text-[11px] transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   + Education
                 </button>
@@ -1204,37 +1306,37 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                   <>
                     <button
                       onClick={handleSaveBatchRates}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-colors"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer active:scale-95 border border-emerald-400/40"
                     >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{language === 'my' ? 'နှုန်းထားအားလုံး သိမ်းဆည်းမည်' : 'Save All Rates'}</span>
+                      <Save className="w-3.5 h-3.5 text-white" />
+                      <span className="text-white font-bold">{language === 'my' ? 'နှုန်းထားအားလုံး သိမ်းဆည်းမည်' : 'Save All Rates'}</span>
                     </button>
                     <button
                       onClick={handleToggleBatchEdit}
-                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1 shadow-xs transition-all cursor-pointer active:scale-95 border border-slate-500/40"
                     >
-                      <X className="w-3.5 h-3.5" />
-                      <span>{language === 'my' ? 'မလုပ်တော့ပါ' : 'Cancel'}</span>
+                      <X className="w-3.5 h-3.5 text-white" />
+                      <span className="text-white font-bold">{language === 'my' ? 'မလုပ်တော့ပါ' : 'Cancel'}</span>
                     </button>
                   </>
                 ) : (
                   <>
                     <button
                       onClick={handleToggleBatchEdit}
-                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white border border-blue-400/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
                       title="Directly edit Buy Rate and Sell Rate across all rows simultaneously"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>{language === 'my' ? '⚡ အားလုံး အမြန်ပြင်ဆင်ရန်' : '⚡ Quick Edit All'}</span>
+                      <Edit3 className="w-3.5 h-3.5 text-white" />
+                      <span className="text-white font-bold">{language === 'my' ? '⚡ အားလုံး အမြန်ပြင်ဆင်ရန်' : '⚡ Quick Edit All'}</span>
                     </button>
 
                     <button
                       onClick={() => setShowPresetConfirmModal(true)}
-                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white border border-amber-400/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-orange-500/20 transition-all cursor-pointer active:scale-95"
                       title="Auto-fill with latest Myanmar market reference rates for USD, THB, SGD, MYR, etc."
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>{language === 'my' ? '🔄 နောက်ဆုံးပေါက်ဈေး သတ်မှတ်မည်' : '🔄 Apply Market Rates'}</span>
+                      <RefreshCw className="w-3.5 h-3.5 text-white" />
+                      <span className="text-white font-bold">{language === 'my' ? '🔄 နောက်ဆုံးပေါက်ဈေး သတ်မှတ်မည်' : '🔄 Apply Market Rates'}</span>
                     </button>
                   </>
                 )}
@@ -1620,14 +1722,14 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
               <button
                 type="button"
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(currentSubTab, deleteConfirmId)}
-                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-sm transition-colors"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all cursor-pointer active:scale-95"
               >
                 {t.delete}
               </button>
@@ -2497,13 +2599,13 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     setModalType(null);
                     setEditingItem(null);
                   }}
-                  className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
                 >
                   {t.cancel}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm transition-colors"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
                 >
                   {t.save}
                 </button>
@@ -2606,17 +2708,17 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
               <button
                 type="button"
                 onClick={() => setShowPresetConfirmModal(false)}
-                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
                 onClick={handleApplyLatestMarketRates}
-                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm transition-colors flex items-center space-x-1.5"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"
               >
-                <Check className="w-4 h-4" />
-                <span>{language === 'my' ? 'သတ်မှတ်မည် (Confirm & Apply)' : 'Confirm & Apply Rates'}</span>
+                <Check className="w-4 h-4 text-white" />
+                <span className="text-white font-bold">{language === 'my' ? 'သတ်မှတ်မည် (Confirm & Apply)' : 'Confirm & Apply Rates'}</span>
               </button>
             </div>
           </div>

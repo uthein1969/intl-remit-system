@@ -109,18 +109,18 @@ export const DefaultStatusAdminManager: React.FC = () => {
             <button
               type="button"
               onClick={handleResetToStandard}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white text-xs font-bold border border-slate-600 transition-all cursor-pointer shadow-xs active:scale-95"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'မူလစံသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset Defaults'}</span>
+              <RefreshCw className="w-3.5 h-3.5 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'မူလစံသတ်မှတ်ချက်သို့ ပြန်ထားမည်' : 'Reset Defaults'}</span>
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition-all cursor-pointer border border-emerald-400/40 active:scale-95"
             >
-              <Save className="w-4 h-4" />
-              <span>{language === 'my' ? 'ပြင်ဆင်ချက်များ သိမ်းဆည်းမည်' : 'Save Default Status'}</span>
+              <Save className="w-4 h-4 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'ပြင်ဆင်ချက်များ သိမ်းဆည်းမည်' : 'Save Default Status'}</span>
             </button>
           </div>
         </div>

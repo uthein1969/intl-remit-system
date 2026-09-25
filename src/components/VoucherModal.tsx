@@ -786,16 +786,16 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
           </div>
 
           {/* Signatures & Stamp area - Proportional for A4 Single Page */}
-          <div className="pt-6 sm:pt-8 print:pt-4 border-t border-slate-800 print:border-slate-300 grid grid-cols-3 gap-4 sm:gap-6 print:gap-4 text-center text-xs print:text-[10px] text-slate-400 print:text-slate-600 mt-2 print:mt-3">
+          <div className="pt-6 sm:pt-8 print:pt-6 border-t border-slate-800 print:border-slate-300 grid grid-cols-3 gap-4 sm:gap-6 print:gap-4 text-center text-xs print:text-[10px] text-slate-400 print:text-slate-600 mt-2 print:mt-4">
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 print:h-14 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-1.5"></div>
+              <div className="w-full h-20 sm:h-24 print:h-20 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-2"></div>
               <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm print:text-[10.5px]">{transaction.creatorName || (language === 'my' ? 'စာရင်းသွင်းသူ' : 'Maker')}</p>
               <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'စာရင်းသွင်းဝန်ထမ်း (Maker / Operator)' : 'Prepared / Operator'}</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 print:h-14 mb-2 print:mb-1.5 flex items-center justify-center">
-                <div className="w-full max-w-[160px] print:max-w-[140px] h-14 sm:h-16 print:h-14 border-2 border-dashed border-slate-700 bg-slate-950/60 rounded-lg print:rounded-md flex items-center justify-center p-2 print:p-1.5 print:border-slate-400 print:bg-slate-50/60">
-                  <span className="text-[10px] sm:text-[11px] print:text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="w-full h-20 sm:h-24 print:h-20 mb-2 print:mb-2 flex items-center justify-center">
+                <div className="w-full max-w-[170px] print:max-w-[155px] h-18 sm:h-20 print:h-20 border-2 border-dashed border-slate-700 bg-slate-950/60 rounded-lg print:rounded-md flex items-center justify-center p-2 print:p-2 print:border-slate-400 print:bg-slate-50/60">
+                  <span className="text-[10px] sm:text-[11px] print:text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
                     {language === 'my' ? 'ဘဏ်ခွဲ တံဆိပ်တုံး' : 'Official Branch Stamp'}
                   </span>
                 </div>
@@ -804,7 +804,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
               <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'ဗဟိုဘဏ် စည်းမျဉ်းကိုက်' : 'Central Bank Compliance'}</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 print:h-14 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-1.5"></div>
+              <div className="w-full h-20 sm:h-24 print:h-20 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-2"></div>
               <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm print:text-[10.5px]">{transaction.approverName || (language === 'my' ? 'အတည်ပြုသူ မန်နေဂျာ' : 'Checker / Manager')}</p>
               <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'ခွင့်ပြုအတည်ပြုသူ (Checker Approval)' : 'Authorized Checker Approval'}</p>
             </div>

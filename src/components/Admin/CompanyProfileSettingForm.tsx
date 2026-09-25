@@ -407,29 +407,29 @@ export const CompanyProfileSettingForm: React.FC = () => {
             <button
               type="button"
               onClick={handleRestoreSystemDefault}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold transition-all cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
               title={language === 'my' ? 'MM Invest Co., Ltd. မူလသတ်မှတ်ချက်အတိုင်း ပြန်ထားမည်' : 'Restore MM Invest Default Profile'}
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'Default မူရင်းထားရန်' : 'Restore Default'}</span>
+              <RotateCcw className="w-3.5 h-3.5 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'Default မူရင်းထားရန်' : 'Restore Default'}</span>
             </button>
 
             <button
               type="button"
               onClick={handleReset}
               disabled={!isDirty}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl border border-slate-500/40 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-95"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>{language === 'my' ? 'မူလအတိုင်းပြန်ထားမည်' : 'Reset'}</span>
+              <RotateCcw className="w-3.5 h-3.5 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'မူလအတိုင်းပြန်ထားမည်' : 'Reset'}</span>
             </button>
 
             <button
               type="submit"
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md shadow-orange-600/20 active:scale-95 transition-all cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-orange-600/25 active:scale-95 transition-all cursor-pointer border border-orange-400/40"
             >
-              <Save className="w-4 h-4" />
-              <span>{language === 'my' ? 'အချက်အလက် သိမ်းဆည်းမည်' : 'Save Company Settings'}</span>
+              <Save className="w-4 h-4 text-white" />
+              <span className="text-white font-bold">{language === 'my' ? 'အချက်အလက် သိမ်းဆည်းမည်' : 'Save Company Settings'}</span>
             </button>
           </div>
         </div>
