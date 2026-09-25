@@ -140,7 +140,7 @@ export function generateVoucherHtml({
   <style>
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm 8mm 10mm;
+      margin: 12mm 15mm 12mm 15mm;
     }
 
     *, *::before, *::after {
@@ -156,7 +156,7 @@ export function generateVoucherHtml({
       color: #0f172a;
       background-color: #f1f5f9;
       line-height: 1.35;
-      font-size: 11.5px;
+      font-size: 10.5px;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
@@ -165,15 +165,17 @@ export function generateVoucherHtml({
     }
 
     .page-container {
-      max-width: 780px;
+      max-width: 760px;
       margin: 16px auto;
       background: #ffffff;
-      padding: 22px 26px;
+      padding: 20px 24px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      border-radius: 10px;
+      border-radius: 8px;
       border: 1px solid #e2e8f0;
       page-break-inside: avoid;
+      break-inside: avoid;
       page-break-after: avoid;
+      break-after: avoid;
     }
 
     .no-print-bar {
@@ -182,7 +184,7 @@ export function generateVoucherHtml({
       z-index: 100;
       background: #0f172a;
       color: #ffffff;
-      padding: 10px 20px;
+      padding: 9px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -192,7 +194,7 @@ export function generateVoucherHtml({
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 7px 14px;
+      padding: 6.5px 13px;
       font-size: 11.5px;
       font-weight: 600;
       border-radius: 6px;
@@ -235,19 +237,19 @@ export function generateVoucherHtml({
       height: 36px;
       background: #0f172a;
       color: #10b981;
-      border-radius: 8px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 13.5px;
       letter-spacing: 0.5px;
     }
     .sys-title h1 {
       font-size: 15px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.2px;
+      letter-spacing: 0.25px;
       color: #0f172a;
       line-height: 1.2;
     }
@@ -255,28 +257,30 @@ export function generateVoucherHtml({
       font-size: 10.5px;
       color: #64748b;
       font-weight: 500;
+      margin-top: 1px;
     }
     .voucher-type-badge {
       display: inline-block;
-      padding: 4px 10px;
+      padding: 4px 12px;
       background: #0f172a;
       color: #34d399;
-      border-radius: 5px;
+      border-radius: 9999px;
       font-weight: 700;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     .meta-line {
-      font-size: 10.5px;
+      font-size: 10px;
       color: #64748b;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .ref-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-weight: 700;
       color: #0f172a;
       font-size: 11px;
+      margin-top: 1px;
     }
 
     /* Official Orange Rectangular Box */
@@ -293,18 +297,18 @@ export function generateVoucherHtml({
       gap: 10px;
       border-bottom: 1px solid #ffedd5;
       padding-bottom: 6px;
-      margin-bottom: 7px;
+      margin-bottom: 6px;
     }
     .orange-box-icon {
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       background: #ea580c;
       color: #ffffff;
       border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 15px;
       flex-shrink: 0;
     }
     .orange-box-badges {
@@ -320,7 +324,7 @@ export function generateVoucherHtml({
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.4px;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 3px;
     }
     .badge-license {
@@ -329,22 +333,23 @@ export function generateVoucherHtml({
       border: 1px solid #fdba74;
       font-size: 9.5px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-weight: 600;
-      padding: 1px 6px;
+      font-weight: 700;
+      padding: 1.5px 6px;
       border-radius: 3px;
     }
     .company-name {
-      font-size: 14px;
+      font-size: 14.5px;
       font-weight: 800;
       color: #431407;
       line-height: 1.25;
     }
     .orange-box-grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 8px;
-      font-size: 11px;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 6px 14px;
+      font-size: 10px;
       color: #334155;
+      line-height: 1.35;
     }
     .orange-box-grid strong {
       color: #7c2d12;
@@ -367,21 +372,21 @@ export function generateVoucherHtml({
       font-weight: 700;
       text-transform: uppercase;
       color: #78350f;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
     }
     .mtcn-number {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 21px;
-      font-weight: 700;
+      font-size: 22px;
+      font-weight: 800;
       color: #451a03;
       letter-spacing: 2px;
       line-height: 1.1;
-      margin-top: 1px;
+      margin-top: 2px;
     }
     .status-badge {
       display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
+      padding: 4px 12px;
+      border-radius: 9999px;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.4px;
@@ -405,30 +410,30 @@ export function generateVoucherHtml({
       background: #f8fafc;
     }
     .party-card-title {
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
       color: #475569;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 3px;
+      padding-bottom: 4px;
       margin-bottom: 6px;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
     }
     .party-row {
-      margin-bottom: 3px;
-      font-size: 11px;
       display: flex;
       justify-content: space-between;
       align-items: baseline;
+      font-size: 10.5px;
+      padding: 2px 0;
     }
     .party-row .label {
       color: #64748b;
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 500;
     }
     .party-row .value {
       color: #0f172a;
-      font-weight: 600;
+      font-weight: 700;
       text-align: right;
     }
 
@@ -440,64 +445,66 @@ export function generateVoucherHtml({
       border-radius: 6px;
       overflow: hidden;
       margin-bottom: 10px;
-      font-size: 11px;
+      font-size: 10.5px;
     }
     .fin-table th {
       background: #f1f5f9;
-      text-align: left;
-      padding: 5px 10px;
-      font-size: 9.5px;
-      font-weight: 700;
-      text-transform: uppercase;
       color: #334155;
-      letter-spacing: 0.4px;
+      text-align: left;
+      padding: 6px 12px;
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       border-bottom: 1px solid #cbd5e1;
     }
     .fin-table td {
-      padding: 4.5px 10px;
+      padding: 5px 12px;
       border-bottom: 1px solid #f1f5f9;
+      color: #334155;
     }
     .fin-table .row-alt {
-      background: #f8fafc;
+      background: #fafbfc;
     }
     .fin-table .val {
       text-align: right;
+      font-weight: 700;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-weight: 600;
       color: #0f172a;
+      font-size: 11px;
     }
     .fin-table .total-row {
-      background: #f0fdf4;
+      background: #ecfdf5;
       font-weight: 700;
-      font-size: 12px;
     }
     .fin-table .total-row td {
       color: #065f46;
       border-top: 1.5px solid #86efac;
-      padding: 6px 10px;
+      border-bottom: 1.5px solid #86efac;
+      padding: 6px 12px;
     }
     .fin-table .total-row .val {
       color: #047857;
-      font-size: 13.5px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 800;
     }
 
-    /* Details info */
+    /* Details Box */
     .details-box {
       border: 1px solid #e2e8f0;
       background: #ffffff;
       border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 10.5px;
+      padding: 7px 12px;
+      font-size: 10px;
       color: #475569;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 5px;
-      margin-bottom: 10px;
+      gap: 4px 14px;
+      margin-bottom: 12px;
+      line-height: 1.35;
     }
     .details-box strong {
-      color: #0f172a;
-      font-weight: 600;
+      color: #1e293b;
     }
 
     /* Signatures */
@@ -505,7 +512,7 @@ export function generateVoucherHtml({
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 16px;
-      margin-top: 14px;
+      margin-top: 18px;
       padding-top: 12px;
       border-top: 1px solid #cbd5e1;
       text-align: center;
@@ -517,18 +524,17 @@ export function generateVoucherHtml({
     }
     .sig-line {
       width: 100%;
-      height: 52px;
-      border-bottom: 1.5px solid #64748b;
-      margin-bottom: 6px;
+      height: 60px;
+      border-bottom: 1.5px solid #475569;
+      margin-bottom: 7px;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      padding-bottom: 4px;
+      padding-bottom: 2px;
     }
     .stamp-box {
-      width: 100%;
-      max-width: 150px;
-      height: 50px;
+      width: 140px;
+      height: 60px;
       border: 1.5px dashed #94a3b8;
       color: #94a3b8;
       font-size: 9.5px;
@@ -543,20 +549,21 @@ export function generateVoucherHtml({
       margin: 0 auto;
     }
     .sig-name {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       color: #0f172a;
       margin-top: 2px;
     }
     .sig-title {
-      font-size: 10px;
+      font-size: 9.5px;
       color: #64748b;
+      margin-top: 2px;
     }
 
     /* Legal statement */
     .legal-notice {
-      margin-top: 8px;
-      padding-top: 6px;
+      margin-top: 14px;
+      padding-top: 8px;
       border-top: 1px solid #f1f5f9;
       text-align: center;
       font-size: 8.5px;
@@ -565,11 +572,15 @@ export function generateVoucherHtml({
     }
 
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 12mm 15mm 12mm 15mm;
+      }
       html, body {
         height: auto !important;
         background: #ffffff !important;
-        font-size: 11px !important;
-        line-height: 1.3 !important;
+        font-size: 10.5px !important;
+        line-height: 1.35 !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -577,17 +588,20 @@ export function generateVoucherHtml({
         display: none !important;
       }
       .page-container {
-        margin: 0 !important;
-        padding: 4px 6px !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
         max-width: 100% !important;
         width: 100% !important;
         page-break-inside: avoid !important;
+        break-inside: avoid !important;
         page-break-after: avoid !important;
+        break-after: avoid !important;
       }
       .orange-box, .mtcn-box, .party-grid, .fin-table, .details-box, .sig-grid, .legal-notice {
         page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
     }
   </style>
@@ -695,7 +709,7 @@ export function generateVoucherHtml({
         </div>
         <div class="party-row">
           <span class="label">${language === 'my' ? 'ငွေလွှဲပို့သည့် ဘဏ်ခွဲ' : 'Sender Branch'}:</span>
-          <span class="value" style="font-weight: 600; color: #0f172a;"> ${resolvedSenderBranchName}</span>
+          <span class="value" style="font-weight: 700; color: #0f172a;"> ${resolvedSenderBranchName}</span>
         </div>
       </div>
 
@@ -728,7 +742,7 @@ export function generateVoucherHtml({
         </div>
         <div class="party-row">
           <span class="label">${language === 'my' ? 'ငွေလက်ခံမည့် ဘဏ်ခွဲ' : 'Receiver Branch'}:</span>
-          <span class="value" style="font-weight: 600; color: #0f172a;"> ${resolvedReceiverBranchName}</span>
+          <span class="value" style="font-weight: 700; color: #0f172a;"> ${resolvedReceiverBranchName}</span>
         </div>
       </div>
     </div>
@@ -860,13 +874,12 @@ export interface VoucherPrintParams {
 }
 
 /**
- * Reliably prints the voucher document using an isolated, hidden iframe.
- * Avoids browser popup blockers, blank tab blob restrictions in Chrome/Edge,
- * and eliminates 4-blank-page issues from SPA root layout nesting.
+ * Reliably prints the voucher document with the exact right scale matching A4 portrait.
+ * On Local & Vercel: triggers print seamlessly via isolated hidden iframe (no popups).
+ * In AI Studio iframe: opens dedicated tab with autoPrint.
  */
 export function printVoucherDocument(params: VoucherPrintParams): { success: boolean } {
   try {
-    // Check if running in an iframe
     let isIframe = false;
     try {
       isIframe = window.self !== window.top;
@@ -875,59 +888,62 @@ export function printVoucherDocument(params: VoucherPrintParams): { success: boo
     }
 
     if (isIframe) {
+      // In sandbox/iframe (e.g. AI Studio development environment):
       openVoucherInNewTab({ ...params, autoPrint: true });
       return { success: true };
     }
 
-    // Check if #printable-voucher is currently mounted in DOM
-    const voucherEl = document.getElementById('printable-voucher');
-    let printContainer = document.getElementById('voucher-print-container');
-    if (!printContainer) {
-      printContainer = document.createElement('div');
-      printContainer.id = 'voucher-print-container';
-      document.body.appendChild(printContainer);
+    // On Local (localhost) and Vercel production:
+    // Use an invisible isolated iframe containing generateVoucherHtml.
+    // This avoids popup blockers and guarantees identical 1-page A4 right scale.
+    const fullHtml = generateVoucherHtml({ ...params, autoPrint: false });
+
+    const existingFrame = document.getElementById('voucher-isolated-print-frame');
+    if (existingFrame) {
+      existingFrame.remove();
     }
 
-    if (voucherEl) {
-      printContainer.innerHTML = voucherEl.outerHTML;
-    } else {
-      const fullHtml = generateVoucherHtml(params);
-      const match = fullHtml.match(/<div class="page-container"[\s\S]*<\/div>\s*<\/body>/i);
-      if (match) {
-        printContainer.innerHTML = match[0].replace(/<\/body>/i, '');
-      } else {
-        printContainer.innerHTML = fullHtml;
-      }
-    }
+    const printFrame = document.createElement('iframe');
+    printFrame.id = 'voucher-isolated-print-frame';
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    printFrame.style.visibility = 'hidden';
+    document.body.appendChild(printFrame);
 
-    document.body.classList.add('printing-voucher');
-
-    const cleanup = () => {
-      document.body.classList.remove('printing-voucher');
-      if (printContainer) printContainer.innerHTML = '';
-      window.removeEventListener('afterprint', cleanup);
-    };
-
-    window.addEventListener('afterprint', cleanup, { once: true });
-    setTimeout(cleanup, 4000);
-
-    try {
-      window.print();
-    } catch (err) {
-      console.warn('Direct window.print() failed, opening new tab with auto-print:', err);
-      cleanup();
+    const frameDoc = printFrame.contentWindow?.document;
+    if (!frameDoc) {
       openVoucherInNewTab({ ...params, autoPrint: true });
+      return { success: true };
     }
+
+    frameDoc.open();
+    frameDoc.write(fullHtml);
+    frameDoc.close();
+
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+        setTimeout(() => {
+          if (printFrame && printFrame.parentNode) {
+            printFrame.parentNode.removeChild(printFrame);
+          }
+        }, 4000);
+      } catch (err) {
+        console.warn('Iframe print error, falling back to new tab:', err);
+        openVoucherInNewTab({ ...params, autoPrint: true });
+      }
+    }, 250);
 
     return { success: true };
   } catch (err) {
-    console.error('printVoucherDocument failed:', err);
-    try {
-      openVoucherInNewTab({ ...params, autoPrint: true });
-      return { success: true };
-    } catch {
-      return { success: false };
-    }
+    console.warn('printVoucherDocument error, falling back to new tab:', err);
+    openVoucherInNewTab({ ...params, autoPrint: true });
+    return { success: true };
   }
 }
 

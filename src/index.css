@@ -291,18 +291,17 @@ html.dark, :root[data-theme="dark"], body.dark {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 10mm;
+    margin: 12mm 15mm 12mm 15mm;
   }
 
   *, *::before, *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    box-sizing: border-box !important;
   }
 
   html, body {
     height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
     background: #ffffff !important;
     color: #0f172a !important;
     margin: 0 !important;
@@ -318,14 +317,16 @@ html.dark, :root[data-theme="dark"], body.dark {
     display: block !important;
     position: static !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 760px !important;
     height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   body.printing-voucher #voucher-print-container #printable-voucher {
@@ -335,15 +336,16 @@ html.dark, :root[data-theme="dark"], body.dark {
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible !important;
     height: auto !important;
-    max-height: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   /* When printing from the voucher modal directly, un-clip modal containers */
   body.voucher-modal-open {
     background: #ffffff !important;
-    overflow: visible !important;
   }
 
   body.voucher-modal-open #root {
@@ -388,17 +390,19 @@ html.dark, :root[data-theme="dark"], body.dark {
     position: static !important;
     display: block !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 760px !important;
     height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    margin: 0 !important;
-    padding: 4px 6px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
     border: none !important;
     box-shadow: none !important;
     visibility: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   body.voucher-modal-open #printable-voucher * {
@@ -419,8 +423,11 @@ html.dark, :root[data-theme="dark"], body.dark {
   /* Avoid breaking receipt sections across pages */
   #printable-voucher .border-2,
   #printable-voucher table,
-  #printable-voucher .grid {
+  #printable-voucher .grid,
+  #printable-voucher > div {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 }

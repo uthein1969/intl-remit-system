@@ -212,14 +212,6 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
   const handlePrint = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
 
-    // Check if running inside an iframe (like AI Studio preview, Vercel preview toolbar/embed)
-    let isInsideIframe = false;
-    try {
-      isInsideIframe = window.self !== window.top;
-    } catch {
-      isInsideIframe = true;
-    }
-
     const printParams = {
       transaction,
       branch: senderBranch,
@@ -233,65 +225,15 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
       language,
     };
 
-    // Inside an iframe, modern browsers strictly block window.print() modals.
-    // Opening in a new tab bypasses iframe sandbox restrictions and triggers the Print Dialog Box immediately.
-    if (isInsideIframe) {
-      setFeedbackMsg(
-        language === 'my' 
-          ? 'Print Dialog Box ကို စာမျက်နှာသစ်တွင် ဖွင့်လှစ်နေပါသည် (Opening Print View...)' 
-          : 'Opening Print Dialog Box in new tab...'
-      );
-      openVoucherInNewTab({
-        ...printParams,
-        autoPrint: true,
-      });
-      setTimeout(() => setFeedbackMsg(null), 4000);
-      return;
-    }
-
-    // When running in top-level standalone window:
     setFeedbackMsg(
       language === 'my' 
         ? 'ပြေစာ ပုံနှိပ်ခြင်းကို စတင်နေပါသည် (Preparing voucher for printing...)' 
         : 'Preparing voucher for printing...'
     );
 
-    const voucherEl = document.getElementById('printable-voucher');
-    let printContainer = document.getElementById('voucher-print-container');
-    if (!printContainer) {
-      printContainer = document.createElement('div');
-      printContainer.id = 'voucher-print-container';
-      document.body.appendChild(printContainer);
-    }
-
-    if (voucherEl) {
-      printContainer.innerHTML = voucherEl.outerHTML;
-    }
-
-    document.body.classList.add('printing-voucher');
-
-    const cleanup = () => {
-      document.body.classList.remove('printing-voucher');
-      if (printContainer) printContainer.innerHTML = '';
-      window.removeEventListener('afterprint', cleanup);
-      setTimeout(() => setFeedbackMsg(null), 1000);
-    };
-
-    window.addEventListener('afterprint', cleanup, { once: true });
-    // Fallback cleanup if afterprint is cancelled or not supported
-    setTimeout(cleanup, 4000);
-
-    // Call window.print() directly and synchronously in user gesture
-    try {
-      window.print();
-    } catch (printErr) {
-      console.warn('Direct window.print() threw error, opening print window:', printErr);
-      cleanup();
-      openVoucherInNewTab({
-        ...printParams,
-        autoPrint: true,
-      });
-    }
+    // Call unified print utility that guarantees 1-page A4 print across both Vercel and Studio
+    printVoucherDocument(printParams);
+    setTimeout(() => setFeedbackMsg(null), 3500);
   };
 
   const handleOpenNewTab = (e?: React.MouseEvent) => {
@@ -426,62 +368,62 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
           </div>
         )}
 
-        {/* Printable Voucher Paper - Scrollable body with smooth up/down scrolling */}
+        {/* Printable Voucher Paper - Scrollable body with smooth up/down scrolling - Calibrated A4 One Page Print */}
         <div 
-          className="p-6 sm:p-8 space-y-6 print:p-2 print:overflow-visible print:h-auto print:max-h-none overflow-y-auto flex-1 overscroll-contain bg-slate-900 text-slate-100 print:bg-white print:text-slate-900" 
+          className="p-6 sm:p-8 space-y-5 print:space-y-2.5 print:p-3 print:overflow-hidden print:h-auto print:max-h-[285mm] overflow-y-auto flex-1 overscroll-contain bg-slate-900 text-slate-100 print:bg-white print:text-slate-900" 
           id="printable-voucher"
         >
           {/* Voucher Title & Reference Header */}
-          <div className="border-b border-slate-800 print:border-slate-200 pb-3 flex items-start justify-between">
+          <div className="border-b border-slate-800 print:border-slate-200 pb-3 print:pb-1.5 flex items-start justify-between">
             <div>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-slate-950 text-emerald-400 border border-slate-800 flex items-center justify-center font-black text-sm">
+                <div className="w-8 h-8 print:w-7 print:h-7 rounded-lg bg-slate-950 text-emerald-400 border border-slate-800 flex items-center justify-center font-black text-sm print:text-xs">
                   RMS
                 </div>
                 <div>
-                  <h2 className="text-base font-black tracking-tight text-white print:text-slate-900 uppercase">
+                  <h2 className="text-base print:text-sm font-black tracking-tight text-white print:text-slate-900 uppercase">
                     Remittance Management System
                   </h2>
-                  <p className="text-[11px] font-semibold text-slate-400 print:text-slate-500">
+                  <p className="text-[11px] print:text-[10px] font-semibold text-slate-400 print:text-slate-500">
                     {language === 'my' ? 'ပြည်တွင်း ပြည်ပ ငွေလွှဲလုပ်ငန်း စနစ်' : 'Domestic & International Remittance System'}
                   </p>
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <div className="inline-block px-3 py-1 bg-slate-950 border border-emerald-800/60 rounded-lg text-xs font-bold text-emerald-400 shadow-2xs">
+              <div className="inline-block px-3 py-1 print:px-2.5 print:py-0.5 bg-slate-950 border border-emerald-800/60 rounded-lg text-xs print:text-[10px] font-bold text-emerald-400 shadow-2xs">
                 {transaction.type === 'OUTWARD' 
                   ? (language === 'my' ? 'ငွေလွှဲပို့ ပြေစာ (OUTWARD)' : 'OUTWARD REMITTANCE SLIP') 
                   : (language === 'my' ? 'ငွေလွှဲထုတ် ပြေစာ (INWARD)' : 'INWARD PAYOUT VOUCHER')}
               </div>
-              <div className="text-[11px] text-slate-400 print:text-slate-500 mt-1">
+              <div className="text-[11px] print:text-[10px] text-slate-400 print:text-slate-500 mt-1 print:mt-0.5">
                 {language === 'my' ? 'နေ့စွဲ' : 'Date'}: {formatToDDMMYYYYWithTime(transaction.createdDate)}
               </div>
-              <div className="text-xs font-mono font-bold text-slate-300 print:text-slate-800">
+              <div className="text-xs print:text-[10.5px] font-mono font-bold text-slate-300 print:text-slate-800">
                 Ref: {transaction.transactionNo}
               </div>
             </div>
           </div>
 
           {/* Official Orange Rectangular Box: Operating Remittance Company (လိမ္မော်ရောင်လေးဒေါင့်အကွက်) */}
-          <div className="border-2 border-orange-500/70 bg-slate-950/80 rounded-xl p-3.5 sm:p-4 text-slate-100 shadow-sm relative print:border-orange-600 print:bg-orange-50/30 print:text-slate-900">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 print:border-orange-200/90 pb-2.5">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
-                  <Building2 className="w-5 h-5 text-white" />
+          <div className="border-2 border-orange-500/70 bg-slate-950/80 rounded-xl print:rounded-lg p-3.5 sm:p-4 print:p-2.5 text-slate-100 shadow-sm relative print:border-orange-600 print:bg-orange-50/30 print:text-slate-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 print:gap-1.5 border-b border-slate-800 print:border-orange-200/90 pb-2.5 print:pb-1.5">
+              <div className="flex items-center space-x-3 print:space-x-2.5">
+                <div className="w-10 h-10 print:w-7 print:h-7 rounded-xl print:rounded-md bg-orange-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                  <Building2 className="w-5 h-5 print:w-4 print:h-4 text-white" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white px-2 py-0.5 rounded">
+                  <div className="flex items-center gap-2 print:gap-1.5">
+                    <span className="text-[10px] print:text-[8.5px] font-black uppercase tracking-wider bg-orange-600 text-white px-2 py-0.5 print:px-1.5 print:py-0.5 rounded">
                       {language === 'my' ? 'ငွေလွှဲဝန်ဆောင်မှု လုပ်ငန်းလုပ်ကိုင်ခွင့်ရ ကုမ္ပဏီ' : 'LICENSED REMITTANCE OPERATOR'}
                     </span>
                     {operatorProfile.licenseNo && (
-                      <span className="text-[10px] font-mono font-bold text-orange-200 bg-orange-950/80 border border-orange-700/60 px-1.5 py-0.5 rounded print:text-orange-950 print:bg-orange-100 print:border-orange-300">
+                      <span className="text-[10px] print:text-[9px] font-mono font-bold text-orange-200 bg-orange-950/80 border border-orange-700/60 px-1.5 py-0.5 print:px-1.5 print:py-0.5 rounded print:text-orange-950 print:bg-orange-100 print:border-orange-300">
                         {operatorProfile.licenseNo}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base sm:text-lg font-black text-white print:text-orange-950 mt-0.5 tracking-tight leading-snug">
+                  <h2 className="text-base sm:text-lg print:text-[13.5px] font-black text-white print:text-orange-950 mt-0.5 tracking-tight leading-snug print:leading-tight">
                     {language === 'my' 
                       ? `${operatorProfile.companyNameMm} (${operatorProfile.companyNameEn})`
                       : operatorProfile.companyNameEn}
@@ -502,10 +444,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
             </div>
 
             {/* Address & Phone details inside the Orange Rectangular Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2.5 text-xs text-slate-300 print:text-slate-800">
-              <div className="flex items-start space-x-2">
-                <MapPin className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                <div className="leading-snug">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 print:gap-1.5 pt-2.5 print:pt-1.5 text-xs print:text-[10px] text-slate-300 print:text-slate-800">
+              <div className="flex items-start space-x-2 print:space-x-1.5">
+                <MapPin className="w-4 h-4 print:w-3.5 print:h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                <div className="leading-snug print:leading-tight">
                   <span className="font-bold text-orange-300 print:text-orange-950">{language === 'my' ? 'ရုံးချုပ် လိပ်စာ' : 'Head Office Address'}: </span>
                   <span className="text-slate-300 print:text-slate-700">
                     {language === 'my' ? operatorProfile.addressMm : operatorProfile.addressEn}
@@ -513,9 +455,9 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                 </div>
               </div>
 
-              <div className="flex items-start space-x-2">
-                <Phone className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                <div className="leading-snug">
+              <div className="flex items-start space-x-2 print:space-x-1.5">
+                <Phone className="w-4 h-4 print:w-3.5 print:h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                <div className="leading-snug print:leading-tight">
                   <span className="font-bold text-orange-300 print:text-orange-950">{language === 'my' ? 'ဆက်သွယ်ရန် ဖုန်းနံပါတ်' : 'Contact Phone / Hotline'}: </span>
                   <strong className="font-mono text-white print:text-slate-900">{operatorProfile.phone}</strong>
                   {operatorProfile.hotline && (
@@ -529,13 +471,13 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
           </div>
 
           {/* MTCN Dark Golden Banner */}
-          <div className="bg-slate-950/90 print:bg-amber-50/80 border-2 border-amber-500/60 print:border-amber-300 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-100 shadow-md relative overflow-hidden print:text-slate-900">
+          <div className="bg-slate-950/90 print:bg-amber-50/80 border-2 border-amber-500/60 print:border-amber-300 rounded-xl print:rounded-lg p-3 sm:p-3.5 print:p-2 flex flex-col sm:flex-row items-center justify-between gap-3 print:gap-1.5 text-slate-100 shadow-md relative overflow-hidden print:text-slate-900">
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 print:text-amber-900 block">
+              <span className="text-[11px] print:text-[9px] font-bold uppercase tracking-wider text-amber-400 print:text-amber-900 block">
                 {language === 'my' ? 'ငွေလွှဲ လျှို့ဝှက်ကုဒ် / MTCN' : 'Money Transfer Control Number (MTCN)'}
               </span>
-              <div className="flex items-center space-x-3 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-mono font-black text-amber-300 print:text-amber-950 tracking-widest">
+              <div className="flex items-center space-x-3 print:space-x-2 mt-0.5">
+                <span className="text-2xl sm:text-3xl print:text-xl font-mono font-black text-amber-300 print:text-amber-950 tracking-widest">
                   {transaction.mtcn}
                 </span>
                 <button
@@ -548,12 +490,12 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                 {copied && <span className="text-xs font-bold text-emerald-400 print:text-emerald-700 no-print">{language === 'my' ? 'ကူးယူပြီး!' : 'Copied!'}</span>}
               </div>
             </div>
-            <div className="text-right flex items-center gap-3">
+            <div className="text-right flex items-center gap-3 print:gap-2">
               <div className="text-right">
-                <span className="text-xs font-medium text-slate-400 print:text-slate-600 block">
+                <span className="text-xs print:text-[9px] font-medium text-slate-400 print:text-slate-600 block">
                   {language === 'my' ? 'အခြေအနေ' : 'Status'}
                 </span>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${
+                <span className={`inline-flex items-center px-2.5 py-1 print:px-2 print:py-0.5 rounded-full text-xs print:text-[9px] font-bold tracking-wide uppercase ${
                   transaction.status === 'APPROVED_AND_SENT' || transaction.status === 'APPROVED' || transaction.status === 'APPROVED_AND_PAID_OUT' || transaction.status === 'PAID_OUT'
                     ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/60 print:bg-emerald-100 print:text-emerald-800 print:border-emerald-300'
                     : transaction.status === 'PENDING_APPROVAL'
@@ -573,23 +515,23 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                     : transaction.status.replace(/_/g, ' ')}
                 </span>
               </div>
-              <div className="w-11 h-11 bg-slate-900 border border-slate-700 print:bg-white print:border-slate-300 rounded flex items-center justify-center p-1">
+              <div className="w-11 h-11 print:w-8 print:h-8 bg-slate-900 border border-slate-700 print:bg-white print:border-slate-300 rounded flex items-center justify-center p-1 print:p-0.5">
                 <QrCode className="w-full h-full text-slate-200 print:text-slate-800" />
               </div>
             </div>
           </div>
 
           {/* Sender & Receiver 2-Column Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-2">
             {/* Sender */}
-            <div className="border border-slate-800 print:border-slate-200 rounded-xl p-4 bg-slate-950/70 print:bg-slate-50/70 text-slate-200 print:text-slate-900 shadow-sm">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-500 border-b border-slate-800 print:border-slate-200 pb-1 mb-2">
+            <div className="border border-slate-800 print:border-slate-200 rounded-xl print:rounded-lg p-4 print:p-2 bg-slate-950/70 print:bg-slate-50/70 text-slate-200 print:text-slate-900 shadow-sm">
+              <div className="text-xs print:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 print:text-slate-500 border-b border-slate-800 print:border-slate-200 pb-1 print:pb-0.5 mb-2 print:mb-1">
                 {language === 'my' ? 'ငွေလွှဲပို့သူ အချက်အလက် (Sender)' : 'Sender Information'}
               </div>
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-1.5 print:space-y-0.5 text-xs print:text-[10px] print:leading-tight">
                 <div>
                   <span className="text-slate-400 print:text-slate-500 block">{language === 'my' ? 'အမည်' : 'Name'}:</span>
-                  <strong className="text-white print:text-slate-900 font-bold text-sm">
+                  <strong className="text-white print:text-slate-900 font-bold text-sm print:text-[10.5px]">
                     {language === 'my' 
                       ? `${transaction.senderNameMm || transaction.senderName} (${transaction.senderName})`
                       : transaction.senderName}
@@ -625,14 +567,14 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
             </div>
 
             {/* Receiver */}
-            <div className="border border-slate-800 print:border-slate-200 rounded-xl p-4 bg-slate-950/70 print:bg-slate-50/70 text-slate-200 print:text-slate-900 shadow-sm">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-500 border-b border-slate-800 print:border-slate-200 pb-1 mb-2">
+            <div className="border border-slate-800 print:border-slate-200 rounded-xl print:rounded-lg p-4 print:p-2 bg-slate-950/70 print:bg-slate-50/70 text-slate-200 print:text-slate-900 shadow-sm">
+              <div className="text-xs print:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 print:text-slate-500 border-b border-slate-800 print:border-slate-200 pb-1 print:pb-0.5 mb-2 print:mb-1">
                 {language === 'my' ? 'ငွေလက်ခံသူ အချက်အလက် (Beneficiary)' : 'Beneficiary / Receiver Information'}
               </div>
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-1.5 print:space-y-0.5 text-xs print:text-[10px] print:leading-tight">
                 <div>
                   <span className="text-slate-400 print:text-slate-500 block">{language === 'my' ? 'အမည်' : 'Name'}:</span>
-                  <strong className="text-white print:text-slate-900 font-bold text-sm">
+                  <strong className="text-white print:text-slate-900 font-bold text-sm print:text-[10.5px]">
                     {language === 'my'
                       ? `${transaction.receiverNameMm || transaction.receiverName} (${transaction.receiverName})`
                       : transaction.receiverName}
@@ -669,64 +611,64 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
           </div>
 
           {/* Financial Breakdown Table */}
-          <div className="border border-slate-800 print:border-slate-300 rounded-xl overflow-hidden bg-slate-950 print:bg-white shadow-sm">
-            <div className="bg-slate-900 print:bg-slate-100 px-4 py-2.5 border-b border-slate-800 print:border-slate-300 text-xs font-bold uppercase tracking-wider text-slate-300 print:text-slate-700">
+          <div className="border border-slate-800 print:border-slate-300 rounded-xl print:rounded-lg overflow-hidden bg-slate-950 print:bg-white shadow-sm">
+            <div className="bg-slate-900 print:bg-slate-100 px-4 py-2.5 print:px-2.5 print:py-1 border-b border-slate-800 print:border-slate-300 text-xs print:text-[9.5px] font-bold uppercase tracking-wider text-slate-300 print:text-slate-700">
               {language === 'my' ? 'ငွေပမာဏ နှင့် ငွေလဲလှယ်နှုန်း အသေးစိတ်' : 'Financial & Exchange Settlement Details'}
             </div>
-            <div className="divide-y divide-slate-800/80 print:divide-slate-200 text-xs">
-              <div className="px-4 py-2.5 flex justify-between">
+            <div className="divide-y divide-slate-800/80 print:divide-slate-200 text-xs print:text-[10px]">
+              <div className="px-4 py-2.5 print:px-2.5 print:py-1 flex justify-between">
                 <span className="text-slate-300 print:text-slate-600">{language === 'my' ? 'လွှဲပို့ငွေ မူလပမာဏ' : 'Send Principal Amount'}:</span>
                 <span className="font-mono font-bold text-white print:text-slate-900">
                   {Number(transaction.sendAmount || 0).toLocaleString()} {transaction.sourceCurrency}
                 </span>
               </div>
-              <div className="px-4 py-2.5 flex justify-between bg-slate-900/40 print:bg-slate-50/50">
+              <div className="px-4 py-2.5 print:px-2.5 print:py-1 flex justify-between bg-slate-900/40 print:bg-slate-50/50">
                 <span className="text-slate-300 print:text-slate-600">{language === 'my' ? 'တွက်ချက်ထားသော ငွေလဲနှုန်း' : 'Applied Exchange Rate'}:</span>
                 <span className="font-mono font-bold text-white print:text-slate-900">
                   1 {transaction.sourceCurrency === 'MMK' ? transaction.targetCurrency : transaction.sourceCurrency} = {Number(transaction.exchangeRate || 0).toLocaleString()} MMK
                 </span>
               </div>
-              <div className="px-4 py-2.5 flex justify-between">
+              <div className="px-4 py-2.5 print:px-2.5 print:py-1 flex justify-between">
                 <span className="text-slate-300 print:text-slate-600">{language === 'my' ? 'ငွေလွှဲ ဝန်ဆောင်ခ' : 'Remittance Service Fee'}:</span>
                 <span className="font-mono text-slate-200 print:text-slate-800">
                   {Number(transaction.serviceFee || 0).toLocaleString()} {transaction.sourceCurrency || 'MMK'}
                 </span>
               </div>
               {Number(transaction.commissionFee || 0) > 0 && (
-                <div className="px-4 py-2.5 flex justify-between bg-slate-900/40 print:bg-slate-50/50">
+                <div className="px-4 py-2.5 print:px-2.5 print:py-1 flex justify-between bg-slate-900/40 print:bg-slate-50/50">
                   <span className="text-slate-300 print:text-slate-600">{language === 'my' ? 'မိတ်ဖက် ကော်မရှင်ခ' : 'Partner Commission'}:</span>
                   <span className="font-mono text-slate-200 print:text-slate-800">
                     {Number(transaction.commissionFee || 0).toLocaleString()} {transaction.sourceCurrency || 'MMK'}
                   </span>
                 </div>
               )}
-              <div className="px-4 py-3 flex justify-between bg-slate-900/90 print:bg-emerald-50 text-white print:text-emerald-950 font-bold text-sm border-t border-slate-800 print:border-emerald-200">
+              <div className="px-4 py-3 print:px-2.5 print:py-1.5 flex justify-between bg-slate-900/90 print:bg-emerald-50 text-white print:text-emerald-950 font-bold text-sm print:text-xs border-t border-slate-800 print:border-emerald-200">
                 <span className="text-slate-200 print:text-emerald-950 font-bold">{language === 'my' ? 'လက်ခံရရှိငွေ စုစုပေါင်း' : 'Total Payout / Receive Amount'}:</span>
-                <span className="font-mono text-base font-black text-emerald-400 print:text-emerald-800">
+                <span className="font-mono text-base print:text-xs font-black text-emerald-400 print:text-emerald-800">
                   {Number(transaction.receiveAmount || 0).toLocaleString()} {transaction.targetCurrency}
                 </span>
               </div>
               {transaction.isUsdBase && (
-                <div className="px-4 py-3 flex justify-between bg-sky-950/80 print:bg-sky-50 text-sky-200 print:text-sky-950 font-bold text-sm border-t border-sky-800 print:border-sky-200">
+                <div className="px-4 py-3 print:px-2.5 print:py-1.5 flex justify-between bg-sky-950/80 print:bg-sky-50 text-sky-200 print:text-sky-950 font-bold text-sm print:text-xs border-t border-sky-800 print:border-sky-200">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-black uppercase tracking-wider">
+                    <div className="flex items-center space-x-2 print:space-x-1">
+                      <span className="px-2 py-0.5 print:px-1 print:py-0.5 rounded bg-sky-600 text-white text-[10px] print:text-[8px] font-black uppercase tracking-wider">
                         USD Base
                       </span>
                       <span>{language === 'my' ? 'ဒေါ်လာတန်ဖိုး ညီမျှချက် (USD Equivalent)' : 'USD Base Equivalent'}:</span>
                     </div>
                     {transaction.usdExchangeRate && (
-                      <span className="text-xs font-normal text-sky-300 print:text-sky-700 font-mono">
+                      <span className="text-xs print:text-[9px] font-normal text-sky-300 print:text-sky-700 font-mono">
                         (1 USD = {transaction.usdExchangeRate} {transaction.targetCurrency})
                       </span>
                     )}
                   </div>
                   <div className="text-right">
-                    <span className="font-mono text-base font-black text-white print:text-sky-900">
+                    <span className="font-mono text-base print:text-xs font-black text-white print:text-sky-900">
                       $ {Number(transaction.usdAmount !== undefined ? transaction.usdAmount : (transaction.usdExchangeRate ? (transaction.receiveAmount || 0) / transaction.usdExchangeRate : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                     </span>
                     {transaction.usdServiceFee !== undefined && transaction.usdServiceFee > 0 && (
-                      <span className="block text-[11px] font-mono text-sky-300 print:text-sky-700 font-normal">
+                      <span className="block text-[11px] print:text-[8.5px] font-mono text-sky-300 print:text-sky-700 font-normal">
                         {language === 'my' ? 'ဝန်ဆောင်ခ ဒေါ်လာ' : 'USD Fee'}: ${Number(transaction.usdServiceFee).toFixed(2)} USD
                       </span>
                     )}
@@ -737,7 +679,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
           </div>
 
           {/* Remittance Purpose & Payout Method */}
-          <div className="grid grid-cols-2 gap-4 text-xs text-slate-300 print:text-slate-600">
+          <div className="grid grid-cols-2 gap-4 print:gap-1.5 text-xs print:text-[10px] print:leading-tight text-slate-300 print:text-slate-600">
             <div>
               <span className="font-bold text-slate-200 print:text-slate-700">{language === 'my' ? 'လွှဲပို့ရည်ရွယ်ချက်' : 'Purpose'}: </span>
               <span className="text-slate-300 print:text-slate-800">{transaction.purposeName}</span>
@@ -757,16 +699,16 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
               </div>
             )}
             {transaction.senderNote && (
-              <div className="col-span-2 italic bg-slate-950/70 text-slate-300 p-2.5 rounded-lg border border-slate-800 print:bg-slate-50 print:text-slate-800 print:border-slate-200">
+              <div className="col-span-2 italic bg-slate-950/70 text-slate-300 p-2.5 print:p-1.5 rounded-lg border border-slate-800 print:bg-slate-50 print:text-slate-800 print:border-slate-200">
                 {language === 'my' ? 'မှတ်ချက်' : 'Note'}: "{transaction.senderNote}"
               </div>
             )}
 
             {/* Attached Verification Documents indicator on Voucher */}
             {(transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment || transaction.senderNrcBackAttachment || transaction.senderPassportAttachment) && (
-              <div className="col-span-2 bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 flex flex-wrap items-center gap-2 text-xs print:bg-emerald-50/50 print:border-emerald-200">
+              <div className="col-span-2 bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 print:p-1.5 flex flex-wrap items-center gap-2 print:gap-1 text-xs print:text-[8.5px] print:bg-emerald-50/50 print:border-emerald-200">
                 <span className="font-bold text-slate-200 print:text-slate-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-600 shrink-0" />
+                  <ShieldCheck className="w-3.5 h-3.5 print:w-3 print:h-3 text-emerald-400 print:text-emerald-600 shrink-0" />
                   <span>{language === 'my' ? 'စိစစ်ပြီး ပူးတွဲစာရွက်စာတမ်းများ (KYC Verified)' : 'Verified KYC Attachments'}:</span>
                 </span>
                 {(nrcFrontUrl || transaction.senderNrcFrontAttachment || transaction.senderNrcAttachment) && (
@@ -785,10 +727,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                         });
                       }
                     }}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/40 text-[11px] font-semibold shadow-2xs print:bg-white print:text-emerald-800 print:border-emerald-300 ${nrcFrontUrl ? 'cursor-pointer transition-colors' : ''}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 print:px-1.5 print:py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/40 text-[11px] print:text-[8px] font-semibold shadow-2xs print:bg-white print:text-emerald-800 print:border-emerald-300 ${nrcFrontUrl ? 'cursor-pointer transition-colors' : ''}`}
                     title={nrcFrontUrl ? (language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း စစ်ဆေးမည်' : 'View NRC Front Document') : undefined}
                   >
-                    <Check className="w-3 h-3 text-emerald-400 print:text-emerald-600" />
+                    <Check className="w-3 h-3 print:w-2.5 print:h-2.5 text-emerald-400 print:text-emerald-600" />
                     <span>{language === 'my' ? 'မှတ်ပုံတင် အရှေ့ခြမ်း (NRC Front)' : 'NRC Front Side'}</span>
                   </button>
                 )}
@@ -808,10 +750,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                         });
                       }
                     }}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/40 text-[11px] font-semibold shadow-2xs print:bg-white print:text-emerald-800 print:border-emerald-300 ${nrcBackUrl ? 'cursor-pointer transition-colors' : ''}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 print:px-1.5 print:py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/40 text-[11px] print:text-[8px] font-semibold shadow-2xs print:bg-white print:text-emerald-800 print:border-emerald-300 ${nrcBackUrl ? 'cursor-pointer transition-colors' : ''}`}
                     title={nrcBackUrl ? (language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း စစ်ဆေးမည်' : 'View NRC Back Document') : undefined}
                   >
-                    <Check className="w-3 h-3 text-emerald-400 print:text-emerald-600" />
+                    <Check className="w-3 h-3 print:w-2.5 print:h-2.5 text-emerald-400 print:text-emerald-600" />
                     <span>{language === 'my' ? 'မှတ်ပုံတင် အနောက်ခြမ်း (NRC Back)' : 'NRC Back Side'}</span>
                   </button>
                 )}
@@ -832,10 +774,10 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                         });
                       }
                     }}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-600/40 text-[11px] font-semibold shadow-2xs print:bg-white print:text-indigo-800 print:border-indigo-300 ${passportDocUrl ? 'cursor-pointer transition-colors' : ''}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 print:px-1.5 print:py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-600/40 text-[11px] print:text-[8px] font-semibold shadow-2xs print:bg-white print:text-indigo-800 print:border-indigo-300 ${passportDocUrl ? 'cursor-pointer transition-colors' : ''}`}
                     title={passportDocUrl ? (language === 'my' ? 'နိုင်ငံကူးလက်မှတ် စစ်ဆေးမည်' : 'View Passport Document') : undefined}
                   >
-                    <Check className="w-3 h-3 text-indigo-400 print:text-indigo-600" />
+                    <Check className="w-3 h-3 print:w-2.5 print:h-2.5 text-indigo-400 print:text-indigo-600" />
                     <span>{language === 'my' ? 'နိုင်ငံကူးလက်မှတ် (Passport)' : 'Passport Document'}</span>
                   </button>
                 )}
@@ -843,33 +785,33 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
             )}
           </div>
 
-          {/* Signatures & Stamp area - Adjusted to wide space */}
-          <div className="pt-6 sm:pt-7 border-t border-slate-800 print:border-slate-300 grid grid-cols-3 gap-4 sm:gap-6 text-center text-xs text-slate-400 print:text-slate-600">
+          {/* Signatures & Stamp area - Proportional for A4 Single Page */}
+          <div className="pt-6 sm:pt-8 print:pt-4 border-t border-slate-800 print:border-slate-300 grid grid-cols-3 gap-4 sm:gap-6 print:gap-4 text-center text-xs print:text-[10px] text-slate-400 print:text-slate-600 mt-2 print:mt-3">
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 border-b-2 border-slate-700 print:border-slate-400 mb-2"></div>
-              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm">{transaction.creatorName || (language === 'my' ? 'စာရင်းသွင်းသူ' : 'Maker')}</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 print:text-slate-500">{language === 'my' ? 'စာရင်းသွင်းဝန်ထမ်း (Maker / Operator)' : 'Prepared / Operator'}</p>
+              <div className="w-full h-16 sm:h-20 print:h-14 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-1.5"></div>
+              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm print:text-[10.5px]">{transaction.creatorName || (language === 'my' ? 'စာရင်းသွင်းသူ' : 'Maker')}</p>
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'စာရင်းသွင်းဝန်ထမ်း (Maker / Operator)' : 'Prepared / Operator'}</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 mb-2 flex items-center justify-center">
-                <div className="w-full max-w-[160px] h-13 sm:h-16 border-2 border-dashed border-slate-700 bg-slate-950/60 rounded-lg flex items-center justify-center p-2 print:border-slate-300 print:bg-slate-50/60">
-                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="w-full h-16 sm:h-20 print:h-14 mb-2 print:mb-1.5 flex items-center justify-center">
+                <div className="w-full max-w-[160px] print:max-w-[140px] h-14 sm:h-16 print:h-14 border-2 border-dashed border-slate-700 bg-slate-950/60 rounded-lg print:rounded-md flex items-center justify-center p-2 print:p-1.5 print:border-slate-400 print:bg-slate-50/60">
+                  <span className="text-[10px] sm:text-[11px] print:text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                     {language === 'my' ? 'ဘဏ်ခွဲ တံဆိပ်တုံး' : 'Official Branch Stamp'}
                   </span>
                 </div>
               </div>
-              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm">{senderBranchDisplayName || (language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp')}</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 print:text-slate-500">{language === 'my' ? 'ဗဟိုဘဏ် စည်းမျဉ်းကိုက်' : 'Central Bank Compliance'}</p>
+              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm print:text-[10.5px]">{senderBranchDisplayName || (language === 'my' ? 'ဘဏ်ခွဲ အတည်ပြုတံဆိပ်တုံး' : 'Branch Verification Stamp')}</p>
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'ဗဟိုဘဏ် စည်းမျဉ်းကိုက်' : 'Central Bank Compliance'}</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-full h-16 sm:h-20 border-b-2 border-slate-700 print:border-slate-400 mb-2"></div>
-              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm">{transaction.approverName || (language === 'my' ? 'အတည်ပြုသူ မန်နေဂျာ' : 'Checker / Manager')}</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 print:text-slate-500">{language === 'my' ? 'ခွင့်ပြုအတည်ပြုသူ (Checker Approval)' : 'Authorized Checker Approval'}</p>
+              <div className="w-full h-16 sm:h-20 print:h-14 border-b-2 border-slate-700 print:border-slate-500 mb-2 print:mb-1.5"></div>
+              <p className="font-bold text-white print:text-slate-900 text-xs sm:text-sm print:text-[10.5px]">{transaction.approverName || (language === 'my' ? 'အတည်ပြုသူ မန်နေဂျာ' : 'Checker / Manager')}</p>
+              <p className="text-[10px] sm:text-[11px] print:text-[9px] text-slate-400 print:text-slate-500 mt-0.5">{language === 'my' ? 'ခွင့်ပြုအတည်ပြုသူ (Checker Approval)' : 'Authorized Checker Approval'}</p>
             </div>
           </div>
 
           {/* Compliance Footer notice */}
-          <div className="text-[10px] text-slate-400 print:text-slate-500 text-center leading-relaxed border-t border-slate-800 print:border-slate-200 pt-3">
+          <div className="text-[10px] print:text-[8px] text-slate-400 print:text-slate-500 text-center leading-relaxed print:leading-tight border-t border-slate-800 print:border-slate-200 pt-3 print:pt-1.5">
             {language === 'my'
               ? 'ဤငွေလွှဲပြောင်းမှုသည် မြန်မာနိုင်ငံတော်ဗဟိုဘဏ်၏ ငွေကြေးခဝါချမှုနှင့် အကြမ်းဖက်မှုကို ငွေကြေးထောက်ပံ့မှု တိုက်ဖျက်ရေး (AML/CFT) ညွှန်ကြားချက်များနှင့်အညီ စိစစ်အတည်ပြုထားပြီး ဖြစ်ပါသည်။'
               : 'This remittance transaction has been screened in compliance with the Central Bank of Myanmar Anti-Money Laundering (AML) & Counter-Terrorism Financing (CFT) guidelines. Keep this voucher and MTCN code secure. Beneficiary must present valid original Myanmar NRC for counter collection.'}
