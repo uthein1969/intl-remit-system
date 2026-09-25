@@ -1,23 +1,37 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --brand: #2563EB;
   --brand-hover: #1D4ED8;
-  --sidebar: #D1F2EB;
-  --bg: #D1F2EB;
-  --card-bg: #D1F2EB;
-  --line: #A2D9CE;
-  --text-muted: #3B6B63;
+  --bg: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --line: #E2E8F0;
+  --text-muted: #64748B;
   --text-main: #0F172A;
   --f-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   color-scheme: light;
 }
 
+html.dark, :root[data-theme="dark"], body.dark {
+  --brand: #3B82F6;
+  --brand-hover: #60A5FA;
+  --bg: #0B0F19;
+  --card-bg: #1E293B;
+  --line: #334155;
+  --text-muted: #94A3B8;
+  --text-main: #F8FAFC;
+  color-scheme: dark;
+}
+
 @layer base {
   html, body, #root {
-    background-color: #D1F2EB !important;
+    background-color: var(--bg);
     color: var(--text-main);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100%;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 }
 
@@ -30,11 +44,18 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #A2D9CE;
+  background: #CBD5E1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #76D7C4;
+  background: #94A3B8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -42,289 +63,227 @@
   height: 8px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #D1F2EB;
+  background: #F1F5F9;
   border-radius: 4px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: #0F172A;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #A2D9CE;
+  background: #CBD5E1;
   border-radius: 4px;
-  border: 1px solid #76D7C4;
+  border: 1px solid #E2E8F0;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #76D7C4;
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border: 1px solid #1E293B;
 }
 
 /* =========================================================================
-   MINT THEME SYSTEM OVERRIDES
-   All page surfaces, cards, and panels from White to Mint #D1F2EB
+   DARK MODE SYSTEM THEMING
    ========================================================================= */
 
-/* 1. Main cards, pages & panels: Soft Mint #D1F2EB */
-.bg-white:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
-[class*="bg-slate-900"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
-[class*="bg-slate-950"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]) {
-  background-color: #D1F2EB !important;
-  border-color: #A2D9CE !important;
-  color: #0F172A !important;
+/* 1. Dark Mode Surface & Card Inversions */
+.dark .bg-white:not(button[class*="bg-"]):not(input):not(select):not(textarea):not(option):not(a[class*="bg-"]):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]) {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
 }
 
-/* 2. Secondary panels, table headers, pill bars, and recessed regions */
-[class*="bg-slate-800"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
-[class*="bg-slate-850"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]):not([class*="bg-blue"]):not([class*="bg-sky"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-teal"]):not([class*="bg-purple"]):not([class*="bg-orange"]):not([class*="bg-green"]):not([class*="bg-red"]),
-.bg-slate-50:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]),
-.bg-slate-100:not(button):not(input):not(select):not(textarea):not(option):not(a):not([class*="inset-0"]),
-thead,
-tfoot {
-  background-color: #C1ECE3 !important;
-  border-color: #A2D9CE !important;
-  color: #000000 !important;
+.dark .bg-slate-50:not(button):not(input):not(select):not(textarea):not(option):not(a),
+.dark .bg-slate-100:not(button):not(input):not(select):not(textarea):not(option):not(a) {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
 }
 
-/* In-page dark note containers */
-div[class*="bg-black/"]:not(.fixed):not(.absolute) {
-  background-color: #C1ECE3 !important;
-  color: #000000 !important;
+/* Dark mode legacy mint fallback overrides */
+.dark [class*="bg-[#D1F2EB]"]:not(button):not(input):not(select):not(textarea):not(option),
+.dark [class*="bg-[#A2D9CE]"]:not(button):not(input):not(select):not(textarea):not(option),
+.dark [class*="bg-[#C1ECE3]"]:not(button):not(input):not(select):not(textarea):not(option) {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
 }
 
-/* Table styling for Mint mode */
-table {
-  color: #000000 !important;
-  background-color: #D1F2EB !important;
-}
-thead th {
-  background-color: #B5E8DC !important;
-  color: #000000 !important;
-  border-bottom: 2px solid #85D4C3 !important;
-}
-tbody td {
-  border-color: #BCE7DE !important;
-  color: #000000 !important;
-}
-tfoot td, tfoot th {
-  background-color: #B5E8DC !important;
-  color: #000000 !important;
-  border-top: 2px solid #85D4C3 !important;
-}
-tbody tr:hover {
-  background-color: #C1ECE3 !important;
+/* 2. Dark Mode Tables & Data Grids */
+.dark table {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
 }
 
-/* 3. Form Inputs, Selects, Dropdowns, Textareas */
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
-select,
-textarea {
-  background-color: #FFFFFF !important;
-  border-color: #85D4C3 !important;
-  color: #0F172A !important;
+.dark thead th {
+  background-color: #0F172A !important;
+  color: #E2E8F0 !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
-option {
-  background-color: #FFFFFF !important;
-  color: #0F172A !important;
+.dark tbody td {
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
-  background-color: #FFFFFF !important;
-  border-color: #0D9488 !important;
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2) !important;
+.dark tfoot td,
+.dark tfoot th {
+  background-color: #0F172A !important;
+  color: #E2E8F0 !important;
+  border-top: 2px solid #334155 !important;
+}
+
+.dark tbody tr:hover {
+  background-color: #273549 !important;
+}
+
+/* 3. Dark Mode Form Inputs, Selects, Dropdowns, Textareas */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+.dark select,
+.dark textarea {
+  background-color: #0F172A !important;
+  border-color: #475569 !important;
+  color: #F8FAFC !important;
+}
+
+.dark option {
+  background-color: #0F172A !important;
+  color: #F8FAFC !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  background-color: #0F172A !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
   outline: none !important;
 }
 
-input::placeholder,
-textarea::placeholder {
+.dark input::placeholder,
+.dark textarea::placeholder {
   color: #64748B !important;
 }
 
-/* 4. Borders & Dividers */
-[class*="border-slate-"] {
-  border-color: #A2D9CE !important;
+/* 4. Dark Mode Borders & Dividers */
+.dark [class*="border-slate-200"],
+.dark [class*="border-slate-100"] {
+  border-color: #334155 !important;
 }
 
-.divide-slate-800 > * + *,
-.divide-slate-700 > * + * {
-  border-color: #A2D9CE !important;
+.dark .divide-slate-200 > * + *,
+.dark .divide-slate-100 > * + * {
+  border-color: #334155 !important;
 }
 
-/* 5. Typography: Change green, white, gold, and sky-blue text color to Black color in all pages */
-h1, h2, h3, h4, h5, h6 {
-  color: #000000 !important;
+/* 5. Dark Mode Typography Adjustments */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #F8FAFC !important;
 }
 
-/* Green text (emerald, green, teal) to Black */
-[class*="text-emerald-"],
-[class*="text-green-"],
-[class*="text-teal-"] {
-  color: #000000 !important;
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 {
+  color: #F8FAFC !important;
 }
 
-/* Gold / Yellow text (amber, yellow) to Black */
-[class*="text-amber-"],
-[class*="text-yellow-"] {
-  color: #000000 !important;
+.dark .text-slate-600 {
+  color: #CBD5E1 !important;
 }
 
-/* Sky blue & cyan text to Black across all pages */
-[class*="text-sky-"],
-[class*="text-cyan-"],
-[class*="text-blue-"] {
-  color: #000000 !important;
+.dark .text-slate-500 {
+  color: #94A3B8 !important;
 }
 
-/* White text to Black across all pages */
-.text-white:not(button[class*="bg-rose"]):not(button[class*="bg-rose"] *):not(button[class*="bg-red"]):not(button[class*="bg-red"] *),
-[class*="text-white"]:not(button[class*="bg-rose"]):not(button[class*="bg-rose"] *):not(button[class*="bg-red"]):not(button[class*="bg-red"] *),
-.text-slate-100,
-.text-slate-200 {
-  color: #000000 !important;
+.dark .text-slate-400 {
+  color: #94A3B8 !important;
 }
 
-/* Also ensure muted text is deep dark for maximum readability */
-.text-slate-300 {
-  color: #1E293B !important;
-}
-.text-slate-400 {
-  color: #1E293B !important;
-}
-.text-slate-500 {
-  color: #334155 !important;
-}
-
-/* Selected Menu & Select Buttons: Text color is pure Black with NO change, and appears on select buttons */
-nav button,
-nav button *,
-aside button,
-aside button *,
-select,
-select *,
-option,
-button[aria-selected="true"],
-button[aria-selected="true"] *,
-button[class*="bg-blue-50"],
-button[class*="bg-blue-50"] *,
-button[class*="bg-blue-100"],
-button[class*="bg-blue-100"] *,
-button[class*="bg-teal-50"],
-button[class*="bg-teal-50"] *,
-button[class*="bg-emerald-50"],
-button[class*="bg-emerald-50"] * {
-  color: #000000 !important;
+/* Dark mode buttons (except colored action buttons) */
+.dark button.bg-slate-50,
+.dark button.bg-slate-100,
+.dark button.bg-white,
+.dark button[class*="bg-[#D1F2EB]"] {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
+  border-color: #475569 !important;
 }
 
-/* Selected navigation menu items */
-aside nav button[class*="border-blue-600"],
-aside nav button[class*="border-emerald-600"],
-aside nav button[class*="border-slate-900"],
-aside nav button[class*="bg-[#A2D9CE]"],
-aside nav button[class*="bg-blue-50"],
-aside nav button[class*="bg-emerald-50"] {
-  background-color: #A2D9CE !important;
-  border-left-color: #0F172A !important;
+.dark button.bg-slate-50:hover,
+.dark button.bg-slate-100:hover,
+.dark button.bg-white:hover,
+.dark button[class*="bg-[#D1F2EB]"]:hover {
+  background-color: #273549 !important;
+  color: #FFFFFF !important;
+}
+
+/* Dark Mode Sidebar active item */
+.dark aside nav button[class*="border-slate-900"],
+.dark aside nav button[class*="bg-[#A2D9CE]"],
+.dark aside nav button[class*="border-blue-600"] {
+  background-color: #1E3A5F !important;
+  border-left-color: #3B82F6 !important;
   border-left-width: 4px !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-}
-aside nav button[class*="border-blue-600"] *,
-aside nav button[class*="border-emerald-600"] *,
-aside nav button[class*="border-slate-900"] *,
-aside nav button[class*="bg-[#A2D9CE]"] *,
-aside nav button[class*="bg-blue-50"] *,
-aside nav button[class*="bg-emerald-50"] * {
-  color: #000000 !important;
+  color: #93C5FD !important;
 }
 
-/* HTML <select> dropdowns and options */
-select,
-select:focus,
-select:active,
-select option,
-select option:checked {
-  color: #000000 !important;
-  background-color: #FFFFFF !important;
-  font-weight: 600 !important;
+.dark aside nav button[class*="border-slate-900"] *,
+.dark aside nav button[class*="bg-[#A2D9CE]"] *,
+.dark aside nav button[class*="border-blue-600"] * {
+  color: #93C5FD !important;
 }
 
-/* SVG icons inheriting green, gold, sky-blue, or white render black */
-svg[class*="text-emerald-"],
-svg[class*="text-green-"],
-svg[class*="text-teal-"],
-svg[class*="text-amber-"],
-svg[class*="text-yellow-"],
-svg[class*="text-sky-"],
-svg[class*="text-cyan-"],
-svg[class*="text-blue-"] {
-  color: #000000 !important;
-  stroke: currentColor;
+/* Inactive sidebar buttons in dark mode */
+.dark aside nav button:not([class*="bg-[#A2D9CE]"]):not([class*="border-slate-900"]) {
+  color: #CBD5E1 !important;
+}
+.dark aside nav button:not([class*="bg-[#A2D9CE]"]):not([class*="border-slate-900"]) * {
+  color: #CBD5E1 !important;
+}
+.dark aside nav button:not([class*="bg-[#A2D9CE]"]):not([class*="border-slate-900"]):hover {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
 }
 
-/* 6. All Button Color changed to Page Color (#D1F2EB) in all pages */
-button,
-button[type="button"],
-button[type="submit"],
-button[type="reset"],
-[role="button"],
-button[class*="bg-"],
-button[class*="hover:bg-"],
-button[class*="active:bg-"] {
-  background-color: #D1F2EB !important;
-  background-image: none !important;
-  color: #000000 !important;
-  border: 1px solid #85D4C3 !important;
+/* Modals & Popovers in Dark Mode */
+.dark .bg-white.rounded-xl,
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-lg {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
+  border-color: #334155 !important;
 }
 
-button:hover,
-button[type="button"]:hover,
-button[type="submit"]:hover,
-button[type="reset"]:hover,
-[role="button"]:hover,
-button[class*="hover:bg-"]:hover {
-  background-color: #BCE7DE !important;
-  color: #000000 !important;
-  border-color: #70C7B5 !important;
+/* Preserve bright badge text in dark mode */
+.dark .bg-blue-500, .dark .bg-blue-600, .dark .bg-rose-500, .dark .bg-rose-600,
+.dark .bg-emerald-500, .dark .bg-emerald-600, .dark .bg-teal-500, .dark .bg-teal-600,
+.dark .bg-amber-500, .dark .bg-amber-600 {
+  color: #FFFFFF !important;
+}
+.dark .bg-blue-500 *, .dark .bg-blue-600 *, .dark .bg-rose-500 *, .dark .bg-rose-600 *,
+.dark .bg-emerald-500 *, .dark .bg-emerald-600 *, .dark .bg-teal-500 *, .dark .bg-teal-600 *,
+.dark .bg-amber-500 *, .dark .bg-amber-600 * {
+  color: #FFFFFF !important;
 }
 
-button:active,
-[role="button"]:active {
-  background-color: #A2D9CE !important;
-  color: #000000 !important;
+/* Light mode overrides for clean contrast */
+:root:not(.dark) {
+  --bg: #F8FAFC;
+  --card-bg: #FFFFFF;
 }
 
-/* Ensure all text, spans, and icons inside buttons are black */
-button *,
-button *:not([class*="badge"]),
-[role="button"] * {
-  color: #000000 !important;
+:root:not(.dark) [class*="bg-[#D1F2EB]"]:not(button):not(input):not(select):not(textarea) {
+  background-color: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #0F172A;
 }
 
-button svg,
-[role="button"] svg {
-  color: #000000 !important;
-  stroke: currentColor;
+:root:not(.dark) [class*="bg-[#A2D9CE]"]:not(button):not(input):not(select):not(textarea) {
+  background-color: #E2E8F0;
+  border-color: #CBD5E1;
+  color: #0F172A;
 }
 
-/* Selected navigation menu items & active toggle buttons */
-aside nav button[class*="border-slate-900"],
-aside nav button[class*="bg-[#A2D9CE]"],
-aside nav button[class*="border-blue-600"],
-aside nav button[class*="border-emerald-600"],
-button[aria-selected="true"],
-button.active {
-  background-color: #A2D9CE !important;
-  border-left-color: #0F172A !important;
-  border-left-width: 4px !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-}
-
-/* 7. Soft elevation shadows */
-.shadow-xl,
-.shadow-2xl {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
-}
-
-
-/* Dedicated print container for isolated, reliable voucher printing */
+/* =========================================================================
+   DEDICATED PRINT CONTAINER FOR ISOLATED, RELIABLE VOUCHER PRINTING
+   ========================================================================= */
 #voucher-print-container {
   display: none;
 }
@@ -465,4 +424,3 @@ button.active {
     break-inside: avoid !important;
   }
 }
-

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useRemittance } from '../lib/store';
 import { CompanyProfileModal } from './CompanyProfileModal';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
   onOpenBackup: () => void;
@@ -58,63 +59,66 @@ export const Header: React.FC<HeaderProps> = ({
   const currentCountry = db.countries.find(c => c.code === (currentBranch?.countryCode || effectiveCountryCode || 'MM'));
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-xs">
-      {/* Left: Mobile Menu + Title + Breadcrumbs / Language */}
-      <div className="flex items-center space-x-3 sm:space-x-4">
+    <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-xs transition-colors">
+      {/* Left: Mobile Menu + Title + Breadcrumbs / Language + Theme */}
+      <div className="flex items-center space-x-2 sm:space-x-4">
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-1.5 rounded-md hover:bg-slate-100 text-slate-600 focus:outline-none"
+            className="lg:hidden p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 focus:outline-none cursor-pointer"
             title="Toggle Navigation Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
+        <div className="flex items-center space-x-2.5 sm:space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold shrink-0">
             <ArrowLeftRight className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight leading-none truncate max-w-[140px] sm:max-w-none">
                 {language === 'my' ? 'ပြည်တွင်း ပြည်ပ ငွေလွှဲစနစ်' : 'Remittance Management System'}
               </h1>
-              <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 v2.4 Pro
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden xl:block leading-none mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden xl:block leading-none mt-0.5">
               {language === 'my' ? 'မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် စည်းမျဉ်းကိုက် ငွေလွှဲနှင့် စာရင်းရှင်းလင်းမှု' : 'CBM-Compliant Money Transfer & Cross-Border Settlement'}
             </p>
           </div>
         </div>
 
-        <div className="h-5 w-[1px] bg-slate-200 hidden md:block" />
+        <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
         {/* Language Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setLanguage('en')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-colors ${
+            className={`px-2 py-1 text-[11px] font-bold rounded transition-colors cursor-pointer ${
               language === 'en' 
-                ? 'bg-white text-slate-900 shadow-xs' 
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             EN
           </button>
           <button
             onClick={() => setLanguage('my')}
-            className={`px-2.5 py-1 text-[11px] font-bold rounded transition-colors ${
+            className={`px-2 py-1 text-[11px] font-bold rounded transition-colors cursor-pointer ${
               language === 'my' 
-                ? 'bg-white text-slate-900 shadow-xs' 
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             မြန်မာ
           </button>
         </div>
+
+        {/* Dark Mode & Light Mode Switch */}
+        <ThemeToggle />
       </div>
 
       {/* Right controls */}
@@ -191,36 +195,36 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setShowBranchSwitcher(!showBranchSwitcher)}
-            className="hidden lg:flex items-center space-x-1 px-2 py-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors cursor-pointer shrink-0"
+            className="hidden lg:flex items-center space-x-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0"
             title={language === 'my' ? 'လက်ရှိ ရွေးချယ်ထားသော နိုင်ငံနှင့် ဘဏ်ခွဲ ပြောင်းရန် နှိပ်ပါ' : 'Click to change active Country and Branch context'}
           >
             <span className="text-xs leading-none">{currentCountry?.flagEmoji || '🌐'}</span>
-            <span className="font-bold text-[11px] text-slate-900">{currentCountry?.code || 'MM'}</span>
-            <span className="text-slate-300 font-mono">/</span>
-            <Building2 className="w-3 h-3 text-blue-600 shrink-0" />
-            <span className="font-semibold text-[11px] text-blue-900 truncate max-w-[90px] xl:max-w-[130px]">
+            <span className="font-bold text-[11px] text-slate-900 dark:text-slate-100">{currentCountry?.code || 'MM'}</span>
+            <span className="text-slate-300 dark:text-slate-600 font-mono">/</span>
+            <Building2 className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="font-semibold text-[11px] text-blue-900 dark:text-blue-300 truncate max-w-[90px] xl:max-w-[130px]">
               {language === 'my' ? currentBranch?.nameMm : currentBranch?.nameEn}
             </span>
           </button>
 
           {/* Quick Context Switcher Dropdown */}
           {showBranchSwitcher && (
-            <div className="absolute right-0 mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-bold text-slate-800">
+            <div className="absolute right-0 mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-3 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   {language === 'my' ? 'လုပ်ငန်းခွင် နိုင်ငံနှင့် ဘဏ်ခွဲ ရွေးချယ်မှု' : 'Operating Branch & Country'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowBranchSwitcher(false)}
-                  className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                   {language === 'my' ? 'နိုင်ငံ (Country)' : 'Country'}
                 </label>
                 <select
@@ -233,10 +237,10 @@ export const Header: React.FC<HeaderProps> = ({
                       setActiveBranchId(matchedBranch.id);
                     }
                   }}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
                 >
                   {db.countries.map(c => (
-                    <option key={c.id} value={c.code}>
+                    <option key={c.id} value={c.code} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                       {c.flagEmoji} {c.nameEn} ({c.code})
                     </option>
                   ))}
@@ -244,7 +248,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                   {language === 'my' ? 'ဘဏ်ခွဲ (Branch)' : 'Branch'}
                 </label>
                 <select
@@ -258,12 +262,12 @@ export const Header: React.FC<HeaderProps> = ({
                     }
                     setShowBranchSwitcher(false);
                   }}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-medium text-slate-900 focus:outline-none focus:border-blue-500"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
                 >
                   {db.branches
                     .filter(b => !activeCountryCode || b.countryCode === activeCountryCode)
                     .map(b => (
-                      <option key={b.id} value={b.id}>
+                      <option key={b.id} value={b.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                         {b.code} - {b.nameEn} ({b.city})
                       </option>
                     ))}
@@ -274,20 +278,20 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Role & Operator Switcher */}
-        <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 shrink-0 max-w-[150px] sm:max-w-[190px]">
-          <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+        <div className="flex items-center space-x-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 shrink-0 max-w-[150px] sm:max-w-[190px]">
+          <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
           <div className="text-left min-w-0">
-            <div className="text-[9px] text-slate-500 uppercase font-mono font-bold leading-none truncate">
+            <div className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-mono font-bold leading-none truncate">
               {currentUser.role}
             </div>
             <select
               value={currentUser.id}
               onChange={(e) => switchUser(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none cursor-pointer pr-1 truncate max-w-[110px] sm:max-w-[150px]"
+              className="bg-transparent text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer pr-1 truncate max-w-[110px] sm:max-w-[150px]"
               aria-label="Switch current active user"
             >
               {db.users.map((u) => (
-                <option key={u.id} value={u.id} className="bg-white text-slate-900">
+                <option key={u.id} value={u.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                   {u.fullName} ({u.role})
                 </option>
               ))}
@@ -298,7 +302,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Quick Backup Action */}
         <button
           onClick={onOpenBackup}
-          className="p-1.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors shrink-0"
+          className="p-1.5 rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors shrink-0 cursor-pointer"
           title={t.backup}
         >
           <Download className="w-4 h-4" />

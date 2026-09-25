@@ -1925,8 +1925,8 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const nowStr = new Date().toISOString();
     
-    // In domestic remittance, approving an outward remittance ALWAYS automatically sends it to the receiving branch
-    const isDomesticOutward = tx.type === 'OUTWARD' && (tx.scope === 'DOMESTIC' || autoSendToInward !== false);
+    // In both domestic and international inter-branch remittances, approving an outward remittance automatically sends it to the receiving branch
+    const isOutwardAutoSend = tx.type === 'OUTWARD' && (autoSendToInward !== false || !!tx.payoutBranchId || tx.scope === 'DOMESTIC' || tx.scope === 'INTERNATIONAL');
     const targetBranchId = tx.payoutBranchId || 
       (tx.sendingBranchId === 'BR-001' ? 'BR-002' : 'BR-001');
 
@@ -1936,14 +1936,14 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let inwardTx: RemittanceTransaction | undefined = undefined;
     let inwardAuditRecord: AuditRecord | undefined = undefined;
 
-    if (isDomesticOutward && !existingInward) {
+    if (isOutwardAutoSend && !existingInward) {
       const inwTxNo = generateTxNo('INWARD');
       inwardTx = {
         id: getNextCleanId('TX', db.transactions, 3),
         transactionNo: inwTxNo,
         mtcn: tx.mtcn,
         type: 'INWARD',
-        scope: 'DOMESTIC',
+        scope: tx.scope || 'INTERNATIONAL',
         status: 'PENDING_APPROVAL', // Waiting for Receive Branch Checker to review & Payout Cash!
 
         senderName: tx.senderName,
@@ -1966,7 +1966,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         senderNrcFrontAttachment: tx.senderNrcFrontAttachment || tx.senderNrcAttachment,
         senderNrcFrontAttachmentName: tx.senderNrcFrontAttachmentName || tx.senderNrcAttachmentName,
         senderNrcFrontAttachmentType: tx.senderNrcFrontAttachmentType || tx.senderNrcAttachmentType,
-        senderNrcFrontAttachmentSize: tx.senderNrcFrontAttachmentSize || tx.senderNrcFrontAttachmentSize,
+        senderNrcFrontAttachmentSize: tx.senderNrcFrontAttachmentSize || tx.senderNrcAttachmentSize,
         senderNrcBackAttachment: tx.senderNrcBackAttachment,
         senderNrcBackAttachmentName: tx.senderNrcBackAttachmentName,
         senderNrcBackAttachmentType: tx.senderNrcBackAttachmentType,
@@ -2005,7 +2005,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         partnerCompanyId: tx.partnerCompanyId,
 
         purposeId: tx.purposeId || 'PUR-001',
-        purposeName: tx.purposeName || 'Domestic Remittance',
+        purposeName: tx.purposeName || (tx.scope === 'INTERNATIONAL' ? 'International Remittance' : 'Domestic Remittance'),
         senderNote: tx.senderNote || note,
         proofDocumentName: tx.proofDocumentName,
         proofDocumentUrl: tx.proofDocumentUrl,
@@ -2034,7 +2034,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         action: 'CREATE',
         entityType: 'INWARD',
         entityId: inwTxNo,
-        details: `Auto-dispatched Domestic Inward Remittance to ${destBranchName} from Outward ${tx.transactionNo} (MTCN: ${tx.mtcn}) upon approval.`
+        details: `Auto-dispatched ${tx.scope === 'INTERNATIONAL' ? 'International' : 'Domestic'} Inward Remittance to ${destBranchName} from Outward ${tx.transactionNo} (MTCN: ${tx.mtcn}) upon approval.`
       };
     }
 
@@ -2048,7 +2048,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       approverName: `${currentUser.fullName} (${currentUser.role})`,
       approvalNote: note || (isOutward ? 'Approved and sent to receiving branch.' : 'Approved and paid out to beneficiary.'),
       approvedDate: nowStr,
-      ...(isDomesticOutward ? {
+      ...(isOutwardAutoSend ? {
         isSentToDestination: true,
         sentDate: nowStr,
         sentByUserId: currentUser.id,
@@ -2068,7 +2068,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       action: 'APPROVE',
       entityType: tx.type === 'OUTWARD' ? 'OUTWARD' : 'INWARD',
       entityId: tx.transactionNo,
-      details: `Checker ${currentUser.fullName} approved transaction ${tx.transactionNo} (MTCN: ${tx.mtcn}).${isDomesticOutward ? ' Auto-sent to receiving branch Inward queue.' : ''} Note: ${note || 'None'}`
+      details: `Checker ${currentUser.fullName} approved transaction ${tx.transactionNo} (MTCN: ${tx.mtcn}).${isOutwardAutoSend ? ` Auto-sent to receiving branch Inward queue (${targetBranchId}).` : ''} Note: ${note || 'None'}`
     };
 
     setDb(prev => ({
@@ -2133,7 +2133,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       transactionNo: inwTxNo,
       mtcn: outwardTx.mtcn,
       type: 'INWARD',
-      scope: outwardTx.scope || 'DOMESTIC',
+      scope: outwardTx.scope || 'INTERNATIONAL',
       status: 'PENDING_APPROVAL', // Waiting for Receive Branch Checker to review & Payout Cash!
 
       senderName: outwardTx.senderName,
@@ -2195,7 +2195,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       partnerCompanyId: outwardTx.partnerCompanyId,
 
       purposeId: outwardTx.purposeId || 'PUR-001',
-      purposeName: outwardTx.purposeName || 'Domestic Remittance',
+      purposeName: outwardTx.purposeName || (outwardTx.scope === 'INTERNATIONAL' ? 'International Remittance' : 'Domestic Remittance'),
       senderNote: outwardTx.senderNote || note,
       proofDocumentName: outwardTx.proofDocumentName,
       proofDocumentUrl: outwardTx.proofDocumentUrl,

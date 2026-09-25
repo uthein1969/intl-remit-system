@@ -6,6 +6,7 @@
 import React, { Component, useState, useEffect } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { RemittanceProvider, useRemittance } from './lib/store';
+import { ThemeProvider } from './lib/theme';
 import { clearIndexedDb } from './lib/indexedDbStorage';
 import { LoginView } from './components/Auth/LoginView';
 import { Header } from './components/Header';
@@ -77,7 +78,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-[#D1F2EB] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white overflow-hidden">
+    <div className="h-screen bg-slate-100 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white overflow-hidden transition-colors">
       {/* Header */}
       <Header 
         onOpenBackup={() => handleNavigate('backup_restore')}
@@ -99,7 +100,7 @@ const MainLayout: React.FC = () => {
         />
 
         {/* Content Container */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 min-w-0 bg-[#D1F2EB]">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 min-w-0 bg-slate-50 dark:bg-[#0B0F19] transition-colors">
           <div className="max-w-7xl mx-auto space-y-4">
             {!isTabPermitted(activeTab) ? (
               <div className="bg-white border border-rose-200 rounded-xl p-8 text-center max-w-lg mx-auto my-12 shadow-xs space-y-4">
@@ -233,7 +234,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#D1F2EB] text-slate-900 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="min-h-screen bg-slate-100 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center font-sans">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-700 flex items-center justify-center mb-4 border border-amber-500/30">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -287,9 +288,11 @@ const RootApp: React.FC = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <RemittanceProvider>
-        <RootApp />
-      </RemittanceProvider>
+      <ThemeProvider>
+        <RemittanceProvider>
+          <RootApp />
+        </RemittanceProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

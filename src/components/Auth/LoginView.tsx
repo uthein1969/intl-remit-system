@@ -30,6 +30,7 @@ import {
 import { useRemittance } from '../../lib/store';
 import { User, UserRole } from '../../types';
 import { SUPABASE_SCHEMA_SQL, SUPABASE_DISABLE_RLS_SQL, testSupabaseConnection } from '../../lib/supabase';
+import { ThemeToggle } from '../ThemeToggle';
 
 export const LoginView: React.FC = () => {
   const { 
@@ -410,50 +411,56 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#D1F2EB] text-slate-900 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#A2D9CE] selection:text-black">
-      {/* Top Bar: Brand, CBM Badge & Language Switcher */}
-      <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6">
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-blue-600 selection:text-white transition-colors">
+      {/* Top Bar: Brand, CBM Badge & Language Switcher + Theme Toggle */}
+      <div className="max-w-4xl mx-auto w-full flex flex-wrap items-center justify-between gap-4 pb-6">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-[#D1F2EB] text-black border border-[#85D4C3] flex items-center justify-center shadow-xs">
-            <ArrowLeftRight className="w-5 h-5 text-black" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center justify-center shadow-xs">
+            <ArrowLeftRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-slate-900 font-bold text-base sm:text-lg tracking-tight">
+              <span className="text-slate-900 dark:text-slate-100 font-bold text-base sm:text-lg tracking-tight">
                 {language === 'my' ? 'ပြည်တွင်း ပြည်ပ ငွေလွှဲစနစ်' : 'Remittance Management Portal'}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#D1F2EB] text-black border border-[#85D4C3]">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 Multi-DB Ready
               </span>
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               {language === 'my' ? 'မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် စည်းမျဉ်းကိုက် လုံခြုံရေးစနစ်' : 'CBM-Regulated Multi-Currency Settlement Engine'}
             </p>
           </div>
         </div>
 
-        {/* Language Switcher */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-xs">
-          <button
-            onClick={() => setLanguage('en')}
-            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
-              language === 'en' 
-                ? 'bg-[#D1F2EB] text-black border border-[#85D4C3] shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLanguage('my')}
-            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
-              language === 'my' 
-                ? 'bg-[#D1F2EB] text-black border border-[#85D4C3] shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            မြန်မာ
-          </button>
+        {/* Language & Theme Controls */}
+        <div className="flex items-center gap-2">
+          {/* Language Switcher */}
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs">
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                language === 'en' 
+                  ? 'bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLanguage('my')}
+              className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                language === 'my' 
+                  ? 'bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              မြန်မာ
+            </button>
+          </div>
+
+          {/* Dark Mode and Light Mode Switch */}
+          <ThemeToggle />
         </div>
       </div>
 
@@ -461,7 +468,7 @@ export const LoginView: React.FC = () => {
       <div className="max-w-4xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Login Card with Database Choice */}
-        <div className="lg:col-span-7 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
           
           {/* Database Provider Selection Tabs (Turso Default) */}
           <div className="bg-slate-50 p-2.5 border-b border-slate-200">
@@ -517,38 +524,38 @@ export const LoginView: React.FC = () => {
           </div>
 
           {/* Card Header */}
-          <div className="bg-[#D1F2EB] border-b border-[#85D4C3] p-6 text-black relative">
+          <div className="bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 p-6 text-slate-900 dark:text-slate-100 relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-black" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                   {selectedProvider === 'TURSO' ? 'Turso Cloud Login' : 'Supabase Login'}
                 </span>
               </div>
               
               {/* Provider Connection Status Pill */}
               {selectedProvider === 'TURSO' ? (
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-[#A2D9CE] text-black border-[#85D4C3]">
-                  <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Turso Connected</span>
                 </div>
               ) : (
                 <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
                   db?.supabaseConfig?.isConnected 
-                    ? 'bg-[#A2D9CE] text-black border-[#85D4C3]' 
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800'
                 }`}>
-                  <div className={`w-2 h-2 rounded-full ${db?.supabaseConfig?.isConnected ? 'bg-black animate-pulse' : 'bg-amber-500'}`} />
+                  <div className={`w-2 h-2 rounded-full ${db?.supabaseConfig?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                   <span>{db?.supabaseConfig?.isConnected ? 'Supabase Connected' : 'DB Not Connected'}</span>
                 </div>
               )}
             </div>
 
-            <h2 className="text-2xl font-bold mt-2 text-black flex items-center gap-2">
-              <Lock className="w-6 h-6 text-black" />
+            <h2 className="text-2xl font-bold mt-2 text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               <span>User Login</span>
             </h2>
-            <p className="text-xs text-slate-700 mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
               {selectedProvider === 'TURSO'
                 ? (language === 'my' 
                     ? 'Turso Cloud database ရှိ "system_users" table မှ user အကောင့်ဖြင့် login ဝင်ပါ (Default)' 
@@ -711,12 +718,12 @@ export const LoginView: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-xl bg-[#D1F2EB] hover:bg-[#BCE7DE] active:bg-[#A2D9CE] text-black border border-[#85D4C3] font-bold text-sm shadow-xs transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-sm transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
               >
                 {loading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-black" />
-                    <span className="text-black">
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span className="text-white">
                       {selectedProvider === 'TURSO'
                         ? (language === 'my' ? 'Turso Cloud တွင် စစ်ဆေးနေပါသည်...' : 'Authenticating with Turso Cloud...')
                         : (language === 'my' ? 'Supabase Table တွင် စစ်ဆေးနေသည်...' : 'Authenticating with Supabase...')}
@@ -724,8 +731,8 @@ export const LoginView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Lock className="w-4 h-4 text-black" />
-                    <span className="text-black">
+                    <Lock className="w-4 h-4 text-white" />
+                    <span className="text-white">
                       {language === 'my' 
                         ? `User Login (ဝင်မည် - ${selectedProvider === 'TURSO' ? 'Turso Cloud' : 'Supabase'})` 
                         : `User Login (${selectedProvider === 'TURSO' ? 'Turso Cloud' : 'Supabase'})`}

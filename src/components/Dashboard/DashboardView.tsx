@@ -373,52 +373,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* Branch Network Operations Status */}
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-          <div className="flex items-center space-x-2">
-            <Building2 className="w-4 h-4 text-blue-600" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              {language === 'my' ? 'ဘဏ်ခွဲများ ကွန်ရက်နှင့် လည်ပတ်မှုအခြေအနေ (Branch Network Operations)' : 'Branch Network Operations'} ({db.branches.length})
-            </h3>
+      <div className="bg-slate-900 dark:bg-slate-950 border border-slate-800 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-md text-white relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center justify-between pb-3.5 border-b border-slate-800 relative z-10">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <span>{language === 'my' ? 'ဘဏ်ခွဲများ ကွန်ရက်နှင့် လည်ပတ်မှုအခြေအနေ (Branch Network Operations)' : 'Branch Network Operations'}</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  {db.branches.length}
+                </span>
+              </h3>
+            </div>
           </div>
           <button
             onClick={() => onNavigate('admin_setup', 'branch')}
-            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+            className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer transition-colors px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700"
           >
             <span>{language === 'my' ? 'ဘဏ်ခွဲများ စီမံခန့်ခွဲရန်' : 'Manage Branches'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3.5 relative z-10">
           {db.branches.map((b) => {
             const branchTxCount = db.transactions.filter(
               t => t.sendingBranchId === b.id || t.payoutBranchId === b.id
             ).length;
+            const isActive = b.status === 'ACTIVE';
             return (
               <div 
                 key={b.id}
-                className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all flex flex-col justify-between"
+                className="p-3 rounded-lg border border-slate-800 bg-slate-800/80 hover:bg-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between group"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-700/50">
                       {b.code}
                     </span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                      isActive
+                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/50"
+                        : "bg-rose-950/80 text-rose-300 border-rose-700/50"
+                    }`}>
                       {b.status}
                     </span>
                   </div>
-                  <h4 className="text-xs font-bold text-slate-900 mt-1.5 line-clamp-1" title={b.nameEn}>
+                  <h4 className="text-xs font-bold text-slate-100 mt-2 line-clamp-1 group-hover:text-blue-300 transition-colors" title={b.nameEn}>
                     {language === 'my' && b.nameMm ? b.nameMm : b.nameEn}
                   </h4>
-                  <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5" title={b.address}>
+                  <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5" title={b.address}>
                     {b.city}
                   </p>
                 </div>
-                <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500">{language === 'my' ? 'ငွေလွှဲအရေအတွက်' : 'Transactions'}:</span>
-                  <span className="font-mono font-bold text-slate-800">{branchTxCount}</span>
+                <div className="mt-2.5 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[10px]">
+                  <span className="text-slate-400">{language === 'my' ? 'ငွေလွှဲအရေအတွက်' : 'Transactions'}:</span>
+                  <span className="font-mono font-bold text-slate-200 bg-slate-900/60 px-1.5 py-0.2 rounded border border-slate-700/50">{branchTxCount}</span>
                 </div>
               </div>
             );
@@ -522,106 +537,133 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         {/* Right 5 cols: Recent Transactions Feed + Blacklist Alert Mini-Card */}
         <div className="lg:col-span-5 space-y-4">
           {/* Recent Completed */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                {t.recentTransactions}
-              </h3>
+          <div className="bg-slate-900 dark:bg-slate-950 border border-slate-800 dark:border-slate-800/80 rounded-xl p-4 shadow-md text-white relative overflow-hidden">
+            {/* Subtle decorative glow */}
+            <div className="absolute -right-12 -top-12 w-36 h-36 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800 relative z-10">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-md bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                  {t.recentTransactions}
+                </h3>
+              </div>
               <button
                 onClick={() => onNavigate('outward_report')}
-                className="text-[11px] font-bold text-blue-600 hover:text-blue-700"
+                className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer transition-colors px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700"
               >
-                {t.viewAll}
+                <span>{t.viewAll}</span>
+                <ChevronRight className="w-3 h-3" />
               </button>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {db.transactions.slice(0, 4).map((tx) => (
-                <div key={tx.id} className="py-2 flex items-center justify-between hover:bg-slate-50 px-1 rounded transition-colors">
-                  <div>
-                    <div className="flex items-center space-x-1.5">
-                      <span className="font-mono text-xs font-bold text-slate-800">{tx.transactionNo}</span>
-                      <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded uppercase ${
-                        tx.status === 'APPROVED_AND_SENT' || tx.status === 'APPROVED' || tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : tx.status === 'PENDING_APPROVAL'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {tx.status === 'APPROVED_AND_SENT'
-                          ? 'Approved and Sent'
-                          : tx.status === 'APPROVED_AND_PAID_OUT'
-                          ? 'Approved and Paid Out'
-                          : tx.status === 'APPROVED'
-                          ? 'Approved and Sent'
-                          : tx.status === 'PAID_OUT'
-                          ? 'Approved and Paid Out'
-                          : tx.status === 'PENDING_APPROVAL'
-                          ? 'Pending'
-                          : tx.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-1.5 text-[11px] text-slate-600 mt-0.5">
-                      <span className="truncate max-w-[150px]">{tx.senderName} ➔ {tx.receiverName}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-sky-600 font-mono font-semibold text-[10px]">
-                        {db.branches.find(b => b.id === (tx.sendingBranchId || tx.payoutBranchId))?.code || 'BR-001'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <div className="text-right">
-                      <div className="text-xs font-bold font-mono text-slate-900">
-                        {formatAmount(tx.receiveAmount)} {tx.targetCurrency}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {formatTime(tx.createdDate)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setSelectedVoucherTx(tx)}
-                      className="p-1.5 rounded-lg hover:bg-orange-50 text-slate-500 hover:text-orange-600 border border-slate-200 hover:border-orange-300 transition-colors cursor-pointer"
-                      title={t.printVoucher}
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+            <div className="divide-y divide-slate-800/70 relative z-10">
+              {db.transactions.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  {language === 'my' ? 'လတ်တလော ငွေလွှဲမှတ်တမ်း မရှိသေးပါ' : 'No recent transactions yet'}
                 </div>
-              ))}
+              ) : (
+                db.transactions.slice(0, 4).map((tx) => (
+                  <div key={tx.id} className="py-2.5 flex items-center justify-between hover:bg-slate-800/60 px-1.5 rounded-lg transition-colors">
+                    <div>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="font-mono text-xs font-bold text-slate-100">{tx.transactionNo}</span>
+                        <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded uppercase ${
+                          tx.status === 'APPROVED_AND_SENT' || tx.status === 'APPROVED' || tx.status === 'APPROVED_AND_PAID_OUT' || tx.status === 'PAID_OUT'
+                            ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/50'
+                            : tx.status === 'PENDING_APPROVAL'
+                            ? 'bg-amber-950/80 text-amber-300 border border-amber-700/50'
+                            : 'bg-rose-950/80 text-rose-300 border border-rose-700/50'
+                        }`}>
+                          {tx.status === 'APPROVED_AND_SENT'
+                            ? 'Approved and Sent'
+                            : tx.status === 'APPROVED_AND_PAID_OUT'
+                            ? 'Approved and Paid Out'
+                            : tx.status === 'APPROVED'
+                            ? 'Approved and Sent'
+                            : tx.status === 'PAID_OUT'
+                            ? 'Approved and Paid Out'
+                            : tx.status === 'PENDING_APPROVAL'
+                            ? 'Pending'
+                            : tx.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1.5 text-[11px] text-slate-300 mt-1">
+                        <span className="truncate max-w-[150px] font-medium">{tx.senderName} <span className="text-slate-500">➔</span> {tx.receiverName}</span>
+                        <span className="text-slate-600">•</span>
+                        <span className="text-sky-300 bg-sky-950/70 border border-sky-800/60 px-1 py-0.2 rounded font-mono font-semibold text-[10px]">
+                          {db.branches.find(b => b.id === (tx.sendingBranchId || tx.payoutBranchId))?.code || 'BR-001'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2.5">
+                      <div className="text-right">
+                        <div className="text-xs font-bold font-mono text-emerald-400">
+                          {formatAmount(tx.receiveAmount)} {tx.targetCurrency}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {formatTime(tx.createdDate)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedVoucherTx(tx)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-orange-950/50 text-slate-300 hover:text-orange-400 border border-slate-700 hover:border-orange-500/50 transition-colors cursor-pointer"
+                        title={t.printVoucher}
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           {/* Blacklist Monitor card */}
-          <div className="bg-rose-50 border border-rose-200 rounded-lg p-3.5 shadow-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-rose-200/80">
-              <div className="flex items-center space-x-1.5 text-rose-800">
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
+          <div className="bg-slate-900 dark:bg-slate-950 border border-slate-800 dark:border-slate-800/80 rounded-xl p-4 shadow-md text-white relative overflow-hidden">
+            {/* Subtle decorative glow */}
+            <div className="absolute -right-12 -top-12 w-36 h-36 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800 relative z-10">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-md bg-rose-500/20 border border-rose-400/30 flex items-center justify-center text-rose-400">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
                   AML Blacklist Monitor
                 </h3>
               </div>
               <button
                 onClick={() => onNavigate('admin_setup', 'blacklist')}
-                className="text-[11px] font-bold text-rose-700 hover:text-rose-900 underline"
+                className="text-[11px] font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700"
               >
-                Manage
+                <span>Manage</span>
+                <ChevronRight className="w-3 h-3" />
               </button>
             </div>
 
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-3 space-y-2 relative z-10">
               {db.blacklist.slice(0, 2).map((item) => (
-                <div key={item.id} className="bg-white border border-rose-200 rounded p-2 text-xs">
+                <div key={item.id} className="bg-slate-800/80 border border-slate-700/80 hover:border-rose-500/40 rounded-lg p-2.5 text-xs transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 text-[11px]">{item.fullNameEn || (item as any).nameEn} ({item.fullNameMm || (item as any).nameMm})</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-rose-100 text-rose-800 rounded">
+                    <span className="font-bold text-slate-100 text-[11px]">{item.fullNameEn || (item as any).nameEn} ({item.fullNameMm || (item as any).nameMm})</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase tracking-wider ${
+                      item.riskLevel === 'CRITICAL'
+                        ? 'bg-rose-950/90 text-rose-300 border-rose-700/60'
+                        : item.riskLevel === 'HIGH'
+                        ? 'bg-amber-950/90 text-amber-300 border-amber-700/60'
+                        : 'bg-blue-950/90 text-blue-300 border-blue-700/60'
+                    }`}>
                       {item.riskLevel}
                     </span>
                   </div>
-                  <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                  <div className="text-[10px] font-mono text-slate-400 mt-1">
                     NRC: {item.nrcNumber || 'N/A'} • Passport: {item.passportNumber || item.passbookNumber || 'N/A'}
                   </div>
-                  <p className="text-[10px] text-rose-900 mt-0.5 line-clamp-1 italic">
+                  <p className="text-[10px] text-rose-300/90 mt-1 line-clamp-1 italic">
                     {item.reason}
                   </p>
                 </div>

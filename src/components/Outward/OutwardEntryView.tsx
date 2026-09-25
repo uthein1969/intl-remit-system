@@ -257,11 +257,17 @@ export const OutwardEntryView: React.FC = () => {
   const handleScopeChange = (newScope: RemittanceScope) => {
     setScope(newScope);
     if (newScope === 'DOMESTIC') {
-      setReceiverCountryCode(userCountryCode === 'MM' ? 'MM' : userCountryCode);
+      const recCountry = userCountryCode === 'MM' ? 'MM' : userCountryCode;
+      setReceiverCountryCode(recCountry);
       setTargetCurrency('MMK');
+      const otherBranch = db.branches.find(b => b.countryCode === recCountry && b.id !== sendingBranchId) || db.branches.find(b => b.id !== sendingBranchId);
+      if (otherBranch) setPayoutBranchId(otherBranch.id);
     } else {
-      setReceiverCountryCode(userCountryCode === 'MM' ? 'TH' : 'MM');
+      const targetCountry = userCountryCode === 'MM' ? 'TH' : 'MM';
+      setReceiverCountryCode(targetCountry);
       setTargetCurrency(userCountryCode === 'MM' ? 'THB' : 'MMK');
+      const targetBranch = db.branches.find(b => b.countryCode === targetCountry && b.id !== sendingBranchId) || db.branches.find(b => b.id !== sendingBranchId);
+      if (targetBranch) setPayoutBranchId(targetBranch.id);
     }
   };
 
@@ -1031,7 +1037,7 @@ export const OutwardEntryView: React.FC = () => {
         payoutBankName,
         payoutAccountNumber,
         sendingBranchId,
-        payoutBranchId: scope === 'DOMESTIC' ? payoutBranchId : (payoutBranchId || undefined),
+        payoutBranchId: payoutBranchId || undefined,
         senderBranchName: db.branches.find(b => b.id === sendingBranchId)?.nameEn,
         receiverBranchName: db.branches.find(b => b.id === payoutBranchId)?.nameEn,
         partnerCompanyId,
@@ -2513,10 +2519,16 @@ export const OutwardEntryView: React.FC = () => {
                   <select
                     value={receiverCountryCode}
                     onChange={(e) => {
-                      setReceiverCountryCode(e.target.value);
-                      const country = db.countries.find(c => c.code === e.target.value);
+                      const newCountry = e.target.value;
+                      setReceiverCountryCode(newCountry);
+                      const country = db.countries.find(c => c.code === newCountry);
                       if (country && country.currencyCode) {
                         setTargetCurrency(country.currencyCode);
+                      }
+                      // Auto-select destination branch in the receiver's country if available
+                      const destBranch = db.branches.find(b => b.countryCode === newCountry && b.id !== sendingBranchId);
+                      if (destBranch) {
+                        setPayoutBranchId(destBranch.id);
                       }
                     }}
                     disabled={scope === 'DOMESTIC'}
@@ -2558,41 +2570,44 @@ export const OutwardEntryView: React.FC = () => {
                 onChange={(e) => setSendingBranchId(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:border-sky-500 focus:outline-none font-medium"
               >
-                {db.branches.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.code} - {b.nameEn} ({b.city})
-                  </option>
-                ))}
+                {db.branches.map(b => {
+                  const bCountry = db.countries.find(c => c.code === b.countryCode);
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {bCountry?.flagEmoji || '🌐'} {b.code} - {b.nameEn} ({b.city})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
-            {/* Receiving Branch (For Domestic Remittance) */}
-            {scope === 'DOMESTIC' ? (
-              <div>
-                <label className="block text-amber-400 mb-1 font-semibold flex items-center justify-between">
-                  <span>{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch)' : 'Receive Branch (Destination)'} *</span>
-                  <span className="text-[10px] text-emerald-400 font-mono">Auto Inward Dispatch</span>
-                </label>
-                <select
-                  value={payoutBranchId}
-                  onChange={(e) => setPayoutBranchId(e.target.value)}
-                  className="w-full bg-slate-800 border border-amber-500/50 rounded-xl px-3 py-2.5 text-white focus:border-amber-400 focus:outline-none font-semibold text-xs shadow-inner"
-                >
-                  {db.branches
-                    .filter(b => b.countryCode === 'MM')
-                    .map(b => (
-                      <option key={b.id} value={b.id} disabled={b.id === sendingBranchId}>
-                        {b.code} - {b.nameEn} ({b.city}) {b.id === sendingBranchId ? `(${language === 'my' ? 'ပို့မည့်ဘဏ်ခွဲဖြစ်နေပါသည်' : 'Current Sending Branch'})` : ''}
-                      </option>
-                    ))}
-                </select>
-                <p className="text-[10px] text-amber-300/80 mt-1">
-                  {language === 'my' 
-                    ? '💡 Approve ပြီး Send နှိပ်ပါက ဤဘဏ်ခွဲ Inward သို့ Auto ဝင်ပြီး Payout Cash ထုတ်ပေးနိုင်ပါမည်'
-                    : '💡 Once approved & sent, arrives automatically in this branch Inward for cash payout'}
-                </p>
-              </div>
-            ) : null}
+            {/* Receiving Branch (For Both Domestic & International Remittance with Auto-Dispatch) */}
+            <div>
+              <label className="block text-amber-400 mb-1 font-semibold flex items-center justify-between">
+                <span>{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch)' : 'Receive Branch (Destination)'} *</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">Auto Inward Dispatch</span>
+              </label>
+              <select
+                value={payoutBranchId}
+                onChange={(e) => setPayoutBranchId(e.target.value)}
+                className="w-full bg-slate-800 border border-amber-500/50 rounded-xl px-3 py-2.5 text-white focus:border-amber-400 focus:outline-none font-semibold text-xs shadow-inner"
+              >
+                {db.branches.map(b => {
+                  const bCountry = db.countries.find(c => c.code === b.countryCode);
+                  const isCurrent = b.id === sendingBranchId;
+                  return (
+                    <option key={b.id} value={b.id} disabled={isCurrent}>
+                      {bCountry?.flagEmoji || '🌐'} {b.code} - {b.nameEn} ({b.city}) {isCurrent ? `(${language === 'my' ? 'ပို့မည့်ဘဏ်ခွဲဖြစ်နေပါသည်' : 'Current Sending Branch'})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <p className="text-[10px] text-amber-300/80 mt-1">
+                {language === 'my' 
+                  ? '💡 Approve ပြီး Send နှိပ်ပါက ဤလက်ခံဘဏ်ခွဲ Inward သို့ Auto ဝင်ပြီး Payout Cash ထုတ်ပေးနိုင်ပါမည်'
+                  : '💡 Once approved & sent, arrives automatically in this branch Inward for cash payout'}
+              </p>
+            </div>
 
             {/* Purpose */}
             <div>

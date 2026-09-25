@@ -139,6 +139,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  const getNavBtnClasses = (isActive: boolean) =>
+    `w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
+      isActive
+        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-600 dark:border-blue-500 font-bold shadow-xs'
+        : 'border-transparent text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+    }`;
+
+  const getSubItemClasses = (isActive: boolean) =>
+    `w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+      isActive
+        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
+        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+    }`;
+
   return (
     <>
       {/* Mobile overlay */}
@@ -149,15 +163,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`fixed lg:sticky top-0 lg:top-14 z-50 lg:z-30 w-60 h-screen lg:h-[calc(100vh-3.5rem)] bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 select-none shadow-xs ${
+      <aside className={`fixed lg:sticky top-0 lg:top-14 z-50 lg:z-30 w-60 h-screen lg:h-[calc(100vh-3.5rem)] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out shrink-0 select-none shadow-xs ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         {/* Brand Header */}
-        <div className="h-14 px-5 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <div className="text-slate-900 font-bold tracking-tight text-sm flex items-center">
+        <div className="h-14 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+          <div className="text-slate-900 dark:text-slate-100 font-bold tracking-tight text-sm flex items-center">
             <span>REMIT</span>
-            <span className="text-blue-600">PRO</span>
-            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-mono px-1.5 py-0.5 rounded ml-1.5 font-bold">
+            <span className="text-blue-600 dark:text-blue-400">PRO</span>
+            <span className="text-[10px] bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono px-1.5 py-0.5 rounded ml-1.5 font-bold">
               v2.4
             </span>
           </div>
@@ -165,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-slate-700 p-1"
+              className="lg:hidden text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 cursor-pointer"
             >
               ✕
             </button>
@@ -177,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Section: Core Workflows */}
           {hasCoreMenus && (
             <>
-              <div className="px-3 pt-1 pb-1.5 text-[10px] text-slate-600 font-bold uppercase tracking-wider">
+              <div className="px-3 pt-1 pb-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
                 {language === 'my' ? 'အဓိက လုပ်ငန်း' : 'Core'}
               </div>
 
@@ -185,14 +199,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isAllowed('dashboard') && (
                 <button
                   onClick={() => handleNavClick('dashboard')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'dashboard'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'dashboard')}
                 >
-                  <LayoutDashboard className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navDashboard}</span>
+                  <LayoutDashboard className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navDashboard}</span>
                 </button>
               )}
 
@@ -200,14 +210,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isAllowed('outward_entry') && (
                 <button
                   onClick={() => handleNavClick('outward_entry')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'outward_entry'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'outward_entry')}
                 >
-                  <Send className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navOutwardEntry}</span>
+                  <Send className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navOutwardEntry}</span>
                 </button>
               )}
 
@@ -215,15 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isAllowed('outward_approve') && (
                 <button
                   onClick={() => handleNavClick('outward_approve')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'outward_approve'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={`${getNavBtnClasses(activeTab === 'outward_approve')} justify-between`}
                 >
                   <div className="flex items-center space-x-2.5 truncate">
-                    <CheckSquare className="w-4 h-4 text-black shrink-0" />
-                    <span className="truncate text-black">{t.navOutwardApprove}</span>
+                    <CheckSquare className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t.navOutwardApprove}</span>
                   </div>
                   {pendingOutward > 0 && (
                     <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
@@ -237,14 +239,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isAllowed('inward_entry') && (
                 <button
                   onClick={() => handleNavClick('inward_entry')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'inward_entry'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'inward_entry')}
                 >
-                  <DownloadCloud className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navInwardEntry}</span>
+                  <DownloadCloud className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navInwardEntry}</span>
                 </button>
               )}
 
@@ -252,15 +250,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isAllowed('inward_approve') && (
                 <button
                   onClick={() => handleNavClick('inward_approve')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'inward_approve'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={`${getNavBtnClasses(activeTab === 'inward_approve')} justify-between`}
                 >
                   <div className="flex items-center space-x-2.5 truncate">
-                    <CheckCircle2 className="w-4 h-4 text-black shrink-0" />
-                    <span className="truncate text-black">{t.navInwardApprove}</span>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t.navInwardApprove}</span>
                   </div>
                   {pendingInward > 0 && (
                     <span className="bg-teal-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
@@ -275,32 +269,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Section: Administration & Setups (Strictly ADMIN Role Only) */}
           {hasAdminMenu && (
             <>
-              <div className="px-3 pt-4 pb-1.5 text-[10px] text-slate-600 font-bold uppercase tracking-wider flex items-center justify-between">
+              <div className="px-3 pt-4 pb-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
                 <span>{language === 'my' ? 'ပြင်ဆင်မှုများ (Admin)' : 'Administration'}</span>
                 <button
                   onClick={() => setSetupExpanded(!setupExpanded)}
-                  className="text-black hover:text-slate-700 cursor-pointer"
+                  className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
                 >
-                  {setupExpanded ? <ChevronDown className="w-3 h-3 text-black" /> : <ChevronRight className="w-3 h-3 text-black" />}
+                  {setupExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                 </button>
               </div>
 
               {/* Admin Setup Master Link */}
               <button
                 onClick={() => handleNavClick('admin_setup')}
-                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                  activeTab === 'admin_setup'
-                    ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                    : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                }`}
+                className={getNavBtnClasses(activeTab === 'admin_setup')}
               >
-                <Settings className="w-4 h-4 text-black shrink-0" />
-                <span className="truncate text-black">{t.navAdminSetup}</span>
+                <Settings className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t.navAdminSetup}</span>
               </button>
 
               {/* 11 Setup Submodules */}
               {setupExpanded && (
-                <div className="pl-3.5 space-y-0.5 border-l border-slate-300 ml-3.5 my-1">
+                <div className="pl-3.5 space-y-0.5 border-l border-slate-200 dark:border-slate-800 ml-3.5 my-1">
                   {setupItems.map((item) => {
                     const isCurrent = activeTab === 'admin_setup' && activeSetupSubTab === item.id;
                     const Icon = item.icon;
@@ -308,18 +298,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={item.id}
                         onClick={() => handleSetupSubClick(item.id)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                          isCurrent
-                            ? 'bg-[#A2D9CE] text-black font-bold'
-                            : 'text-black hover:bg-[#C1ECE3] hover:text-black'
-                        }`}
+                        className={getSubItemClasses(isCurrent)}
                       >
                         <div className="flex items-center space-x-2 truncate">
-                          <Icon className="w-3.5 h-3.5 flex-shrink-0 text-black" />
-                          <span className="truncate text-black">{item.label}</span>
+                          <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">{item.label}</span>
                         </div>
                         {item.badge !== undefined && item.badge > 0 && (
-                          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 border border-rose-200 font-bold">
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 font-bold">
                             {item.badge}
                           </span>
                         )}
@@ -334,108 +320,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Section: Reports & Audit */}
           {hasReportMenus && (
             <>
-              <div className="px-3 pt-4 pb-1.5 text-[10px] text-slate-600 font-bold uppercase tracking-wider">
+              <div className="px-3 pt-4 pb-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
                 {language === 'my' ? 'အစီရင်ခံစာ & မှတ်တမ်း' : 'Reports & Security'}
               </div>
 
               {isAllowed('outward_report') && (
                 <button
                   onClick={() => handleNavClick('outward_report')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'outward_report'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'outward_report')}
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navOutwardReport}</span>
+                  <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navOutwardReport}</span>
                 </button>
               )}
 
               {isAllowed('total_outward_report') && (
                 <button
                   onClick={() => handleNavClick('total_outward_report')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'total_outward_report'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'total_outward_report')}
                 >
-                  <BarChart3 className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navTotalOutwardReport}</span>
+                  <BarChart3 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navTotalOutwardReport}</span>
                 </button>
               )}
 
               {isAllowed('inward_report') && (
                 <button
                   onClick={() => handleNavClick('inward_report')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'inward_report'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'inward_report')}
                 >
-                  <FileText className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navInwardReport}</span>
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navInwardReport}</span>
                 </button>
               )}
 
               {isAllowed('total_inward_report') && (
                 <button
                   onClick={() => handleNavClick('total_inward_report')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'total_inward_report'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'total_inward_report')}
                 >
-                  <BarChart3 className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navTotalInwardReport}</span>
+                  <BarChart3 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navTotalInwardReport}</span>
                 </button>
               )}
 
               {isAllowed('audit_log') && (
                 <button
                   onClick={() => handleNavClick('audit_log')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'audit_log'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'audit_log')}
                 >
-                  <History className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navAuditLog}</span>
+                  <History className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navAuditLog}</span>
                 </button>
               )}
 
               {isAllowed('backup_restore') && (
                 <button
                   onClick={() => handleNavClick('backup_restore')}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'backup_restore'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={getNavBtnClasses(activeTab === 'backup_restore')}
                 >
-                  <HardDriveDownload className="w-4 h-4 text-black shrink-0" />
-                  <span className="truncate text-black">{t.navBackupRestore}</span>
+                  <HardDriveDownload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t.navBackupRestore}</span>
                 </button>
               )}
 
               {isAllowed('turso_sync') && (
                 <button
                   onClick={() => handleNavClick('turso_sync')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-[3px] cursor-pointer ${
-                    activeTab === 'turso_sync'
-                      ? 'bg-[#A2D9CE] text-black border-slate-900 font-bold shadow-xs'
-                      : 'border-transparent text-black hover:text-black hover:bg-[#C1ECE3]'
-                  }`}
+                  className={`${getNavBtnClasses(activeTab === 'turso_sync')} justify-between`}
                 >
                   <div className="flex items-center space-x-2.5 truncate">
-                    <Database className="w-4 h-4 text-black shrink-0" />
-                    <span className="truncate text-black">{t.navTurso || 'Turso Cloud DB'}</span>
+                    <Database className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t.navTurso || 'Turso Cloud DB'}</span>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#A2D9CE] text-black border border-slate-400">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                     LibSQL
                   </span>
                 </button>
@@ -445,18 +403,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Active Operator & Logout in Sidebar */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50 shrink-0">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center space-x-1.5">
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   {currentUser.role}
                 </span>
-                <span className="text-xs font-semibold text-slate-800 truncate">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                   {currentUser.fullName}
                 </span>
               </div>
-              <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate">
                 @{currentUser.username}
               </div>
             </div>
@@ -474,12 +432,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer info in sidebar */}
-        <div className="p-3 border-t border-slate-200 text-[11px] text-slate-500 space-y-1.5 shrink-0 bg-slate-100/70">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 shrink-0 bg-slate-100/70 dark:bg-slate-950/60">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             <span className="truncate">Supabase Connected</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-500">
+          <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
             <span className="truncate">Auto-Sync • 100% CBM Compliant</span>
           </div>
