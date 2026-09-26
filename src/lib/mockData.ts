@@ -12,7 +12,8 @@ import {
   RemittanceTransaction,
   AuditRecord,
   OperatorProfile,
-  DEFAULT_ROLE_MENU_PERMISSIONS
+  DEFAULT_ROLE_MENU_PERMISSIONS,
+  MtoComplianceLimit
 } from '../types';
 import { sampleSenderNrcAttachment, sampleSenderPassportAttachment } from './sampleDocuments';
 
@@ -1275,6 +1276,11 @@ export const initialTransactions: RemittanceTransaction[] = [
     taxAmount: 0,
     totalPayableAmount: 2650000,
     
+    // USD Base
+    isUsdBase: true,
+    usdAmount: 578.60,
+    usdExchangeRate: 4580,
+    
     payoutMethod: 'CASH_PICKUP',
     sendingBranchId: 'BR-001',
     payoutBranchId: 'BR-001',
@@ -1345,6 +1351,69 @@ export const initialTransactions: RemittanceTransaction[] = [
     createdDate: '2026-09-01T08:30:00.000Z',
     approvedDate: '2026-09-01T08:50:00.000Z',
     paidOutDate: '2026-09-01T09:10:00.000Z',
+  },
+  {
+    id: 'TX-006',
+    transactionNo: 'REM-OUT-20260902-009',
+    mtcn: '7729104812',
+    type: 'OUTWARD',
+    scope: 'INTERNATIONAL',
+    status: 'PENDING_APPROVAL',
+    
+    senderName: 'Somchai Prasert',
+    senderNameMm: 'ဆုမ်ချိုင်း ပရာဆတ်',
+    senderPhone: '+66-89-123-9988',
+    senderAddress: 'Pratunam Market, Ratchathewi, Bangkok, Thailand',
+    senderCountryCode: 'TH',
+    senderNrc: 'N/A (Passport: AB-8829104)',
+    senderPassport: 'AB-8829104',
+    senderFatherName: 'Prasert Somchai',
+    senderOccupation: 'Textile Exporter / Trader',
+    senderSourceOfFund: 'Commercial Export Sales',
+    senderDateOfBirth: '18/05/1985',
+    senderIdType: 'PASSPORT',
+    senderPassportAttachment: sampleSenderPassportAttachment,
+    senderPassportAttachmentName: 'Passport_Somchai_Prasert_AB8829104.svg',
+    senderPassportAttachmentType: 'image/svg+xml',
+    senderPassportAttachmentSize: '24 KB',
+    
+    receiverName: 'Daw Khin Khin Lay',
+    receiverNameMm: 'ဒေါ်ခင်ခင်လေး',
+    receiverNrc: '12/DAGANA(N)109283',
+    receiverPhone: '09-420194821',
+    receiverAddress: 'No. 54, Insein Road, Kamayut, Yangon',
+    receiverCountryCode: 'MM',
+    
+    sourceCurrency: 'THB',
+    targetCurrency: 'MMK',
+    sendAmount: 50000,
+    exchangeRate: 134.50,
+    receiveAmount: 6725000,
+    serviceFee: 20000,
+    commissionFee: 0,
+    taxAmount: 0,
+    totalPayableAmount: 6745000,
+    
+    // USD Base Conversion
+    isUsdBase: true,
+    usdAmount: 1468.34,
+    usdExchangeRate: 4580,
+    usdServiceFee: 4.37,
+    
+    payoutMethod: 'CASH_PICKUP',
+    sendingBranchId: 'BR-001',
+    payoutBranchId: 'BR-002',
+    partnerCompanyId: 'CMP-005',
+    
+    purposeId: 'PUR-005',
+    purposeName: 'Commercial Trade & Goods Settlement',
+    senderNote: 'Wholesale textile export payment from Bangkok to Yangon partner',
+    proofDocumentName: 'Bangkok_Wholesale_Invoice_8829.pdf',
+    
+    blacklistChecked: true,
+    creatorUserId: 'USR-002',
+    creatorName: 'U Thura Lin (Maker)',
+    createdDate: '2026-09-02T08:15:00.000Z',
   }
 ];
 
@@ -1439,6 +1508,135 @@ export const initialAuditLogs: AuditRecord[] = [
   }
 ];
 
+export const initialMtoComplianceLimits: MtoComplianceLimit[] = [
+  {
+    id: 'MTO-LIM-001',
+    countryCode: 'TH',
+    countryName: 'Thailand (ထိုင်းနိုင်ငံ)',
+    flagEmoji: '🇹🇭',
+    currency: 'THB',
+    mtoPartnerName: 'TrueMoney / DeeMoney / Kasikorn Remit',
+    mtoMaxLimitPerTx: 100000, // 100,000 THB MTO limit per transaction
+    mtoMaxLimitPerMonth: 500000, // 500,000 THB monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000, // $5,000 USD Inward Domestic Limit per transaction
+    inwardMaxUsdPerMonth: 25000, // $25,000 USD Inward Domestic Limit per month
+    regulatoryRef: 'Bank of Thailand (BOT) & Central Bank of Myanmar (CBM) Cross-Border Remittance Bilateral Ceiling',
+    description: 'ထိုင်းနိုင်ငံမှ မြန်မာနိုင်ငံသို့ ငွေလွှဲရာတွင် MTO အများဆုံး ၁ သိန်း THB နှင့် ပြည်တွင်း Inward အများဆုံး $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-002',
+    countryCode: 'SG',
+    countryName: 'Singapore (စင်ကာပူနိုင်ငံ)',
+    flagEmoji: '🇸🇬',
+    currency: 'SGD',
+    mtoPartnerName: 'SingX / DBS Remit / InstaReM',
+    mtoMaxLimitPerTx: 5000, // 5,000 SGD MTO limit per transaction
+    mtoMaxLimitPerMonth: 25000, // 25,000 SGD monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Monetary Authority of Singapore (MAS) & CBM Worker Remittance Framework',
+    description: 'စင်ကာပူနိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၅,၀၀၀ SGD နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-003',
+    countryCode: 'MY',
+    countryName: 'Malaysia (မလေးရှားနိုင်ငံ)',
+    flagEmoji: '🇲🇾',
+    currency: 'MYR',
+    mtoPartnerName: 'Merchantrade Asia / Valyou MTO',
+    mtoMaxLimitPerTx: 15000, // 15,000 MYR MTO limit per transaction
+    mtoMaxLimitPerMonth: 60000, // 60,000 MYR monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Bank Negara Malaysia (BNM) & CBM Cross-Border Remittance Guidelines',
+    description: 'မလေးရှားနိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၁၅,၀၀၀ MYR နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-004',
+    countryCode: 'JP',
+    countryName: 'Japan (ဂျပန်နိုင်ငံ)',
+    flagEmoji: '🇯🇵',
+    currency: 'JPY',
+    mtoPartnerName: 'Kyodai Remittance / SBI Remit',
+    mtoMaxLimitPerTx: 1000000, // 1,000,000 JPY MTO limit per transaction
+    mtoMaxLimitPerMonth: 3000000, // 3,000,000 JPY monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Japan Financial Services Agency (FSA) & CBM Bilateral Directive',
+    description: 'ဂျပန်နိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ယန်း ၁ သန်း (1,000,000 JPY) နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-005',
+    countryCode: 'KR',
+    countryName: 'South Korea (တောင်ကိုရီးယားနိုင်ငံ)',
+    flagEmoji: '🇰🇷',
+    currency: 'KRW',
+    mtoPartnerName: 'GmoneyTrans / Hanpass / Sentbe',
+    mtoMaxLimitPerTx: 5000000, // 5,000,000 KRW MTO limit per transaction
+    mtoMaxLimitPerMonth: 25000000, // 25,000,000 KRW monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Bank of Korea (BOK) Foreign Exchange Act & CBM AML Guidelines',
+    description: 'တောင်ကိုရီးယားမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ဝမ် ၅ သန်း (5,000,000 KRW) နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-006',
+    countryCode: 'AE',
+    countryName: 'United Arab Emirates (ဒူဘိုင်း/ယူအေအီး)',
+    flagEmoji: '🇦🇪',
+    currency: 'AED',
+    mtoPartnerName: 'Al Ansari Exchange / LuLu International Exchange',
+    mtoMaxLimitPerTx: 20000, // 20,000 AED MTO limit per transaction
+    mtoMaxLimitPerMonth: 100000, // 100,000 AED monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Central Bank of the UAE (CBUAE) & CBM Remittance Compliance Framework',
+    description: 'ယူအေအီးဒူဘိုင်းမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၂၀,၀၀၀ AED နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'MTO-LIM-007',
+    countryCode: 'DEFAULT',
+    countryName: 'All Other International Countries (အခြားနိုင်ငံများ)',
+    flagEmoji: '🌐',
+    currency: 'USD',
+    mtoPartnerName: 'Global Licensed MTO Partners / Western Union / MoneyGram',
+    mtoMaxLimitPerTx: 5000, // $5,000 USD limit per transaction
+    mtoMaxLimitPerMonth: 25000, // $25,000 USD monthly ceiling
+    inwardCountryCode: 'MM',
+    inwardMaxUsdPerTx: 5000,
+    inwardMaxUsdPerMonth: 25000,
+    regulatoryRef: 'Central Bank of Myanmar (CBM) Standard Cross-Border Inward Remittance Ceiling',
+    description: 'အခြားနိုင်ငံများအားလုံးအတွက် စံသတ်မှတ်ချက် - တစ်ကြိမ်လျှင် $5,000 USD နှင့် တစ်လလျှင် အများဆုံး $25,000 USD သတ်မှတ်ချက်',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+];
+
 export const initialDatabase: AppDatabase = {
   operatorProfile: defaultOperatorProfile,
   branches: initialBranches,
@@ -1485,4 +1683,5 @@ export const initialDatabase: AppDatabase = {
     updatedAt: '2026-09-18T00:00:00.000Z',
     updatedBy: 'USR-001 (System Admin)',
   },
+  mtoComplianceLimits: initialMtoComplianceLimits,
 };

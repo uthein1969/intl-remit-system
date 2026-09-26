@@ -41,6 +41,7 @@ import { CompanyProfileModal } from '../CompanyProfileModal';
 import { CompanyProfileSettingForm } from './CompanyProfileSettingForm';
 import { RoleMenuPermissionManager } from './RoleMenuPermissionManager';
 import { DefaultStatusAdminManager } from './DefaultStatusAdminManager';
+import { MtoComplianceLimitManager } from './MtoComplianceLimitManager';
 import { 
   Branch, 
   User, 
@@ -76,7 +77,8 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
     savePurpose, deletePurpose,
     saveCustomer, deleteCustomer,
     currentUser,
-    operatorProfile
+    operatorProfile,
+    mtoComplianceLimits
   } = useRemittance();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -250,6 +252,15 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
       count: 1,
       beautyGradient: 'bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 border-emerald-400/40',
       activeGradient: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-800 border-2 border-emerald-200 ring-2 ring-emerald-400/50 shadow-lg shadow-emerald-600/30'
+    },
+    { 
+      id: 'mto_limit', 
+      labelEn: '13. MTO & Inward Limits', 
+      labelMm: '၁၃။ MTO & Inward ကန့်သတ်ချက်များ', 
+      icon: SlidersHorizontal, 
+      count: mtoComplianceLimits?.length || 0,
+      beautyGradient: 'bg-gradient-to-r from-sky-600 to-indigo-700 hover:from-sky-500 hover:to-indigo-600 border-sky-400/40',
+      activeGradient: 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-800 border-2 border-sky-200 ring-2 ring-sky-400/50 shadow-lg shadow-sky-600/30'
     },
   ];
 
@@ -805,13 +816,15 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
         })}
       </div>
 
-      {/* Content Area: Company Profile Setting Form OR Role Menu Permissions OR Default Status Manager OR Master Data Table */}
+      {/* Content Area: Company Profile Setting Form OR Role Menu Permissions OR Default Status Manager OR MTO Limits OR Master Data Table */}
       {currentSubTab === 'operator_profile' ? (
         <CompanyProfileSettingForm />
       ) : currentSubTab === 'menu_permission' ? (
         <RoleMenuPermissionManager />
       ) : currentSubTab === 'default_status' ? (
         <DefaultStatusAdminManager />
+      ) : currentSubTab === 'mto_limit' ? (
+        <MtoComplianceLimitManager />
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
           {/* Search Bar & Title Header */}

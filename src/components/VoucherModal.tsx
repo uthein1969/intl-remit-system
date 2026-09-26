@@ -648,33 +648,54 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ transaction, isOpen,
                   {Number(transaction.receiveAmount || 0).toLocaleString()} {transaction.targetCurrency}
                 </span>
               </div>
-              {transaction.isUsdBase && (
-                <div className="px-4 py-3 print:px-2.5 print:py-1.5 flex justify-between bg-sky-950/80 print:bg-sky-50 text-sky-200 print:text-sky-950 font-bold text-sm print:text-xs border-t border-sky-800 print:border-sky-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <div className="flex items-center space-x-2 print:space-x-1">
-                      <span className="px-2 py-0.5 print:px-1 print:py-0.5 rounded bg-sky-600 text-white text-[10px] print:text-[8px] font-black uppercase tracking-wider">
-                        USD Base
-                      </span>
-                      <span>{language === 'my' ? 'ဒေါ်လာတန်ဖိုး ညီမျှချက် (USD Equivalent)' : 'USD Base Equivalent'}:</span>
+              {(() => {
+                const linkedTx = transaction.linkedTransactionId ? db.transactions.find(t => t.id === transaction.linkedTransactionId) : null;
+                const isUsd = transaction.isUsdBase || (transaction.usdAmount !== undefined && transaction.usdAmount > 0) || linkedTx?.isUsdBase || (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0);
+                if (!isUsd) return null;
+
+                const usdAmt = transaction.usdAmount !== undefined && transaction.usdAmount > 0
+                  ? transaction.usdAmount
+                  : (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0)
+                  ? linkedTx.usdAmount
+                  : transaction.usdExchangeRate && transaction.usdExchangeRate > 0
+                  ? (transaction.receiveAmount || 0) / transaction.usdExchangeRate
+                  : linkedTx?.usdExchangeRate && linkedTx.usdExchangeRate > 0
+                  ? (transaction.receiveAmount || 0) / linkedTx.usdExchangeRate
+                  : 0;
+
+                const usdRate = transaction.usdExchangeRate || linkedTx?.usdExchangeRate;
+                const usdFee = transaction.usdServiceFee || linkedTx?.usdServiceFee;
+
+                if (!usdAmt || usdAmt <= 0) return null;
+
+                return (
+                  <div className="px-4 py-3 print:px-2.5 print:py-1.5 flex justify-between bg-sky-950/80 print:bg-sky-50 text-sky-200 print:text-sky-950 font-bold text-sm print:text-xs border-t border-sky-800 print:border-sky-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <div className="flex items-center space-x-2 print:space-x-1">
+                        <span className="px-2 py-0.5 print:px-1 print:py-0.5 rounded bg-sky-600 text-white text-[10px] print:text-[8px] font-black uppercase tracking-wider">
+                          USD Base
+                        </span>
+                        <span>{language === 'my' ? 'ဒေါ်လာတန်ဖိုး ညီမျှချက် (USD Equivalent)' : 'USD Base Equivalent'}:</span>
+                      </div>
+                      {usdRate && (
+                        <span className="text-xs print:text-[9px] font-normal text-sky-300 print:text-sky-700 font-mono">
+                          (1 USD = {usdRate} {transaction.targetCurrency})
+                        </span>
+                      )}
                     </div>
-                    {transaction.usdExchangeRate && (
-                      <span className="text-xs print:text-[9px] font-normal text-sky-300 print:text-sky-700 font-mono">
-                        (1 USD = {transaction.usdExchangeRate} {transaction.targetCurrency})
+                    <div className="text-right">
+                      <span className="font-mono text-base print:text-xs font-black text-white print:text-sky-900">
+                        $ {Number(usdAmt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                       </span>
-                    )}
+                      {usdFee !== undefined && usdFee > 0 && (
+                        <span className="block text-[11px] print:text-[8.5px] font-mono text-sky-300 print:text-sky-700 font-normal">
+                          {language === 'my' ? 'ဝန်ဆောင်ခ ဒေါ်လာ' : 'USD Fee'}: ${Number(usdFee).toFixed(2)} USD
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono text-base print:text-xs font-black text-white print:text-sky-900">
-                      $ {Number(transaction.usdAmount !== undefined ? transaction.usdAmount : (transaction.usdExchangeRate ? (transaction.receiveAmount || 0) / transaction.usdExchangeRate : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                    </span>
-                    {transaction.usdServiceFee !== undefined && transaction.usdServiceFee > 0 && (
-                      <span className="block text-[11px] print:text-[8.5px] font-mono text-sky-300 print:text-sky-700 font-normal">
-                        {language === 'my' ? 'ဝန်ဆောင်ခ ဒေါ်လာ' : 'USD Fee'}: ${Number(transaction.usdServiceFee).toFixed(2)} USD
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
 

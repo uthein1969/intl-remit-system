@@ -389,6 +389,30 @@ export interface DefaultStatusConfig {
   updatedBy?: string;
 }
 
+export interface MtoComplianceLimit {
+  id: string; // e.g. 'MTO-LIM-001'
+  countryCode: string; // Sender country code: 'TH', 'SG', 'MY', 'JP', 'KR', 'AE', 'DEFAULT'
+  countryName: string; // e.g. 'Thailand (ထိုင်း)'
+  flagEmoji?: string;
+  currency: string; // Sender currency e.g. 'THB', 'SGD', 'MYR'
+  mtoPartnerName?: string; // e.g. 'DeeMoney / Kasikorn MTO / TrueMoney'
+
+  // 1. Sender Country Currency Limit by MTO (Money Transfer Operator)
+  mtoMaxLimitPerTx: number; // Max amount in sender currency per tx (e.g. 100,000 THB)
+  mtoMaxLimitPerMonth?: number; // Optional max amount in sender currency per month (e.g. 500,000 THB)
+
+  // 2. Inward Country "Domestic" Myanmar USD Limit (Per transaction & Per month)
+  inwardCountryCode: string; // 'MM'
+  inwardMaxUsdPerTx: number; // Max USD amount per transaction (e.g. $5,000 USD)
+  inwardMaxUsdPerMonth: number; // Max USD amount per month (e.g. $25,000 USD)
+
+  regulatoryRef?: string; // e.g. 'CBM Foreign Exchange Management Directive & MTO Limit'
+  description?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface AppDatabase {
   operatorProfile?: OperatorProfile;
   branches: Branch[];
@@ -409,4 +433,5 @@ export interface AppDatabase {
   roleMenuPermissions?: RoleMenuPermissions;
   countryRoleMenuPermissions?: CountryRoleMenuPermissions;
   defaultStatusConfig?: DefaultStatusConfig;
+  mtoComplianceLimits?: MtoComplianceLimit[];
 }

@@ -443,6 +443,34 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                       <div className="text-[10px] text-slate-400 font-mono">
                         ({Number(tx.sendAmount || 0).toLocaleString()} {tx.sourceCurrency} @ {Number(tx.exchangeRate || 0).toLocaleString()})
                       </div>
+                      {(() => {
+                        const linkedTx = tx.linkedTransactionId ? db.transactions.find(t => t.id === tx.linkedTransactionId) : null;
+                        const isUsd = tx.isUsdBase || (tx.usdAmount !== undefined && tx.usdAmount > 0) || linkedTx?.isUsdBase || (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0);
+                        if (!isUsd) return null;
+
+                        const usdAmt = tx.usdAmount !== undefined && tx.usdAmount > 0
+                          ? tx.usdAmount
+                          : (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0)
+                          ? linkedTx.usdAmount
+                          : tx.usdExchangeRate && tx.usdExchangeRate > 0
+                          ? (tx.receiveAmount || 0) / tx.usdExchangeRate
+                          : linkedTx?.usdExchangeRate && linkedTx.usdExchangeRate > 0
+                          ? (tx.receiveAmount || 0) / linkedTx.usdExchangeRate
+                          : 0;
+
+                        if (!usdAmt || usdAmt <= 0) return null;
+
+                        return (
+                          <div className="mt-1 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono text-[11px] font-bold w-fit">
+                            <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-sky-500/25 text-sky-200 font-sans tracking-wide">
+                              USD Base
+                            </span>
+                            <span>
+                              ${Number(usdAmt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div>
@@ -626,6 +654,41 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                   <div className="text-xs text-slate-400 font-mono mt-0.5">
                     {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency} @ {Number(selectedTx.exchangeRate || 0).toLocaleString()}
                   </div>
+                  {(() => {
+                    const linkedTx = selectedTx.linkedTransactionId ? db.transactions.find(t => t.id === selectedTx.linkedTransactionId) : null;
+                    const isUsd = selectedTx.isUsdBase || (selectedTx.usdAmount !== undefined && selectedTx.usdAmount > 0) || linkedTx?.isUsdBase || (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0);
+                    if (!isUsd) return null;
+
+                    const usdAmt = selectedTx.usdAmount !== undefined && selectedTx.usdAmount > 0
+                      ? selectedTx.usdAmount
+                      : (linkedTx?.usdAmount !== undefined && linkedTx.usdAmount > 0)
+                      ? linkedTx.usdAmount
+                      : selectedTx.usdExchangeRate && selectedTx.usdExchangeRate > 0
+                      ? (selectedTx.receiveAmount || 0) / selectedTx.usdExchangeRate
+                      : linkedTx?.usdExchangeRate && linkedTx.usdExchangeRate > 0
+                      ? (selectedTx.receiveAmount || 0) / linkedTx.usdExchangeRate
+                      : 0;
+
+                    const usdRate = selectedTx.usdExchangeRate || linkedTx?.usdExchangeRate;
+
+                    if (!usdAmt || usdAmt <= 0) return null;
+
+                    return (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/70 border border-sky-500/40 text-sky-300 text-xs font-mono font-bold shadow-xs">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/25 text-sky-200 border border-sky-500/30 uppercase font-sans tracking-wide">
+                          USD Base
+                        </span>
+                        <span>
+                          ≈ ${Number(usdAmt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                        </span>
+                        {usdRate && (
+                          <span className="text-[10px] text-sky-400/80 font-normal">
+                            (@ 1 USD = {usdRate} MMK)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="text-right sm:text-right w-full sm:w-auto">

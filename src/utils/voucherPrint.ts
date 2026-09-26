@@ -777,7 +777,7 @@ export function generateVoucherHtml({
           <td>${language === 'my' ? 'လက်ခံရရှိငွေ စုစုပေါင်း (Total Payout / Receive Amount)' : 'Total Payout / Receive Amount'}:</td>
           <td class="val">${fmtNum(recvAmt)} ${targetCur}</td>
         </tr>
-        ${transaction.isUsdBase ? `
+        ${(transaction.isUsdBase || (transaction.usdAmount !== undefined && transaction.usdAmount > 0)) ? `
         <tr style="background: #f0f9ff; font-weight: 700; border-top: 1.5px solid #7dd3fc;">
           <td style="color: #0369a1; padding: 6px 10px;">
             <span style="background: #0284c7; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; margin-right: 6px;">USD BASE</span>
@@ -785,7 +785,7 @@ export function generateVoucherHtml({
             ${transaction.usdExchangeRate ? `<span style="font-size: 10px; color: #0284c7; font-weight: normal; margin-left: 6px;">(1 USD = ${transaction.usdExchangeRate} ${targetCur})</span>` : ''}
           </td>
           <td class="val" style="color: #0369a1; font-size: 13px; font-weight: 800;">
-            $ ${fmtNum(transaction.usdAmount !== undefined ? transaction.usdAmount : (transaction.usdExchangeRate ? recvAmt / transaction.usdExchangeRate : 0), '1.00')} USD
+            $ ${fmtNum(transaction.usdAmount !== undefined && transaction.usdAmount > 0 ? transaction.usdAmount : (transaction.usdExchangeRate ? recvAmt / transaction.usdExchangeRate : 0), '1.00')} USD
             ${transaction.usdServiceFee !== undefined && transaction.usdServiceFee > 0 ? `<div style="font-size: 10px; font-weight: normal; color: #0284c7;">${language === 'my' ? 'ဝန်ဆောင်ခ ဒေါ်လာ' : 'USD Fee'}: $ ${fmtNum(transaction.usdServiceFee, '1.00')} USD</div>` : ''}
           </td>
         </tr>` : ''}

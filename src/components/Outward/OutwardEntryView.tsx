@@ -30,7 +30,9 @@ import {
   Clock,
   Search,
   Users,
-  Check
+  Check,
+  AlertTriangle,
+  Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
@@ -61,7 +63,10 @@ export const OutwardEntryView: React.FC = () => {
     currentUser,
     activeBranchId,
     activeCountryCode,
-    defaultStatusConfig
+    defaultStatusConfig,
+    mtoComplianceLimits,
+    getMtoComplianceLimitForCountry,
+    calculateSenderMonthlyUsdTotal
   } = useRemittance();
 
   // Active User / Login Branch & Country context
@@ -479,6 +484,95 @@ export const OutwardEntryView: React.FC = () => {
   }, [isUsdBase, serviceFee, commissionFee, sourceCurrency, usdExchangeRate, getCorridorExchangeRate]);
 
   const totalPayableAmount = Number(sendAmount) + Number(serviceFee) + Number(commissionFee);
+
+  // MTO & Inward Domestic Myanmar Compliance Limits Calculations
+  const activeComplianceLimit = useMemo(() => {
+    return getMtoComplianceLimitForCountry(senderCountryCode, sourceCurrency);
+  }, [senderCountryCode, sourceCurrency, getMtoComplianceLimitForCountry, mtoComplianceLimits]);
+
+  // Is Remittance From International to Domestic (e.g. Sender Thailand -> Domestic Myanmar)
+  const isInternationalToDomestic = scope === 'INTERNATIONAL' || 
+    (senderCountryCode !== 'MM' && (receiverCountryCode === 'MM' || targetCurrency === 'MMK')) ||
+    (targetCurrency === 'MMK' && sourceCurrency !== 'MMK');
+
+  // Effective Base USD Amount (calculated in real-time whether isUsdBase checkbox is ticked or not)
+  const effectiveUsdAmount = useMemo(() => {
+    if (isUsdBase && calculatedUsdAmount > 0) return calculatedUsdAmount;
+    const recv = Number(calculatedReceiveAmount || 0);
+    const sendAmt = Number(sendAmount || 0);
+    if (recv <= 0 && sendAmt <= 0) return 0;
+    if (sourceCurrency === 'USD') return Number(sendAmt.toFixed(2));
+    if (targetCurrency === 'USD') return Number(recv.toFixed(2));
+
+    if (targetCurrency === 'MMK') {
+      const rate = usdExchangeRate > 0 ? usdExchangeRate : (getCorridorExchangeRate('USD', 'MMK') || 4580);
+      return Number((recv / rate).toFixed(2));
+    }
+
+    if (usdExchangeRate > 0) {
+      return Number((recv / usdExchangeRate).toFixed(2));
+    }
+    return 0;
+  }, [isUsdBase, calculatedUsdAmount, calculatedReceiveAmount, sendAmount, sourceCurrency, targetCurrency, usdExchangeRate, getCorridorExchangeRate]);
+
+  // Monthly accumulated USD for sender and/or beneficiary
+  const monthlyStats = useMemo(() => {
+    return calculateSenderMonthlyUsdTotal({
+      nrc: senderNrc || receiverNrc,
+      passport: senderPassport || receiverPassport,
+      phone: senderPhone || receiverPhone,
+      customerCode: selectedSenderCustomer?.customerCode || selectedReceiverCustomer?.customerCode
+    });
+  }, [senderNrc, receiverNrc, senderPassport, receiverPassport, senderPhone, receiverPhone, selectedSenderCustomer, selectedReceiverCustomer, calculateSenderMonthlyUsdTotal, db.transactions]);
+
+  const usedMonthlyUsd = monthlyStats.monthlyTotalUsd;
+  const projectedMonthlyUsd = Number((usedMonthlyUsd + effectiveUsdAmount).toFixed(2));
+
+  // Compliance Limits
+  const mtoLimitCap = activeComplianceLimit?.mtoMaxLimitPerTx || 100000;
+  const mtoAvailableUnderLimit = Math.max(0, mtoLimitCap - Number(sendAmount || 0));
+  const isMtoTxExceeded = (activeComplianceLimit?.active !== false) && Number(sendAmount || 0) > mtoLimitCap;
+  const mtoExceededBy = isMtoTxExceeded ? Number(sendAmount || 0) - mtoLimitCap : 0;
+
+  const inwardUsdTxCap = activeComplianceLimit?.inwardMaxUsdPerTx || 5000;
+  const inwardUsdTxAvailable = Math.max(0, inwardUsdTxCap - effectiveUsdAmount);
+  const isUsdTxExceeded = (activeComplianceLimit?.active !== false) && effectiveUsdAmount > inwardUsdTxCap;
+  const usdTxExceededBy = isUsdTxExceeded ? effectiveUsdAmount - inwardUsdTxCap : 0;
+
+  const inwardUsdMonthlyCap = activeComplianceLimit?.inwardMaxUsdPerMonth || 25000;
+  const inwardUsdMonthlyAvailable = Math.max(0, inwardUsdMonthlyCap - projectedMonthlyUsd);
+  const isUsdMonthlyExceeded = (activeComplianceLimit?.active !== false) && projectedMonthlyUsd > inwardUsdMonthlyCap;
+  const usdMonthlyExceededBy = isUsdMonthlyExceeded ? projectedMonthlyUsd - inwardUsdMonthlyCap : 0;
+
+  const isAnyComplianceLimitExceeded = isInternationalToDomestic && (isMtoTxExceeded || isUsdTxExceeded || isUsdMonthlyExceeded);
+
+  // Quick Action: Set to Max MTO Limit
+  const handleSetMaxMtoLimit = () => {
+    setSendAmount(mtoLimitCap);
+  };
+
+  // Quick Action: Set to Max Domestic USD Limit ($5,000 USD)
+  const handleSetMaxUsdLimit = () => {
+    if (sourceCurrency === 'USD') {
+      setSendAmount(inwardUsdTxCap);
+      return;
+    }
+    const usdMmk = (targetCurrency === 'MMK') ? (usdExchangeRate > 0 ? usdExchangeRate : 4580) : usdExchangeRate;
+    const exRate = Number(exchangeRate || 0);
+    if (exRate > 0 && usdMmk > 0) {
+      if (sourceCurrency !== 'MMK' && targetCurrency === 'MMK') {
+        const neededSend = Number(((inwardUsdTxCap * usdMmk) / exRate).toFixed(2));
+        setSendAmount(neededSend);
+      } else if (sourceCurrency === 'MMK' && targetCurrency !== 'MMK') {
+        const neededSend = Number((inwardUsdTxCap * usdMmk * exRate).toFixed(0));
+        setSendAmount(neededSend);
+      } else {
+        setSendAmount(mtoLimitCap);
+      }
+    } else {
+      setSendAmount(mtoLimitCap);
+    }
+  };
 
   // Quick fill & auto-fill sender customer data from customer_profiles
   const handleSelectSenderCustomer = (custOrId: string | Customer) => {
@@ -951,6 +1045,36 @@ export const OutwardEntryView: React.FC = () => {
           : `Receiver is flagged on CRITICAL Blacklist (${currentReceiverMatch.reason}). Submission blocked.`
       );
       return;
+    }
+
+    // MTO & CBM Inward Myanmar Domestic Limits Check
+    if (isInternationalToDomestic && activeComplianceLimit?.active !== false) {
+      if (isMtoTxExceeded) {
+        setErrorMessage(
+          language === 'my'
+            ? `ငွေလွှဲပို့ငွေပမာဏ (${Number(sendAmount).toLocaleString()} ${sourceCurrency}) သည် သက်ဆိုင်ရာ MTO မိတ်ဖက်၏ တစ်ကြိမ် ကန့်သတ်ချက် (${mtoLimitCap.toLocaleString()} ${sourceCurrency}) ထက် ${mtoExceededBy.toLocaleString()} ${sourceCurrency} ကျော်လွန်နေသဖြင့် ငွေလွှဲခွင့်မပြုပါ`
+            : `Send amount (${Number(sendAmount).toLocaleString()} ${sourceCurrency}) exceeds MTO partner limit of ${mtoLimitCap.toLocaleString()} ${sourceCurrency} by ${mtoExceededBy.toLocaleString()} ${sourceCurrency}.`
+        );
+        return;
+      }
+
+      if (isUsdTxExceeded) {
+        setErrorMessage(
+          language === 'my'
+            ? `ဤငွေလွှဲမှု၏ အခြေခံဒေါ်လာတန်ဖိုး ($${effectiveUsdAmount.toFixed(2)} USD) သည် မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် (CBM) ပြည်တွင်း Inward တစ်ကြိမ်လျှင် ဒေါ်လာကန့်သတ်ချက် ($${inwardUsdTxCap.toLocaleString()} USD) ထက် $${usdTxExceededBy.toFixed(2)} USD ကျော်လွန်နေသဖြင့် ငွေလွှဲခွင့်မပြုပါ`
+            : `Transaction base USD amount ($${effectiveUsdAmount.toFixed(2)} USD) exceeds Central Bank of Myanmar (CBM) domestic inward limit of $${inwardUsdTxCap.toLocaleString()} USD per transaction.`
+        );
+        return;
+      }
+
+      if (isUsdMonthlyExceeded) {
+        setErrorMessage(
+          language === 'my'
+            ? `ဤလွှဲငွေအပါအဝင် လစဉ် စုစုပေါင်းဒေါ်လာပမာဏ ($${projectedMonthlyUsd.toFixed(2)} USD) သည် မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် (CBM) တစ်လတာ ဒေါ်လာကန့်သတ်ချက် ($${inwardUsdMonthlyCap.toLocaleString()} USD) ထက် $${usdMonthlyExceededBy.toFixed(2)} USD ကျော်လွန်နေသဖြင့် ငွေလွှဲခွင့်မပြုပါ`
+            : `Cumulative monthly inward remittance ($${projectedMonthlyUsd.toFixed(2)} USD) exceeds CBM domestic monthly ceiling of $${inwardUsdMonthlyCap.toLocaleString()} USD.`
+        );
+        return;
+      }
     }
 
     const selectedPurpose = db.purposes.find(p => p.id === purposeId);
@@ -2342,6 +2466,257 @@ export const OutwardEntryView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Regulatory & Compliance Limits Verification (MTO & Inward Domestic CBM USD) */}
+            {isInternationalToDomestic && activeComplianceLimit && (
+              <div className={`rounded-2xl p-5 border transition-all shadow-sm space-y-4 ${
+                isAnyComplianceLimitExceeded 
+                  ? 'bg-rose-950/30 border-rose-600/70 shadow-rose-950/20' 
+                  : 'bg-slate-900 border-slate-800'
+              }`}>
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800">
+                  <div className="flex items-center space-x-2.5">
+                    <div className={`p-2 rounded-xl border ${
+                      isAnyComplianceLimitExceeded 
+                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse' 
+                        : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    }`}>
+                      {isAnyComplianceLimitExceeded ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">
+                          {language === 'my' 
+                            ? 'MTO နှင့် မြန်မာနိုင်ငံတွင်း (Inward) ငွေလွှဲပမာဏ ကန့်သတ်ချက် စစ်ဆေးမှု' 
+                            : 'MTO & Myanmar Domestic Inward Limit Verification'}
+                        </h4>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                          {activeComplianceLimit.flagEmoji || '🌐'} {activeComplianceLimit.countryCode} ➔ 🇲🇲 MM
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {language === 'my' 
+                          ? `${activeComplianceLimit.mtoPartnerName || 'MTO Partner'} နှင့် မြန်မာနိုင်ငံတော်ဗဟိုဘဏ် (CBM) သတ်မှတ်ချက်` 
+                          : `${activeComplianceLimit.mtoPartnerName || 'MTO Partner'} & Central Bank of Myanmar (CBM) Regulated Rules`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Status Indicator */}
+                  <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-bold shrink-0 border shadow-xs ${
+                    isAnyComplianceLimitExceeded
+                      ? 'bg-gradient-to-r from-rose-600 to-red-700 text-white border-rose-400/50 animate-pulse'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white border-emerald-400/50'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isAnyComplianceLimitExceeded ? 'bg-white' : 'bg-emerald-200'}`} />
+                    <span>
+                      {isAnyComplianceLimitExceeded 
+                        ? (language === 'my' ? '⚠️ ကန့်သတ်ချက် ကျော်လွန်နေပါသည်' : '⚠️ LIMIT EXCEEDED')
+                        : (language === 'my' ? '✓ ကန့်သတ်ချက် အတွင်းရှိပါသည်' : '✓ WITHIN LIMITS')}
+                    </span>
+                  </span>
+                </div>
+
+                {/* 3 Metric Cards: MTO limit, Inward USD per Tx, Inward USD per Month */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Card 1: Sender MTO Currency Limit */}
+                  <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                    isMtoTxExceeded 
+                      ? 'bg-rose-950/40 border-rose-600' 
+                      : 'bg-slate-950/70 border-slate-800'
+                  }`}>
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="text-slate-400 font-semibold truncate">1. Sender MTO Limit</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                          isMtoTxExceeded ? 'bg-rose-600 text-white' : 'bg-emerald-600/30 text-emerald-300'
+                        }`}>
+                          {isMtoTxExceeded ? 'EXCEEDED' : 'PASS'}
+                        </span>
+                      </div>
+                      <div className="text-sm font-black text-amber-300 font-mono">
+                        {Number(sendAmount || 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ {mtoLimitCap.toLocaleString()} {activeComplianceLimit.currency}</span>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            isMtoTxExceeded ? 'bg-rose-500' : 'bg-amber-400'
+                          }`}
+                          style={{ width: `${Math.min(100, ((Number(sendAmount || 0) / mtoLimitCap) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[11px]">
+                      {isMtoTxExceeded ? (
+                        <span className="text-rose-400 font-bold block">
+                          +{mtoExceededBy.toLocaleString()} {activeComplianceLimit.currency} over limit!
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">{language === 'my' ? 'ကျန်ရှိခွင့်ပြုငွေ:' : 'Available:'}</span>
+                          <span className="text-emerald-400 font-mono font-bold">
+                            {mtoAvailableUnderLimit.toLocaleString()} {activeComplianceLimit.currency}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 2: Inward Domestic USD Limit (Per Tx) */}
+                  <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                    isUsdTxExceeded 
+                      ? 'bg-rose-950/40 border-rose-600' 
+                      : 'bg-slate-950/70 border-slate-800'
+                  }`}>
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="text-slate-400 font-semibold truncate">2. Inward USD / Single Tx</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                          isUsdTxExceeded ? 'bg-rose-600 text-white' : 'bg-emerald-600/30 text-emerald-300'
+                        }`}>
+                          {isUsdTxExceeded ? 'EXCEEDED' : 'PASS'}
+                        </span>
+                      </div>
+                      <div className="text-sm font-black text-sky-400 font-mono">
+                        ${effectiveUsdAmount.toFixed(2)} <span className="text-xs text-slate-400 font-normal">/ ${inwardUsdTxCap.toLocaleString()} USD</span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            isUsdTxExceeded ? 'bg-rose-500' : 'bg-sky-400'
+                          }`}
+                          style={{ width: `${Math.min(100, ((effectiveUsdAmount / inwardUsdTxCap) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[11px]">
+                      {isUsdTxExceeded ? (
+                        <span className="text-rose-400 font-bold block">
+                          +${usdTxExceededBy.toFixed(2)} USD over limit!
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">{language === 'my' ? 'ကျန်ရှိခွင့်ပြုငွေ:' : 'Available:'}</span>
+                          <span className="text-emerald-400 font-mono font-bold">
+                            ${inwardUsdTxAvailable.toFixed(2)} USD
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 3: Inward Domestic USD Limit (Per Month Quota) */}
+                  <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${
+                    isUsdMonthlyExceeded 
+                      ? 'bg-rose-950/40 border-rose-600' 
+                      : 'bg-slate-950/70 border-slate-800'
+                  }`}>
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="text-slate-400 font-semibold truncate">3. Inward USD / Month</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                          isUsdMonthlyExceeded ? 'bg-rose-600 text-white' : 'bg-emerald-600/30 text-emerald-300'
+                        }`}>
+                          {isUsdMonthlyExceeded ? 'EXCEEDED' : 'PASS'}
+                        </span>
+                      </div>
+                      <div className="text-sm font-black text-indigo-300 font-mono">
+                        ${projectedMonthlyUsd.toFixed(2)} <span className="text-xs text-slate-400 font-normal">/ ${inwardUsdMonthlyCap.toLocaleString()} USD</span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            isUsdMonthlyExceeded ? 'bg-rose-500' : 'bg-indigo-400'
+                          }`}
+                          style={{ width: `${Math.min(100, ((projectedMonthlyUsd / inwardUsdMonthlyCap) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[11px]">
+                      {isUsdMonthlyExceeded ? (
+                        <span className="text-rose-400 font-bold block">
+                          +${usdMonthlyExceededBy.toFixed(2)} USD over monthly cap!
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">{language === 'my' ? 'လစဉ်ကျန်ရှိခွင့်ပြုငွေ:' : 'Monthly Quota:'}</span>
+                          <span className="text-emerald-400 font-mono font-bold">
+                            ${inwardUsdMonthlyAvailable.toFixed(2)} USD
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Exceeded Warning & Quick Auto-Adjust Action Row */}
+                {isAnyComplianceLimitExceeded && (
+                  <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/70 text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>
+                          {language === 'my' 
+                            ? 'စည်းမျဉ်းသတ်မှတ်ချက် ကျော်လွန်နေသဖြင့် လွှဲပို့ငွေပမာဏအား ပြန်လည်ညှိနှိုင်းပါ' 
+                            : 'Remittance amount exceeds regulatory limits. Please adjust send amount:'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-rose-300 pl-5.5 space-y-0.5">
+                        {isMtoTxExceeded && (
+                          <p>&bull; {language === 'my' 
+                            ? `MTO တစ်ကြိမ်ကန့်သတ်ငွေ ${mtoLimitCap.toLocaleString()} ${activeComplianceLimit.currency} ထက် ${mtoExceededBy.toLocaleString()} ${activeComplianceLimit.currency} ကျော်လွန်နေပါသည်` 
+                            : `Exceeds ${activeComplianceLimit.currency} MTO limit by ${mtoExceededBy.toLocaleString()} ${activeComplianceLimit.currency}`}
+                          </p>
+                        )}
+                        {isUsdTxExceeded && (
+                          <p>&bull; {language === 'my' 
+                            ? `CBM ပြည်တွင်း Inward တစ်ကြိမ်ဒေါ်လာကန့်သတ်ချက် ($${inwardUsdTxCap.toLocaleString()} USD) ထက် $${usdTxExceededBy.toFixed(2)} USD ကျော်လွန်နေပါသည်` 
+                            : `Exceeds CBM single tx cap ($${inwardUsdTxCap.toLocaleString()} USD) by $${usdTxExceededBy.toFixed(2)} USD`}
+                          </p>
+                        )}
+                        {isUsdMonthlyExceeded && (
+                          <p>&bull; {language === 'my' 
+                            ? `CBM ပြည်တွင်း Inward တစ်လတာဒေါ်လာကန့်သတ်ချက် ($${inwardUsdMonthlyCap.toLocaleString()} USD) ထက် $${usdMonthlyExceededBy.toFixed(2)} USD ကျော်လွန်နေပါသည်` 
+                            : `Exceeds CBM monthly quota ($${inwardUsdMonthlyCap.toLocaleString()} USD) by $${usdMonthlyExceededBy.toFixed(2)} USD`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {isMtoTxExceeded && (
+                        <button
+                          type="button"
+                          onClick={handleSetMaxMtoLimit}
+                          className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                        >
+                          Auto: Max MTO ({mtoLimitCap.toLocaleString()} {activeComplianceLimit.currency})
+                        </button>
+                      )}
+                      {isUsdTxExceeded && (
+                        <button
+                          type="button"
+                          onClick={handleSetMaxUsdLimit}
+                          className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                        >
+                          Auto: Max USD ($5,000 USD)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {/* END OF LEFT COLUMN */}
 

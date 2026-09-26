@@ -145,6 +145,11 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
     amount: number;
     currency: string;
     receiverName: string;
+    isUsdBase?: boolean;
+    usdAmount?: number;
+    usdExchangeRate?: number;
+    sendAmount?: number;
+    sourceCurrency?: string;
   } | null>(null);
 
   const outwardTxs = db.transactions.filter(t => t.type === 'OUTWARD');
@@ -253,7 +258,12 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
           sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
           amount: Number(selectedTx.receiveAmount || selectedTx.sendAmount || 0),
           currency: selectedTx.targetCurrency || 'MMK',
-          receiverName: selectedTx.receiverName
+          receiverName: selectedTx.receiverName,
+          isUsdBase: selectedTx.isUsdBase,
+          usdAmount: selectedTx.usdAmount,
+          usdExchangeRate: selectedTx.usdExchangeRate,
+          sendAmount: selectedTx.sendAmount,
+          sourceCurrency: selectedTx.sourceCurrency
         });
       }
     } finally {
@@ -280,7 +290,12 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
           sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
           amount: Number(tx.receiveAmount || tx.sendAmount || 0),
           currency: tx.targetCurrency || 'MMK',
-          receiverName: tx.receiverName
+          receiverName: tx.receiverName,
+          isUsdBase: tx.isUsdBase,
+          usdAmount: tx.usdAmount,
+          usdExchangeRate: tx.usdExchangeRate,
+          sendAmount: tx.sendAmount,
+          sourceCurrency: tx.sourceCurrency
         });
       }
     } finally {
@@ -310,7 +325,12 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
           sendingBranchName: sendBranch ? `${sendBranch.nameEn} (${sendBranch.code})` : 'Yangon Head Office (YGN-HQ)',
           amount: Number(selectedTx.receiveAmount || selectedTx.sendAmount || 0),
           currency: selectedTx.targetCurrency || 'MMK',
-          receiverName: selectedTx.receiverName
+          receiverName: selectedTx.receiverName,
+          isUsdBase: selectedTx.isUsdBase,
+          usdAmount: selectedTx.usdAmount,
+          usdExchangeRate: selectedTx.usdExchangeRate,
+          sendAmount: selectedTx.sendAmount,
+          sourceCurrency: selectedTx.sourceCurrency
         });
       }
     } finally {
@@ -879,6 +899,24 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                           </span>
                         )}
                       </div>
+
+                      {/* USD Base Equivalent badge & amount */}
+                      {(tx.isUsdBase || (tx.usdAmount !== undefined && tx.usdAmount > 0)) && (
+                        <div className="mt-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono text-[11px] font-bold w-fit">
+                          <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-sky-500/25 text-sky-200 font-sans tracking-wide">
+                            USD Base
+                          </span>
+                          <span>
+                            ${Number(
+                              tx.usdAmount !== undefined && tx.usdAmount > 0
+                                ? tx.usdAmount
+                                : tx.usdExchangeRate && tx.usdExchangeRate > 0
+                                ? (tx.receiveAmount || 0) / tx.usdExchangeRate
+                                : 0
+                            ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-slate-300 font-medium">{tx.creatorName}</div>
@@ -1127,10 +1165,17 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                     <strong className="text-emerald-400 text-sm font-mono block mt-0.5">
                       {Number(selectedTx.sendAmount || 0).toLocaleString()} {selectedTx.sourceCurrency}
                     </strong>
-                    {selectedTx.isUsdBase && selectedTx.usdAmount && (
-                      <span className="text-[10px] text-amber-400 font-mono block mt-0.5">
-                        ≈ ${Number(selectedTx.usdAmount).toLocaleString()} USD
-                      </span>
+                    {(selectedTx.isUsdBase || (selectedTx.usdAmount !== undefined && selectedTx.usdAmount > 0)) && (
+                      <div className="mt-1 flex items-center gap-1 text-[11px] text-sky-400 font-mono font-bold">
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-sans uppercase">USD Base</span>
+                        <span>≈ ${Number(
+                          selectedTx.usdAmount !== undefined && selectedTx.usdAmount > 0
+                            ? selectedTx.usdAmount
+                            : selectedTx.usdExchangeRate && selectedTx.usdExchangeRate > 0
+                            ? (selectedTx.receiveAmount || 0) / selectedTx.usdExchangeRate
+                            : 0
+                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
+                      </div>
                     )}
                   </div>
 
@@ -2118,6 +2163,22 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                   <strong className="text-emerald-400 text-sm font-mono font-bold">
                     {dispatchSuccessModal.amount.toLocaleString()} {dispatchSuccessModal.currency}
                   </strong>
+                  {(dispatchSuccessModal.isUsdBase || (dispatchSuccessModal.usdAmount !== undefined && dispatchSuccessModal.usdAmount > 0)) && (
+                    <div className="mt-1 flex items-center justify-end gap-1.5">
+                      <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-bold tracking-wide font-sans">
+                        USD BASE
+                      </span>
+                      <span className="text-sky-400 text-xs font-mono font-bold">
+                        ${Number(
+                          dispatchSuccessModal.usdAmount !== undefined && dispatchSuccessModal.usdAmount > 0
+                            ? dispatchSuccessModal.usdAmount
+                            : dispatchSuccessModal.usdExchangeRate && dispatchSuccessModal.usdExchangeRate > 0
+                            ? dispatchSuccessModal.amount / dispatchSuccessModal.usdExchangeRate
+                            : 0
+                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

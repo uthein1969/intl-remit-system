@@ -24,7 +24,8 @@ import {
   UserCheck2,
   ChevronDown,
   ChevronRight,
-  LogOut
+  LogOut,
+  Sliders
 } from 'lucide-react';
 import { useRemittance } from '../lib/store';
 
@@ -55,7 +56,8 @@ export type SetupSubTab =
   | 'purpose'
   | 'customer'
   | 'menu_permission'
-  | 'default_status';
+  | 'default_status'
+  | 'mto_limit';
 
 interface SidebarProps {
   activeTab: NavigationTab;
@@ -136,6 +138,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'default_status', 
       label: language === 'my' ? '၁၂။ မူရင်း အခြေအနေ (Default Status)' : '12. Default Status Settings', 
       icon: CheckSquare 
+    },
+    { 
+      id: 'mto_limit', 
+      label: language === 'my' ? '၁၃။ MTO & Inward ကန့်သတ်ချက်များ' : '13. MTO & Inward Limits', 
+      icon: Sliders 
     },
   ];
 

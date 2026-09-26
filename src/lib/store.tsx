@@ -21,9 +21,10 @@ import {
   RoleMenuPermissions,
   CountryRoleMenuPermissions,
   DEFAULT_ROLE_MENU_PERMISSIONS,
-  DefaultStatusConfig
+  DefaultStatusConfig,
+  MtoComplianceLimit
 } from '../types';
-import { initialDatabase, defaultOperatorProfile } from './mockData';
+import { initialDatabase, defaultOperatorProfile, initialMtoComplianceLimits } from './mockData';
 import { sampleSenderNrcAttachment, sampleSenderPassportAttachment } from './sampleDocuments';
 import { translations } from '../i18n/translations';
 import { getSupabaseClient, resetSupabaseClient } from './supabase';
@@ -245,6 +246,23 @@ interface RemittanceContextType {
   resetRoleMenuPermissions: (countryCode?: string) => void;
   copyRoleMenuPermissions: (sourceCountryCode: string, targetCountryCode: string) => void;
   isMenuAllowedForRole: (role: UserRole, tab: NavigationTab, countryCode?: string) => boolean;
+
+  // MTO & Inward Compliance Remittance Limits
+  mtoComplianceLimits: MtoComplianceLimit[];
+  saveMtoComplianceLimit: (limit: MtoComplianceLimit) => Promise<boolean>;
+  deleteMtoComplianceLimit: (id: string) => Promise<boolean>;
+  resetMtoComplianceLimitsToDefault: () => Promise<boolean>;
+  getMtoComplianceLimitForCountry: (senderCountryCode: string, currency?: string) => MtoComplianceLimit;
+  calculateSenderMonthlyUsdTotal: (senderIdentifier: { 
+    nrc?: string; 
+    passport?: string; 
+    phone?: string; 
+    customerCode?: string;
+  }) => {
+    monthlyTotalUsd: number;
+    transactionCount: number;
+    monthName: string;
+  };
 }
 
 const RemittanceContext = createContext<RemittanceContextType | null>(null);
@@ -383,6 +401,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             countryRoleMenuPermissions: (parsed.countryRoleMenuPermissions && typeof parsed.countryRoleMenuPermissions === 'object')
               ? parsed.countryRoleMenuPermissions
               : (initialDatabase.countryRoleMenuPermissions || {}),
+            mtoComplianceLimits: Array.isArray(parsed.mtoComplianceLimits) && parsed.mtoComplianceLimits.length > 0
+              ? parsed.mtoComplianceLimits
+              : (initialDatabase.mtoComplianceLimits || initialMtoComplianceLimits),
           };
         }
       }
@@ -1872,6 +1893,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionFee: Number(txData.commissionFee || 0),
       taxAmount: 0,
       totalPayableAmount: Number(txData.receiveAmount || 0),
+
+      // USD Base
+      isUsdBase: !!txData.isUsdBase,
+      usdAmount: txData.usdAmount !== undefined ? Number(txData.usdAmount) : undefined,
+      usdExchangeRate: txData.usdExchangeRate !== undefined ? Number(txData.usdExchangeRate) : undefined,
+      usdServiceFee: txData.usdServiceFee !== undefined ? Number(txData.usdServiceFee) : undefined,
       
       payoutMethod: txData.payoutMethod || 'CASH_PICKUP',
       payoutBankName: txData.payoutBankName,
@@ -1994,6 +2021,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         commissionFee: Number(tx.commissionFee || 0),
         taxAmount: 0,
         totalPayableAmount: Number(tx.receiveAmount || tx.sendAmount || 0),
+
+        // Propagate USD Base conversion if configured
+        isUsdBase: tx.isUsdBase,
+        usdAmount: tx.usdAmount !== undefined ? Number(tx.usdAmount) : undefined,
+        usdExchangeRate: tx.usdExchangeRate !== undefined ? Number(tx.usdExchangeRate) : undefined,
+        usdServiceFee: tx.usdServiceFee !== undefined ? Number(tx.usdServiceFee) : undefined,
 
         payoutMethod: tx.payoutMethod || 'CASH_PICKUP',
         payoutBankName: tx.payoutBankName,
@@ -2184,6 +2217,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionFee: Number(outwardTx.commissionFee || 0),
       taxAmount: 0,
       totalPayableAmount: Number(outwardTx.receiveAmount || outwardTx.sendAmount || 0),
+
+      // Propagate USD Base conversion if configured
+      isUsdBase: outwardTx.isUsdBase,
+      usdAmount: outwardTx.usdAmount !== undefined ? Number(outwardTx.usdAmount) : undefined,
+      usdExchangeRate: outwardTx.usdExchangeRate !== undefined ? Number(outwardTx.usdExchangeRate) : undefined,
+      usdServiceFee: outwardTx.usdServiceFee !== undefined ? Number(outwardTx.usdServiceFee) : undefined,
 
       payoutMethod: outwardTx.payoutMethod || 'CASH_PICKUP',
       payoutBankName: outwardTx.payoutBankName,
@@ -2925,6 +2964,177 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'DEFAULT_STATUS_CONFIG',
       `Admin updated Remittance Default Status Rules: Auto Country Default=${config.autoCountryDefault ?? defaultStatusConfig.autoCountryDefault}`
     );
+  };
+
+  // MTO & Inward Compliance Remittance Limits
+  const mtoComplianceLimits: MtoComplianceLimit[] = db.mtoComplianceLimits && db.mtoComplianceLimits.length > 0
+    ? db.mtoComplianceLimits
+    : initialMtoComplianceLimits;
+
+  const saveMtoComplianceLimit = async (limit: MtoComplianceLimit): Promise<boolean> => {
+    const isNew = !db.mtoComplianceLimits?.some(l => l.id === limit.id);
+    const updatedLimit: MtoComplianceLimit = {
+      ...limit,
+      updatedAt: new Date().toISOString()
+    };
+
+    setDb(prev => {
+      const currentList = prev.mtoComplianceLimits && prev.mtoComplianceLimits.length > 0
+        ? prev.mtoComplianceLimits
+        : initialMtoComplianceLimits;
+      
+      const nextList = isNew
+        ? [updatedLimit, ...currentList]
+        : currentList.map(l => l.id === limit.id ? updatedLimit : l);
+
+      const updatedDb = {
+        ...prev,
+        mtoComplianceLimits: nextList
+      };
+      persistDatabaseSafely(updatedDb);
+      return updatedDb;
+    });
+
+    logActionDirect(
+      isNew ? 'CREATE' : 'UPDATE',
+      'SYSTEM',
+      limit.id,
+      `Admin ${isNew ? 'added' : 'updated'} MTO & Inward Compliance Limit for ${limit.countryName} (${limit.currency}): MTO Tx Limit=${limit.mtoMaxLimitPerTx.toLocaleString()} ${limit.currency}, Inward Domestic USD Tx Limit=$${limit.inwardMaxUsdPerTx.toLocaleString()} USD, Inward Domestic Monthly USD Limit=$${limit.inwardMaxUsdPerMonth.toLocaleString()} USD`
+    );
+    return true;
+  };
+
+  const deleteMtoComplianceLimit = async (id: string): Promise<boolean> => {
+    const target = db.mtoComplianceLimits?.find(l => l.id === id);
+    setDb(prev => {
+      const currentList = prev.mtoComplianceLimits && prev.mtoComplianceLimits.length > 0
+        ? prev.mtoComplianceLimits
+        : initialMtoComplianceLimits;
+      const nextList = currentList.filter(l => l.id !== id);
+      const updatedDb = {
+        ...prev,
+        mtoComplianceLimits: nextList
+      };
+      persistDatabaseSafely(updatedDb);
+      return updatedDb;
+    });
+
+    logActionDirect(
+      'DELETE',
+      'SYSTEM',
+      id,
+      `Admin removed MTO Compliance Limit (${target?.countryName || id})`
+    );
+    return true;
+  };
+
+  const resetMtoComplianceLimitsToDefault = async (): Promise<boolean> => {
+    setDb(prev => {
+      const updatedDb = {
+        ...prev,
+        mtoComplianceLimits: initialMtoComplianceLimits
+      };
+      persistDatabaseSafely(updatedDb);
+      return updatedDb;
+    });
+
+    logActionDirect(
+      'UPDATE',
+      'SYSTEM',
+      'MTO_LIMITS_RESET',
+      'Admin reset all MTO & Inward Domestic USD compliance limits to Central Bank & MTO bilateral standards'
+    );
+    return true;
+  };
+
+  const getMtoComplianceLimitForCountry = (senderCountryCode: string, currency?: string): MtoComplianceLimit => {
+    const list = db.mtoComplianceLimits && db.mtoComplianceLimits.length > 0
+      ? db.mtoComplianceLimits
+      : initialMtoComplianceLimits;
+
+    // 1. Exact country match
+    const byCountry = list.find(l => l.active && l.countryCode.toUpperCase() === (senderCountryCode || '').toUpperCase());
+    if (byCountry) return byCountry;
+
+    // 2. Currency match
+    if (currency) {
+      const byCur = list.find(l => l.active && l.currency.toUpperCase() === currency.toUpperCase());
+      if (byCur) return byCur;
+    }
+
+    // 3. Fallback to DEFAULT
+    const defaultLimit = list.find(l => l.countryCode === 'DEFAULT' || l.countryCode === 'ALL');
+    if (defaultLimit) return defaultLimit;
+
+    return initialMtoComplianceLimits[0];
+  };
+
+  const calculateSenderMonthlyUsdTotal = (senderIdentifier: { 
+    nrc?: string; 
+    passport?: string; 
+    phone?: string; 
+    customerCode?: string;
+  }) => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const monthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    const cleanPassport = (senderIdentifier.passport || '').trim().toLowerCase();
+    const cleanNrc = (senderIdentifier.nrc || '').trim().toLowerCase();
+    const cleanPhone = (senderIdentifier.phone || '').replace(/\D/g, '');
+
+    if (!cleanPassport && !cleanNrc && !cleanPhone && !senderIdentifier.customerCode) {
+      return { monthlyTotalUsd: 0, transactionCount: 0, monthName };
+    }
+
+    const matchedTxs = db.transactions.filter(tx => {
+      if (tx.type !== 'OUTWARD') return false;
+      if (tx.status === 'CANCELLED' || tx.status === 'REJECTED') return false;
+
+      const txDate = tx.createdDate ? new Date(tx.createdDate) : new Date();
+      if (txDate.getFullYear() !== currentYear || txDate.getMonth() !== currentMonth) {
+        return false;
+      }
+
+      // Check match
+      const txPassport = (tx.senderPassport || tx.senderPassbook || '').trim().toLowerCase();
+      const txNrc = (tx.senderNrc || '').trim().toLowerCase();
+      const txPhone = (tx.senderPhone || '').replace(/\D/g, '');
+
+      if (cleanPassport && txPassport && txPassport === cleanPassport) return true;
+      if (cleanNrc && txNrc && txNrc === cleanNrc) return true;
+      if (cleanPhone && cleanPhone.length >= 7 && txPhone && txPhone === cleanPhone) return true;
+
+      return false;
+    });
+
+    const monthlyTotalUsd = matchedTxs.reduce((sum, tx) => {
+      if (tx.isUsdBase && tx.usdAmount && tx.usdAmount > 0) {
+        return sum + Number(tx.usdAmount);
+      }
+      if (tx.usdAmount && tx.usdAmount > 0) {
+        return sum + Number(tx.usdAmount);
+      }
+      // Calculate equivalent
+      if (tx.targetCurrency === 'MMK') {
+        const rate = tx.usdExchangeRate && tx.usdExchangeRate > 0 ? tx.usdExchangeRate : 4580;
+        return sum + Number(((tx.receiveAmount || 0) / rate).toFixed(2));
+      }
+      if (tx.sourceCurrency === 'USD') {
+        return sum + Number(tx.sendAmount || 0);
+      }
+      if (tx.targetCurrency === 'USD') {
+        return sum + Number(tx.receiveAmount || 0);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      monthlyTotalUsd: Number(monthlyTotalUsd.toFixed(2)),
+      transactionCount: matchedTxs.length,
+      monthName
+    };
   };
 
   // Supabase Sync
@@ -4523,6 +4733,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetRoleMenuPermissions,
         copyRoleMenuPermissions,
         isMenuAllowedForRole,
+        mtoComplianceLimits,
+        saveMtoComplianceLimit,
+        deleteMtoComplianceLimit,
+        resetMtoComplianceLimitsToDefault,
+        getMtoComplianceLimitForCountry,
+        calculateSenderMonthlyUsdTotal,
       }}
     >
       {children}
