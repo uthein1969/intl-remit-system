@@ -281,6 +281,25 @@ CREATE TABLE IF NOT EXISTS system_settings (
   value TEXT,
   updated_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS mto_compliance_limits (
+  id TEXT PRIMARY KEY,
+  country_code TEXT UNIQUE NOT NULL,
+  country_name TEXT NOT NULL,
+  flag_emoji TEXT,
+  currency TEXT NOT NULL,
+  mto_partner_name TEXT,
+  mto_max_limit_per_tx REAL NOT NULL,
+  mto_max_limit_per_month REAL,
+  inward_country_code TEXT DEFAULT 'MM',
+  inward_max_usd_per_tx REAL NOT NULL,
+  inward_max_usd_per_month REAL NOT NULL,
+  regulatory_ref TEXT,
+  description TEXT,
+  active INTEGER DEFAULT 1,
+  created_at TEXT,
+  updated_at TEXT
+);
 `;
 
 export async function initTursoSchema(client?: Client) {
@@ -401,8 +420,14 @@ export async function initTursoSchema(client?: Client) {
     if (userCount === 0) {
       await seedTursoSystemUsers(cli);
     }
+
+    const mtoLimCountRes = await cli.execute('SELECT COUNT(*) as cnt FROM mto_compliance_limits;').catch(() => ({ rows: [{ cnt: 0 }] }));
+    const mtoLimCount = Number(mtoLimCountRes.rows[0]?.cnt || 0);
+    if (mtoLimCount === 0) {
+      await seedTursoMtoLimits(cli);
+    }
   } catch (e) {
-    console.warn('Turso auto-seed users check error:', e);
+    console.warn('Turso auto-seed check error:', e);
   }
 
   return { success: true, count: statements.length };
@@ -419,7 +444,8 @@ export async function getTursoStats() {
     const [
       txCount, custCount, rateCount, logCount,
       branchCount, userCount, compCount, currCount,
-      countryCount, blCount, purpCount, profCount, settsCount
+      countryCount, blCount, purpCount, profCount, settsCount,
+      mtoLimCount
     ] = await Promise.all([
       client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
       client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
@@ -434,6 +460,7 @@ export async function getTursoStats() {
       client.execute('SELECT COUNT(*) as cnt FROM purposes;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
       client.execute('SELECT COUNT(*) as cnt FROM operator_profile;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
       client.execute('SELECT COUNT(*) as cnt FROM system_settings;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
+      client.execute('SELECT COUNT(*) as cnt FROM mto_compliance_limits;').then(r => Number(r.rows[0]?.cnt || 0)).catch(() => 0),
     ]);
 
     return {
@@ -456,6 +483,7 @@ export async function getTursoStats() {
         purposes: purpCount,
         operatorProfile: profCount,
         systemSettings: settsCount,
+        mtoComplianceLimits: mtoLimCount,
       }
     };
   } catch (err: any) {
@@ -466,7 +494,8 @@ export async function getTursoStats() {
       counts: {
         transactions: 0, customers: 0, exchangeRates: 0, auditLogs: 0,
         branches: 0, users: 0, companies: 0, currencies: 0,
-        countries: 0, blacklist: 0, purposes: 0, operatorProfile: 0, systemSettings: 0
+        countries: 0, blacklist: 0, purposes: 0, operatorProfile: 0, systemSettings: 0,
+        mtoComplianceLimits: 0,
       }
     };
   }
@@ -488,6 +517,7 @@ export async function syncPushToTurso(data: {
   roleMenuPermissions?: any;
   countryRoleMenuPermissions?: any;
   defaultStatusConfig?: any;
+  mtoComplianceLimits?: any[];
 }) {
   const client = initTursoClient();
   await initTursoSchema(client);
@@ -505,6 +535,7 @@ export async function syncPushToTurso(data: {
   let purposesSaved = 0;
   let profileSaved = 0;
   let settingsSaved = 0;
+  let mtoLimitsSaved = 0;
 
   // 1. Transactions
   if (data.transactions && Array.isArray(data.transactions)) {
@@ -1068,6 +1099,75 @@ export async function syncPushToTurso(data: {
     }
   }
 
+  // 14. MTO & Myanmar Domestic Inward Remittance Limits
+  if (data.mtoComplianceLimits && Array.isArray(data.mtoComplianceLimits)) {
+    for (const lim of data.mtoComplianceLimits) {
+      if (!lim.id) continue;
+      const cCode = String(lim.countryCode || lim.country_code || '').trim().toUpperCase();
+      try {
+        await client.execute({
+          sql: 'DELETE FROM mto_compliance_limits WHERE country_code = ? AND id != ?;',
+          args: [cCode, lim.id]
+        }).catch(() => {});
+
+        await client.execute({
+          sql: `INSERT INTO mto_compliance_limits (
+            id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+            mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+            inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+            active, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            country_code=excluded.country_code,
+            country_name=excluded.country_name,
+            flag_emoji=excluded.flag_emoji,
+            currency=excluded.currency,
+            mto_partner_name=excluded.mto_partner_name,
+            mto_max_limit_per_tx=excluded.mto_max_limit_per_tx,
+            mto_max_limit_per_month=excluded.mto_max_limit_per_month,
+            inward_country_code=excluded.inward_country_code,
+            inward_max_usd_per_tx=excluded.inward_max_usd_per_tx,
+            inward_max_usd_per_month=excluded.inward_max_usd_per_month,
+            regulatory_ref=excluded.regulatory_ref,
+            description=excluded.description,
+            active=excluded.active,
+            updated_at=excluded.updated_at;`,
+          args: [
+            lim.id,
+            cCode,
+            lim.countryName || lim.country_name || cCode,
+            lim.flagEmoji || lim.flag_emoji || '🌐',
+            lim.currency || 'USD',
+            lim.mtoPartnerName || lim.mto_partner_name || '',
+            Number(lim.mtoMaxLimitPerTx ?? lim.mto_max_limit_per_tx ?? 0),
+            lim.mtoMaxLimitPerMonth !== undefined && lim.mtoMaxLimitPerMonth !== null ? Number(lim.mtoMaxLimitPerMonth) : (lim.mto_max_limit_per_month ? Number(lim.mto_max_limit_per_month) : null),
+            lim.inwardCountryCode || lim.inward_country_code || 'MM',
+            Number(lim.inwardMaxUsdPerTx ?? lim.inward_max_usd_per_tx ?? 5000),
+            Number(lim.inwardMaxUsdPerMonth ?? lim.inward_max_usd_per_month ?? 25000),
+            lim.regulatoryRef || lim.regulatory_ref || '',
+            lim.description || '',
+            lim.active !== false && lim.active !== 0 ? 1 : 0,
+            lim.createdAt || lim.created_at || new Date().toISOString(),
+            lim.updatedAt || lim.updated_at || new Date().toISOString()
+          ]
+        });
+        mtoLimitsSaved++;
+      } catch (e: any) {
+        console.warn('Error saving mtoComplianceLimit to Turso:', lim.id, e?.message);
+      }
+    }
+
+    try {
+      await client.execute({
+        sql: `INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)
+              ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`,
+        args: ['mto_compliance_limits', JSON.stringify(data.mtoComplianceLimits), new Date().toISOString()]
+      });
+    } catch (e) {
+      console.warn('Error backing up mto_compliance_limits to system_settings:', e);
+    }
+  }
+
   return {
     success: true,
     saved: {
@@ -1084,6 +1184,7 @@ export async function syncPushToTurso(data: {
       purposes: purposesSaved,
       operatorProfile: profileSaved,
       systemSettings: settingsSaved,
+      mtoComplianceLimits: mtoLimitsSaved,
     },
     syncedAt: new Date().toISOString()
   };
@@ -1096,7 +1197,8 @@ export async function syncPullFromTurso() {
   const [
     txRes, rateRes, custRes, logRes,
     branchRes, userRes, compRes, currRes,
-    countryRes, blRes, purpRes, profRes, settsRes
+    countryRes, blRes, purpRes, profRes, settsRes,
+    mtoLimRes
   ] = await Promise.all([
     client.execute('SELECT * FROM remittance_transactions ORDER BY created_at DESC;').catch(() => ({ rows: [] })),
     client.execute('SELECT * FROM exchange_rates ORDER BY updated_at DESC;').catch(() => ({ rows: [] })),
@@ -1111,6 +1213,7 @@ export async function syncPullFromTurso() {
     client.execute('SELECT * FROM purposes ORDER BY id ASC;').catch(() => ({ rows: [] })),
     client.execute('SELECT * FROM operator_profile LIMIT 1;').catch(() => ({ rows: [] })),
     client.execute('SELECT * FROM system_settings;').catch(() => ({ rows: [] })),
+    client.execute('SELECT * FROM mto_compliance_limits ORDER BY id ASC;').catch(() => ({ rows: [] })),
   ]);
 
   const transactions = txRes.rows.map((row: any) => ({
@@ -1411,6 +1514,37 @@ export async function syncPullFromTurso() {
     }
   }
 
+  let mtoComplianceLimits = (mtoLimRes.rows || []).map((r: any) => ({
+    id: String(r.id),
+    countryCode: String(r.country_code),
+    countryName: String(r.country_name),
+    flagEmoji: String(r.flag_emoji || ''),
+    currency: String(r.currency),
+    mtoPartnerName: String(r.mto_partner_name || ''),
+    mtoMaxLimitPerTx: Number(r.mto_max_limit_per_tx) || 0,
+    mtoMaxLimitPerMonth: r.mto_max_limit_per_month !== null && r.mto_max_limit_per_month !== undefined ? Number(r.mto_max_limit_per_month) : undefined,
+    inwardCountryCode: String(r.inward_country_code || 'MM'),
+    inwardMaxUsdPerTx: Number(r.inward_max_usd_per_tx) || 5000,
+    inwardMaxUsdPerMonth: Number(r.inward_max_usd_per_month) || 25000,
+    regulatoryRef: String(r.regulatory_ref || ''),
+    description: String(r.description || ''),
+    active: r.active !== 0,
+    createdAt: String(r.created_at || ''),
+    updatedAt: String(r.updated_at || ''),
+  }));
+
+  if (mtoComplianceLimits.length === 0 && settsRes.rows && settsRes.rows.length > 0) {
+    const limSetting = (settsRes.rows as any[]).find(r => r.key === 'mto_compliance_limits');
+    if (limSetting?.value) {
+      try {
+        const parsed = JSON.parse(limSetting.value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          mtoComplianceLimits = parsed;
+        }
+      } catch {}
+    }
+  }
+
   return {
     success: true,
     data: {
@@ -1429,6 +1563,7 @@ export async function syncPullFromTurso() {
       roleMenuPermissions,
       countryRoleMenuPermissions,
       defaultStatusConfig,
+      mtoComplianceLimits,
     }
   };
 }
@@ -2024,6 +2159,247 @@ export async function searchTursoCustomers(query: string) {
   }));
 }
 
+export async function seedTursoMtoLimits(clientInstance?: Client) {
+  const cli = clientInstance || initTursoClient();
+  const defaultLimits = [
+    {
+      id: 'MTO-LIM-001',
+      countryCode: 'TH',
+      countryName: 'Thailand (ထိုင်းနိုင်ငံ)',
+      flagEmoji: '🇹🇭',
+      currency: 'THB',
+      mtoPartnerName: 'TrueMoney / DeeMoney / Kasikorn Remit',
+      mtoMaxLimitPerTx: 100000,
+      mtoMaxLimitPerMonth: 500000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Bank of Thailand (BOT) & Central Bank of Myanmar (CBM) Cross-Border Remittance Bilateral Ceiling',
+      description: 'ထိုင်းနိုင်ငံမှ မြန်မာနိုင်ငံသို့ ငွေလွှဲရာတွင် MTO အများဆုံး ၁ သိန်း THB နှင့် ပြည်တွင်း Inward အများဆုံး $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-002',
+      countryCode: 'SG',
+      countryName: 'Singapore (စင်ကာပူနိုင်ငံ)',
+      flagEmoji: '🇸🇬',
+      currency: 'SGD',
+      mtoPartnerName: 'SingX / DBS Remit / InstaReM',
+      mtoMaxLimitPerTx: 5000,
+      mtoMaxLimitPerMonth: 25000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Monetary Authority of Singapore (MAS) & CBM Worker Remittance Framework',
+      description: 'စင်ကာပူနိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၅,၀၀၀ SGD နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-003',
+      countryCode: 'MY',
+      countryName: 'Malaysia (မလေးရှားနိုင်ငံ)',
+      flagEmoji: '🇲🇾',
+      currency: 'MYR',
+      mtoPartnerName: 'Merchantrade Asia / Valyou MTO',
+      mtoMaxLimitPerTx: 15000,
+      mtoMaxLimitPerMonth: 60000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Bank Negara Malaysia (BNM) & CBM Cross-Border Remittance Guidelines',
+      description: 'မလေးရှားနိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၁၅,၀၀၀ MYR နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-004',
+      countryCode: 'JP',
+      countryName: 'Japan (ဂျပန်နိုင်ငံ)',
+      flagEmoji: '🇯🇵',
+      currency: 'JPY',
+      mtoPartnerName: 'Kyodai Remittance / SBI Remit',
+      mtoMaxLimitPerTx: 1000000,
+      mtoMaxLimitPerMonth: 3000000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Japan Financial Services Agency (FSA) & CBM Bilateral Directive',
+      description: 'ဂျပန်နိုင်ငံမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ယန်း ၁ သန်း (1,000,000 JPY) နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-005',
+      countryCode: 'KR',
+      countryName: 'South Korea (တောင်ကိုရီးယားနိုင်ငံ)',
+      flagEmoji: '🇰🇷',
+      currency: 'KRW',
+      mtoPartnerName: 'GmoneyTrans / Hanpass / Sentbe',
+      mtoMaxLimitPerTx: 5000000,
+      mtoMaxLimitPerMonth: 25000000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Bank of Korea (BOK) Foreign Exchange Act & CBM AML Guidelines',
+      description: 'တောင်ကိုရီးယားမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ဝမ် ၅ သန်း (5,000,000 KRW) နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-006',
+      countryCode: 'AE',
+      countryName: 'United Arab Emirates (ဒူဘိုင်း/ယူအေအီး)',
+      flagEmoji: '🇦🇪',
+      currency: 'AED',
+      mtoPartnerName: 'Al Ansari Exchange / LuLu International Exchange',
+      mtoMaxLimitPerTx: 20000,
+      mtoMaxLimitPerMonth: 100000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Central Bank of the UAE (CBUAE) & CBM Remittance Compliance Framework',
+      description: 'ယူအေအီးဒူဘိုင်းမှ မြန်မာပြည်သို့ ငွေလွှဲရာတွင် ၂၀,၀၀၀ AED နှင့် ပြည်တွင်း Inward $5,000 USD / လစဉ် $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    },
+    {
+      id: 'MTO-LIM-007',
+      countryCode: 'DEFAULT',
+      countryName: 'All Other International Countries (အခြားနိုင်ငံများ)',
+      flagEmoji: '🌐',
+      currency: 'USD',
+      mtoPartnerName: 'Global Licensed MTO Partners / Western Union / MoneyGram',
+      mtoMaxLimitPerTx: 5000,
+      mtoMaxLimitPerMonth: 25000,
+      inwardCountryCode: 'MM',
+      inwardMaxUsdPerTx: 5000,
+      inwardMaxUsdPerMonth: 25000,
+      regulatoryRef: 'Central Bank of Myanmar (CBM) Standard Cross-Border Inward Remittance Ceiling',
+      description: 'အခြားနိုင်ငံများအားလုံးအတွက် စံသတ်မှတ်ချက် - တစ်ကြိမ်လျှင် $5,000 USD နှင့် တစ်လလျှင် အများဆုံး $25,000 USD သတ်မှတ်ချက်',
+      active: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z'
+    }
+  ];
 
+  for (const lim of defaultLimits) {
+    try {
+      await cli.execute({
+        sql: `INSERT INTO mto_compliance_limits (
+          id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+          mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+          inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+          active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING;`,
+        args: [
+          lim.id, lim.countryCode, lim.countryName, lim.flagEmoji, lim.currency, lim.mtoPartnerName,
+          lim.mtoMaxLimitPerTx, lim.mtoMaxLimitPerMonth, lim.inwardCountryCode,
+          lim.inwardMaxUsdPerTx, lim.inwardMaxUsdPerMonth, lim.regulatoryRef, lim.description,
+          lim.active, lim.createdAt, lim.updatedAt
+        ]
+      });
+    } catch (e) {
+      console.warn('Error auto-seeding mto limit:', lim.id, e);
+    }
+  }
+}
 
+export async function getTursoMtoLimits() {
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  const res = await client.execute('SELECT * FROM mto_compliance_limits ORDER BY id ASC;');
+  return res.rows.map((r: any) => ({
+    id: String(r.id),
+    countryCode: String(r.country_code),
+    countryName: String(r.country_name),
+    flagEmoji: String(r.flag_emoji || ''),
+    currency: String(r.currency),
+    mtoPartnerName: String(r.mto_partner_name || ''),
+    mtoMaxLimitPerTx: Number(r.mto_max_limit_per_tx) || 0,
+    mtoMaxLimitPerMonth: r.mto_max_limit_per_month !== null && r.mto_max_limit_per_month !== undefined ? Number(r.mto_max_limit_per_month) : undefined,
+    inwardCountryCode: String(r.inward_country_code || 'MM'),
+    inwardMaxUsdPerTx: Number(r.inward_max_usd_per_tx) || 5000,
+    inwardMaxUsdPerMonth: Number(r.inward_max_usd_per_month) || 25000,
+    regulatoryRef: String(r.regulatory_ref || ''),
+    description: String(r.description || ''),
+    active: r.active !== 0,
+    createdAt: String(r.created_at || ''),
+    updatedAt: String(r.updated_at || ''),
+  }));
+}
 
+export async function saveTursoMtoLimit(lim: any) {
+  if (!lim || !lim.id) throw new Error('MTO limit id is required.');
+  const client = initTursoClient();
+  await initTursoSchema(client);
+
+  const cCode = String(lim.countryCode || lim.country_code || '').trim().toUpperCase();
+  await client.execute({
+    sql: 'DELETE FROM mto_compliance_limits WHERE country_code = ? AND id != ?;',
+    args: [cCode, lim.id]
+  }).catch(() => {});
+
+  await client.execute({
+    sql: `INSERT INTO mto_compliance_limits (
+      id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+      mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+      inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+      active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      country_code=excluded.country_code,
+      country_name=excluded.country_name,
+      flag_emoji=excluded.flag_emoji,
+      currency=excluded.currency,
+      mto_partner_name=excluded.mto_partner_name,
+      mto_max_limit_per_tx=excluded.mto_max_limit_per_tx,
+      mto_max_limit_per_month=excluded.mto_max_limit_per_month,
+      inward_country_code=excluded.inward_country_code,
+      inward_max_usd_per_tx=excluded.inward_max_usd_per_tx,
+      inward_max_usd_per_month=excluded.inward_max_usd_per_month,
+      regulatory_ref=excluded.regulatory_ref,
+      description=excluded.description,
+      active=excluded.active,
+      updated_at=excluded.updated_at;`,
+    args: [
+      lim.id,
+      cCode,
+      lim.countryName || lim.country_name || cCode,
+      lim.flagEmoji || lim.flag_emoji || '🌐',
+      lim.currency || 'USD',
+      lim.mtoPartnerName || lim.mto_partner_name || '',
+      Number(lim.mtoMaxLimitPerTx ?? lim.mto_max_limit_per_tx ?? 0),
+      lim.mtoMaxLimitPerMonth !== undefined && lim.mtoMaxLimitPerMonth !== null ? Number(lim.mtoMaxLimitPerMonth) : (lim.mto_max_limit_per_month ? Number(lim.mto_max_limit_per_month) : null),
+      lim.inwardCountryCode || lim.inward_country_code || 'MM',
+      Number(lim.inwardMaxUsdPerTx ?? lim.inward_max_usd_per_tx ?? 5000),
+      Number(lim.inwardMaxUsdPerMonth ?? lim.inward_max_usd_per_month ?? 25000),
+      lim.regulatoryRef || lim.regulatory_ref || '',
+      lim.description || '',
+      lim.active !== false && lim.active !== 0 ? 1 : 0,
+      lim.createdAt || lim.created_at || new Date().toISOString(),
+      lim.updatedAt || lim.updated_at || new Date().toISOString()
+    ]
+  });
+
+  return { success: true, id: lim.id };
+}
+
+export async function deleteTursoMtoLimit(id: string) {
+  if (!id) throw new Error('ID is required to delete MTO limit.');
+  const client = initTursoClient();
+  await initTursoSchema(client);
+  await client.execute({
+    sql: 'DELETE FROM mto_compliance_limits WHERE id = ?;',
+    args: [id]
+  });
+  return { success: true, id };
+}

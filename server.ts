@@ -24,6 +24,9 @@ import {
   deleteTursoExchangeRate,
   clearTursoTable,
   searchTursoCustomers,
+  getTursoMtoLimits,
+  saveTursoMtoLimit,
+  deleteTursoMtoLimit,
   TURSO_SCHEMA_SQL 
 } from './server/turso.js';
 
@@ -221,6 +224,36 @@ app.delete('/api/turso/exchange-rates', async (req, res) => {
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || 'Failed to delete exchange rate' });
+  }
+});
+
+// MTO & Myanmar Domestic Inward Remittance Limits endpoints
+app.get('/api/turso/mto-limits', async (req, res) => {
+  try {
+    const limits = await getTursoMtoLimits();
+    res.json({ success: true, limits });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to get MTO limits' });
+  }
+});
+
+app.post('/api/turso/mto-limits', async (req, res) => {
+  try {
+    const limit = req.body;
+    const result = await saveTursoMtoLimit(limit);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to save MTO limit' });
+  }
+});
+
+app.delete('/api/turso/mto-limits', async (req, res) => {
+  try {
+    const id = String(req.query.id || req.body?.id || '');
+    const result = await deleteTursoMtoLimit(id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to delete MTO limit' });
   }
 });
 

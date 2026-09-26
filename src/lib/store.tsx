@@ -40,7 +40,9 @@ import {
   tursoWebSaveBranch,
   tursoWebDeleteBranch,
   tursoWebSaveExchangeRates,
-  tursoWebDeleteExchangeRate
+  tursoWebDeleteExchangeRate,
+  tursoWebSaveMtoLimit,
+  tursoWebDeleteMtoLimit
 } from './tursoWebClient';
 import { 
   persistDatabaseSafely, 
@@ -795,10 +797,11 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             users: mergedUsers,
             ...(extraData?.exchangeRates?.length ? { exchangeRates: extraData.exchangeRates } : {}),
             ...(extraData?.customers?.length ? { customers: extraData.customers } : {}),
+            ...(extraData?.mtoComplianceLimits?.length ? { mtoComplianceLimits: extraData.mtoComplianceLimits } : {}),
             auditLogs: updatedAuditLogs,
           };
         });
-      } else if (extraData && (extraData.auditLogs || extraData.branches || extraData.users)) {
+      } else if (extraData && (extraData.auditLogs || extraData.branches || extraData.users || extraData.mtoComplianceLimits)) {
         setDb(prev => {
           let updatedAuditLogs = prev.auditLogs;
           if (extraData.auditLogs && Array.isArray(extraData.auditLogs) && extraData.auditLogs.length > 0) {
@@ -878,6 +881,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ...(extraData.customers?.length ? { customers: extraData.customers } : {}),
             ...(extraData.roleMenuPermissions ? { roleMenuPermissions: extraData.roleMenuPermissions } : {}),
             ...(extraData.countryRoleMenuPermissions ? { countryRoleMenuPermissions: extraData.countryRoleMenuPermissions } : {}),
+            ...(extraData.mtoComplianceLimits?.length ? { mtoComplianceLimits: extraData.mtoComplianceLimits } : {}),
           };
         });
       }
@@ -3001,6 +3005,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       limit.id,
       `Admin ${isNew ? 'added' : 'updated'} MTO & Inward Compliance Limit for ${limit.countryName} (${limit.currency}): MTO Tx Limit=${limit.mtoMaxLimitPerTx.toLocaleString()} ${limit.currency}, Inward Domestic USD Tx Limit=$${limit.inwardMaxUsdPerTx.toLocaleString()} USD, Inward Domestic Monthly USD Limit=$${limit.inwardMaxUsdPerMonth.toLocaleString()} USD`
     );
+
+    // Background auto-sync to Turso Cloud DB
+    safeFetchJson('/api/turso/mto-limits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedLimit)
+    }).catch(() => {
+      tursoWebSaveMtoLimit(updatedLimit).catch(console.warn);
+    });
+
     return true;
   };
 
@@ -3025,6 +3039,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       id,
       `Admin removed MTO Compliance Limit (${target?.countryName || id})`
     );
+
+    // Background delete from Turso Cloud DB
+    safeFetchJson('/api/turso/mto-limits', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(() => {
+      tursoWebDeleteMtoLimit(id).catch(console.warn);
+    });
+
     return true;
   };
 
@@ -3044,6 +3068,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'MTO_LIMITS_RESET',
       'Admin reset all MTO & Inward Domestic USD compliance limits to Central Bank & MTO bilateral standards'
     );
+
+    // Push reset defaults to Turso Cloud DB
+    safeFetchJson('/api/turso/sync-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mtoComplianceLimits: initialMtoComplianceLimits })
+    }).catch(() => {
+      tursoWebSyncPush({ mtoComplianceLimits: initialMtoComplianceLimits }).catch(console.warn);
+    });
+
     return true;
   };
 
@@ -4404,6 +4438,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           branches: db.branches,
           users: db.users,
           companies: db.companies,
+          mtoComplianceLimits: db.mtoComplianceLimits || [],
           auditLogs: db.auditLogs.slice(0, 100).map(l => ({
             id: l.id,
             timestamp: l.timestamp,
@@ -4448,6 +4483,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         branches: db.branches,
         users: db.users,
         companies: db.companies,
+        mtoComplianceLimits: db.mtoComplianceLimits || [],
         auditLogs: auditPayload
       });
 

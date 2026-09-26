@@ -51,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       auditLogs: 0,
       operatorProfile: 0,
       systemSettings: 0,
+      mtoComplianceLimits: 0,
     };
 
     // 1. Branches (with conflict pre-resolution on UNIQUE code column)
@@ -520,6 +521,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         counts.systemSettings++;
       } catch (e) {
         console.warn('[Sync Push] Error saving role_menu_permissions:', e);
+      }
+    }
+
+    // 14. MTO & Myanmar Domestic Inward Remittance Limits
+    const mtoLimits = body?.mtoComplianceLimits || [];
+    if (Array.isArray(mtoLimits) && mtoLimits.length > 0) {
+      try {
+        await client.execute(`CREATE TABLE IF NOT EXISTS mto_compliance_limits (
+          id TEXT PRIMARY KEY,
+          country_code TEXT UNIQUE NOT NULL,
+          country_name TEXT NOT NULL,
+          flag_emoji TEXT,
+          currency TEXT NOT NULL,
+          mto_partner_name TEXT,
+          mto_max_limit_per_tx REAL NOT NULL,
+          mto_max_limit_per_month REAL,
+          inward_country_code TEXT DEFAULT 'MM',
+          inward_max_usd_per_tx REAL NOT NULL,
+          inward_max_usd_per_month REAL NOT NULL,
+          regulatory_ref TEXT,
+          description TEXT,
+          active INTEGER DEFAULT 1,
+          created_at TEXT,
+          updated_at TEXT
+        );`).catch(() => {});
+
+        for (const lim of mtoLimits) {
+          if (!lim.id) continue;
+          const cCode = String(lim.countryCode || lim.country_code || '').trim().toUpperCase();
+          await client.execute({
+            sql: 'DELETE FROM mto_compliance_limits WHERE country_code = ? AND id != ?;',
+            args: [cCode, lim.id]
+          }).catch(() => {});
+
+          await client.execute({
+            sql: `INSERT INTO mto_compliance_limits (
+              id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+              mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+              inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+              active, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              country_code=excluded.country_code,
+              country_name=excluded.country_name,
+              flag_emoji=excluded.flag_emoji,
+              currency=excluded.currency,
+              mto_partner_name=excluded.mto_partner_name,
+              mto_max_limit_per_tx=excluded.mto_max_limit_per_tx,
+              mto_max_limit_per_month=excluded.mto_max_limit_per_month,
+              inward_country_code=excluded.inward_country_code,
+              inward_max_usd_per_tx=excluded.inward_max_usd_per_tx,
+              inward_max_usd_per_month=excluded.inward_max_usd_per_month,
+              regulatory_ref=excluded.regulatory_ref,
+              description=excluded.description,
+              active=excluded.active,
+              updated_at=excluded.updated_at;`,
+            args: [
+              lim.id,
+              cCode,
+              lim.countryName || lim.country_name || cCode,
+              lim.flagEmoji || lim.flag_emoji || '🌐',
+              lim.currency || 'USD',
+              lim.mtoPartnerName || lim.mto_partner_name || '',
+              Number(lim.mtoMaxLimitPerTx ?? lim.mto_max_limit_per_tx ?? 0),
+              lim.mtoMaxLimitPerMonth !== undefined && lim.mtoMaxLimitPerMonth !== null ? Number(lim.mtoMaxLimitPerMonth) : (lim.mto_max_limit_per_month ? Number(lim.mto_max_limit_per_month) : null),
+              lim.inwardCountryCode || lim.inward_country_code || 'MM',
+              Number(lim.inwardMaxUsdPerTx ?? lim.inward_max_usd_per_tx ?? 5000),
+              Number(lim.inwardMaxUsdPerMonth ?? lim.inward_max_usd_per_month ?? 25000),
+              lim.regulatoryRef || lim.regulatory_ref || '',
+              lim.description || '',
+              lim.active !== false && lim.active !== 0 ? 1 : 0,
+              lim.createdAt || lim.created_at || new Date().toISOString(),
+              lim.updatedAt || lim.updated_at || new Date().toISOString()
+            ]
+          });
+          counts.mtoComplianceLimits++;
+        }
+
+        await client.execute({
+          sql: `INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`,
+          args: ['mto_compliance_limits', JSON.stringify(mtoLimits)]
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[Sync Push] Error saving mto_compliance_limits:', e);
       }
     }
 

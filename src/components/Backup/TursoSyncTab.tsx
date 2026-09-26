@@ -19,7 +19,10 @@ import {
   History,
   RotateCcw,
   AlertTriangle,
-  Users
+  Users,
+  Sliders,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import {
@@ -31,6 +34,167 @@ import {
   TursoStatusResponse
 } from '../../lib/tursoClient';
 import { tursoWebCleanLongIds } from '../../lib/tursoWebClient';
+
+export type PushTableKey = 
+  | 'transactions'
+  | 'exchangeRates'
+  | 'customers'
+  | 'branches'
+  | 'users'
+  | 'companies'
+  | 'currencies'
+  | 'countries'
+  | 'blacklist'
+  | 'purposes'
+  | 'auditLogs'
+  | 'operatorProfile'
+  | 'mtoComplianceLimits';
+
+interface PushTableItem {
+  key: PushTableKey;
+  labelEn: string;
+  labelMm: string;
+  getCount: (db: any) => number | string;
+  unitEn: string;
+  unitMm: string;
+  icon: React.ElementType;
+  color: string;
+}
+
+export const PUSH_TABLE_CONFIGS: PushTableItem[] = [
+  {
+    key: 'transactions',
+    labelEn: 'Transactions',
+    labelMm: 'ငွေလွှဲမှတ်တမ်း',
+    getCount: (db) => db.transactions?.length || 0,
+    unitEn: 'records',
+    unitMm: 'ခု',
+    icon: RefreshCw,
+    color: 'text-emerald-400'
+  },
+  {
+    key: 'exchangeRates',
+    labelEn: 'Exchange Rates',
+    labelMm: 'ငွေလဲနှုန်း',
+    getCount: (db) => db.exchangeRates?.length || 0,
+    unitEn: 'rates',
+    unitMm: 'ခု',
+    icon: RefreshCw,
+    color: 'text-amber-400'
+  },
+  {
+    key: 'customers',
+    labelEn: 'Customer Profiles',
+    labelMm: 'ဖောက်သည်မှတ်တမ်း',
+    getCount: (db) => db.customers?.length || 0,
+    unitEn: 'profiles',
+    unitMm: 'ယောက်',
+    icon: Users,
+    color: 'text-sky-400'
+  },
+  {
+    key: 'branches',
+    labelEn: 'Branches',
+    labelMm: 'ဘဏ်ခွဲများ',
+    getCount: (db) => db.branches?.length || 0,
+    unitEn: 'branches',
+    unitMm: 'ခု',
+    icon: Server,
+    color: 'text-indigo-400'
+  },
+  {
+    key: 'users',
+    labelEn: 'System Users',
+    labelMm: 'ဝန်ထမ်းအကောင့်များ',
+    getCount: (db) => db.users?.length || 0,
+    unitEn: 'users',
+    unitMm: 'ဦး',
+    icon: Users,
+    color: 'text-purple-400'
+  },
+  {
+    key: 'companies',
+    labelEn: 'Partner Companies',
+    labelMm: 'မိတ်ဖက်ကုမ္ပဏီများ',
+    getCount: (db) => db.companies?.length || 0,
+    unitEn: 'companies',
+    unitMm: 'ခု',
+    icon: Layers,
+    color: 'text-teal-400'
+  },
+  {
+    key: 'currencies',
+    labelEn: 'Currencies',
+    labelMm: 'ငွေကြေးအမျိုးအစားများ',
+    getCount: (db) => db.currencies?.length || 0,
+    unitEn: 'currencies',
+    unitMm: 'မျိုး',
+    icon: Database,
+    color: 'text-yellow-400'
+  },
+  {
+    key: 'countries',
+    labelEn: 'Countries',
+    labelMm: 'နိုင်ငံများ',
+    getCount: (db) => db.countries?.length || 0,
+    unitEn: 'countries',
+    unitMm: 'နိုင်ငံ',
+    icon: HardDrive,
+    color: 'text-blue-400'
+  },
+  {
+    key: 'blacklist',
+    labelEn: 'Blacklist Entries',
+    labelMm: 'နာမည်ပျက်စာရင်း',
+    getCount: (db) => db.blacklist?.length || 0,
+    unitEn: 'entries',
+    unitMm: 'ဦး',
+    icon: AlertTriangle,
+    color: 'text-rose-400'
+  },
+  {
+    key: 'purposes',
+    labelEn: 'Purposes',
+    labelMm: 'လွှဲပို့ရည်ရွယ်ချက်များ',
+    getCount: (db) => db.purposes?.length || 0,
+    unitEn: 'purposes',
+    unitMm: 'ခု',
+    icon: Layers,
+    color: 'text-cyan-400'
+  },
+  {
+    key: 'auditLogs',
+    labelEn: 'Audit Logs',
+    labelMm: 'စနစ်မှတ်တမ်းများ',
+    getCount: (db) => db.auditLogs?.length || 0,
+    unitEn: 'logs',
+    unitMm: 'စောင်',
+    icon: History,
+    color: 'text-violet-400'
+  },
+  {
+    key: 'operatorProfile',
+    labelEn: 'Operator & System Settings',
+    labelMm: 'အော်ပရေတာနှင့် ဆက်တင်များ',
+    getCount: (db) => db.operatorProfile ? 'Configured' : 'Default',
+    unitEn: '',
+    unitMm: '',
+    icon: Cpu,
+    color: 'text-emerald-400'
+  },
+  {
+    key: 'mtoComplianceLimits',
+    labelEn: 'MTO & Myanmar Inward Limits',
+    labelMm: 'MTO & Inward ကန့်သတ်ချက်များ',
+    getCount: (db) => db.mtoComplianceLimits?.length || 0,
+    unitEn: 'corridors',
+    unitMm: 'စင်္ကြံ',
+    icon: Sliders,
+    color: 'text-blue-400'
+  }
+];
+
+export const ALL_PUSH_KEYS: PushTableKey[] = PUSH_TABLE_CONFIGS.map(t => t.key);
 
 interface TursoSyncTabProps {
   onNotify: (type: 'success' | 'error', message: string) => void;
@@ -44,7 +208,8 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
     clearAllTransactions,
     clearAllAuditLogs,
     clearAllCustomers,
-    resetToDefaultSeed
+    resetToDefaultSeed,
+    resetMtoComplianceLimitsToDefault
   } = useRemittance();
   const [status, setStatus] = useState<TursoStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,9 +228,28 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
     isOpen: boolean;
     title: string;
     description: string;
-    actionType: 'clear_tx' | 'clear_audit' | 'clear_customers' | 'reset_seed';
+    actionType: 'clear_tx' | 'clear_audit' | 'clear_customers' | 'reset_seed' | 'reset_mto_limits';
     confirmText: string;
   } | null>(null);
+
+  // Push Table Selection state
+  const [selectedPushTables, setSelectedPushTables] = useState<PushTableKey[]>(ALL_PUSH_KEYS);
+  const isAllPushSelected = selectedPushTables.length === ALL_PUSH_KEYS.length;
+  const isNonePushSelected = selectedPushTables.length === 0;
+
+  const handleToggleSelectAllPush = () => {
+    if (isAllPushSelected) {
+      setSelectedPushTables([]);
+    } else {
+      setSelectedPushTables(ALL_PUSH_KEYS);
+    }
+  };
+
+  const handleToggleTablePush = (key: PushTableKey) => {
+    setSelectedPushTables((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
 
   const loadStatus = async () => {
     setIsLoading(true);
@@ -115,35 +299,73 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
   };
 
   const handlePushData = async () => {
+    if (selectedPushTables.length === 0) {
+      onNotify(
+        'error',
+        language === 'my'
+          ? 'ကျေးဇူးပြု၍ Turso သို့ ပို့ဆောင်လိုသော Table အနည်းဆုံး တစ်ခုကို ရွေးချယ်ပါ'
+          : 'Please select at least one table to push to Turso'
+      );
+      return;
+    }
+
     setIsSyncing(true);
     try {
-      const res = await pushDataToTurso({
-        transactions: db.transactions,
-        exchangeRates: db.exchangeRates,
-        customers: db.customers,
-        auditLogs: db.auditLogs,
-        branches: db.branches,
-        users: db.users,
-        companies: db.companies,
-        currencies: db.currencies,
-        countries: db.countries,
-        blacklist: db.blacklist,
-        purposes: db.purposes,
-        operatorProfile: db.operatorProfile,
-        roleMenuPermissions: db.roleMenuPermissions,
-        defaultStatusConfig: db.defaultStatusConfig,
-      });
+      const payload: any = {};
+      if (selectedPushTables.includes('transactions')) payload.transactions = db.transactions;
+      if (selectedPushTables.includes('exchangeRates')) payload.exchangeRates = db.exchangeRates;
+      if (selectedPushTables.includes('customers')) payload.customers = db.customers;
+      if (selectedPushTables.includes('branches')) payload.branches = db.branches;
+      if (selectedPushTables.includes('users')) payload.users = db.users;
+      if (selectedPushTables.includes('companies')) payload.companies = db.companies;
+      if (selectedPushTables.includes('currencies')) payload.currencies = db.currencies;
+      if (selectedPushTables.includes('countries')) payload.countries = db.countries;
+      if (selectedPushTables.includes('blacklist')) payload.blacklist = db.blacklist;
+      if (selectedPushTables.includes('purposes')) payload.purposes = db.purposes;
+      if (selectedPushTables.includes('auditLogs')) payload.auditLogs = db.auditLogs;
+      if (selectedPushTables.includes('operatorProfile')) {
+        payload.operatorProfile = db.operatorProfile;
+        payload.roleMenuPermissions = db.roleMenuPermissions;
+        payload.defaultStatusConfig = db.defaultStatusConfig;
+      }
+      if (selectedPushTables.includes('mtoComplianceLimits')) payload.mtoComplianceLimits = db.mtoComplianceLimits;
+
+      const res = await pushDataToTurso(payload);
 
       if (res.success) {
         await loadStatus();
         const saved = res.saved || {};
-        const totalPushed = (saved.transactions || 0) + (saved.exchangeRates || 0) + (saved.customers || 0) + (saved.branches || 0) + (saved.users || 0) + (saved.companies || 0) + (saved.currencies || 0) + (saved.countries || 0) + (saved.blacklist || 0) + (saved.purposes || 0) + (saved.auditLogs || 0) + (saved.operatorProfile || 0) + (saved.systemSettings || 0);
-        onNotify(
-          'success',
-          language === 'my'
-            ? `Turso Database သို့ Table အားလုံး (${totalPushed || res.count || 0} records) အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!`
-            : `Successfully pushed all tables (${totalPushed || res.count || 0} records) to Turso Database!`
-        );
+        const totalPushed =
+          (saved.transactions || 0) +
+          (saved.exchangeRates || 0) +
+          (saved.customers || 0) +
+          (saved.branches || 0) +
+          (saved.users || 0) +
+          (saved.companies || 0) +
+          (saved.currencies || 0) +
+          (saved.countries || 0) +
+          (saved.blacklist || 0) +
+          (saved.purposes || 0) +
+          (saved.auditLogs || 0) +
+          (saved.operatorProfile || 0) +
+          (saved.systemSettings || 0) +
+          (saved.mtoComplianceLimits || 0);
+
+        if (isAllPushSelected) {
+          onNotify(
+            'success',
+            language === 'my'
+              ? `Turso Database သို့ Table အားလုံး (${totalPushed || res.count || 0} records, MTO & Inward Limits အပါအဝင်) အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!`
+              : `Successfully pushed all 14 tables (${totalPushed || res.count || 0} records, including MTO & Inward Limits) to Turso Database!`
+          );
+        } else {
+          onNotify(
+            'success',
+            language === 'my'
+              ? `Turso Database သို့ ရွေးချယ်ထားသော Table (${selectedPushTables.length} ခု၊ စုစုပေါင်း ${totalPushed || res.count || 0} records) အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!`
+              : `Successfully pushed ${selectedPushTables.length} selected tables (${totalPushed || res.count || 0} records) to Turso Database!`
+          );
+        }
       } else {
         onNotify('error', res.error || (res as any).message || 'Failed to push data to Turso');
       }
@@ -171,6 +393,7 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
         const pulledBlCount = d.blacklist?.length || 0;
         const pulledPurpCount = d.purposes?.length || 0;
         const pulledLogCount = d.auditLogs?.length || 0;
+        const pulledMtoCount = d.mtoComplianceLimits?.length || 0;
 
         setDb((prev) => {
           const updated = { ...prev };
@@ -225,22 +448,75 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
           if (d.defaultStatusConfig) {
             updated.defaultStatusConfig = d.defaultStatusConfig;
           }
+          if (d.mtoComplianceLimits && d.mtoComplianceLimits.length > 0) {
+            updated.mtoComplianceLimits = d.mtoComplianceLimits;
+          }
           return updated;
         });
 
         await loadStatus();
-        const totalPulled = pulledTxCount + pulledRateCount + pulledCustCount + pulledBranchCount + pulledUserCount + pulledCompCount + pulledCurrCount + pulledCountryCount + pulledBlCount + pulledPurpCount + pulledLogCount;
+        const totalPulled = pulledTxCount + pulledRateCount + pulledCustCount + pulledBranchCount + pulledUserCount + pulledCompCount + pulledCurrCount + pulledCountryCount + pulledBlCount + pulledPurpCount + pulledLogCount + pulledMtoCount;
         onNotify(
           'success',
           language === 'my'
-            ? `Turso မှ Table အားလုံး (${totalPulled} records) အောင်မြင်စွာ ရယူပြီးပါပြီ!`
-            : `Successfully pulled all tables (${totalPulled} records) from Turso Database!`
+            ? `Turso မှ Table အားလုံး (${totalPulled} records, MTO & Inward Limits အပါအဝင်) အောင်မြင်စွာ ရယူပြီးပါပြီ!`
+            : `Successfully pulled all 14 tables (${totalPulled} records, including MTO & Inward Limits) from Turso Database!`
         );
       } else {
         onNotify('error', res.error || (res as any).message || 'Failed to pull data from Turso');
       }
     } catch (err: any) {
       onNotify('error', err?.message || 'Sync pull error');
+    } finally {
+      setIsPulling(false);
+    }
+  };
+
+  const handleSyncMtoLimits = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await pushDataToTurso({
+        mtoComplianceLimits: db.mtoComplianceLimits,
+      });
+      if (res.success) {
+        await loadStatus();
+        onNotify(
+          'success',
+          language === 'my'
+            ? `MTO & Myanmar Domestic Inward Remittance Limits (${db.mtoComplianceLimits?.length || 0} corridors) ကို Turso Cloud DB သို့ အောင်မြင်စွာ ပို့ဆောင်သိမ်းဆည်းပြီးပါပြီ!`
+            : `Successfully pushed MTO & Myanmar Domestic Inward Limits (${db.mtoComplianceLimits?.length || 0} corridors) to Turso Cloud DB!`
+        );
+      } else {
+        onNotify('error', res.error || 'Failed to sync MTO limits to Turso Cloud DB');
+      }
+    } catch (err: any) {
+      onNotify('error', err?.message || 'Sync error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePullMtoLimits = async () => {
+    setIsPulling(true);
+    try {
+      const res = await pullDataFromTurso();
+      if (res.success && res.data?.mtoComplianceLimits) {
+        setDb((prev) => ({
+          ...prev,
+          mtoComplianceLimits: res.data!.mtoComplianceLimits!
+        }));
+        await loadStatus();
+        onNotify(
+          'success',
+          language === 'my'
+            ? `Turso Cloud DB မှ MTO & Myanmar Domestic Inward Remittance Limits (${res.data.mtoComplianceLimits.length} corridors) ကို အောင်မြင်စွာ ရယူပြီးပါပြီ!`
+            : `Successfully pulled MTO & Myanmar Domestic Inward Limits (${res.data.mtoComplianceLimits.length} corridors) from Turso Cloud DB!`
+        );
+      } else {
+        onNotify('error', res.error || 'Failed to pull MTO limits from Turso Cloud DB');
+      }
+    } catch (err: any) {
+      onNotify('error', err?.message || 'Pull error');
     } finally {
       setIsPulling(false);
     }
@@ -292,6 +568,12 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
         onNotify('success', language === 'my'
           ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲပြီးပါပြီ။'
           : 'Reset to factory seed data complete.');
+      } else if (confirmModal.actionType === 'reset_mto_limits') {
+        await resetMtoComplianceLimitsToDefault();
+        await loadStatus();
+        onNotify('success', language === 'my'
+          ? 'MTO & Myanmar Domestic Inward Remittance Limits များကို ဗဟိုဘဏ် CBM စံနှုန်းများအတိုင်း မူလသတ်မှတ်ချက်သို့ ပြန်လည်ထားရှိပြီး Turso Cloud သို့ ချိန်ညှိပြီးပါပြီ။'
+          : 'Reset MTO & Myanmar Domestic Inward Remittance Limits to standard CBM defaults and synced to Turso Cloud DB.');
       }
     } catch (err: any) {
       onNotify('error', err?.message || 'Operation failed');
@@ -458,67 +740,120 @@ turso db tokens create remittance-db`;
         {/* Push to Turso Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-              <UploadCloud className="w-5 h-5 text-emerald-400" />
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                {language === 'my' ? 'ဒေတာများကို Turso သို့ ပို့မည် (Push Local to Turso)' : 'Push Local Data to Turso'}
-              </h4>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2">
+                <UploadCloud className="w-5 h-5 text-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                  {language === 'my' ? 'ဒေတာများကို Turso သို့ ပို့မည် (Push Local to Turso)' : 'Push Local Data to Turso'}
+                </h4>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  {selectedPushTables.length} / {PUSH_TABLE_CONFIGS.length} {language === 'my' ? 'ရွေးထားသည်' : 'Selected'}
+                </span>
+              </div>
             </div>
+
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
               {language === 'my'
-                ? 'လက်ရှိ Remittance စနစ်အတွင်းရှိ Table အားလုံး (ငွေလွှဲမှတ်တမ်း၊ ငွေလဲနှုန်း၊ Customer profiles၊ ဘဏ်ခွဲများ၊ User စာရင်းများ၊ ကုမ္ပဏီများ၊ Currencies၊ နိုင်ငံများ၊ Blacklist၊ ရည်ရွယ်ချက်များ၊ Audit Logs နှင့် System Settings) ကို Turso Database သို့ အကုန်အပြည့်အစုံ ပို့ဆောင်သိမ်းဆည်းပါမည် (Full 13 Tables Upsert).'
-                : 'Uploads all 13 database tables (Transactions, Exchange Rates, Customers, Branches, Users, Companies, Currencies, Countries, Blacklist, Purposes, Audit Logs, Profile, Settings) into Turso LibSQL.'}
+                ? 'Turso Cloud DB သို့ ပို့ဆောင်လိုသော Table များကို Checkbox ဖြင့် ရွေးချယ်နိုင်ပါသည်။ "Select All" ကို Check လုပ်ထားပါက Table အားလုံး (၁၄ မျိုး) ကို Cloud သို့ တစ်ပြိုင်နက် ပို့ဆောင်ပေးမည် ဖြစ်ပြီး၊ မိမိလိုအပ်သော Table များကိုသာ ရွေးချယ်၍လည်း Push ပြုလုပ်နိုင်ပါသည်။'
+                : 'Select the specific tables to push to Turso Cloud DB using the checkboxes below. Checking "Select All" will push all 14 tables to the cloud simultaneously.'}
             </p>
 
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1.5 mt-4 text-xs font-mono max-h-56 overflow-y-auto">
-              <div className="flex justify-between text-slate-400">
-                <span>Transactions (ငွေလွှဲမှတ်တမ်း):</span>
-                <span className="text-white font-bold">{db.transactions.length}</span>
+            {/* Select All Bar */}
+            <div className="flex items-center justify-between mt-3 px-3.5 py-2.5 bg-slate-950/80 rounded-xl border border-slate-800/90 text-xs">
+              <label 
+                htmlFor="chk-select-all-push"
+                className="flex items-center space-x-2.5 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  id="chk-select-all-push"
+                  checked={isAllPushSelected}
+                  onChange={handleToggleSelectAllPush}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+                />
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  {isAllPushSelected ? (
+                    <CheckSquare className="w-4 h-4 text-emerald-400" />
+                  ) : isNonePushSelected ? (
+                    <Square className="w-4 h-4 text-slate-500" />
+                  ) : (
+                    <CheckSquare className="w-4 h-4 text-emerald-400/70" />
+                  )}
+                  <span>
+                    {language === 'my' ? 'အားလုံး ရွေးချယ်မည် (Select All)' : 'Select All Tables'}
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex items-center space-x-1.5 text-[11px] font-medium">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPushTables(ALL_PUSH_KEYS)}
+                  className="px-2 py-0.5 rounded text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                >
+                  {language === 'my' ? 'အားလုံးရွေး' : 'Select All'}
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPushTables([])}
+                  className="px-2 py-0.5 rounded text-slate-400 hover:text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  {language === 'my' ? 'အားလုံးဖြုတ်' : 'Deselect All'}
+                </button>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Exchange Rates (ငွေလဲနှုန်း):</span>
-                <span className="text-white font-bold">{db.exchangeRates.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Customer Profiles (ဖောက်သည်):</span>
-                <span className="text-white font-bold">{db.customers.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Branches (ဘဏ်ခွဲများ):</span>
-                <span className="text-white font-bold">{db.branches.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>System Users (ဝန်ထမ်းများ):</span>
-                <span className="text-white font-bold">{db.users.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Companies (မိတ်ဖက်ကုမ္ပဏီများ):</span>
-                <span className="text-white font-bold">{db.companies.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Currencies (ငွေကြေးအမျိုးအစားများ):</span>
-                <span className="text-white font-bold">{db.currencies.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Countries (နိုင်ငံများ):</span>
-                <span className="text-white font-bold">{db.countries.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Blacklist Entries (နာမည်ပျက်စာရင်း):</span>
-                <span className="text-white font-bold">{db.blacklist.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Purposes (လွှဲပို့ရည်ရွယ်ချက်များ):</span>
-                <span className="text-white font-bold">{db.purposes.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Audit Logs (စနစ်မှတ်တမ်းများ):</span>
-                <span className="text-white font-bold">{db.auditLogs.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Operator Profile & Settings:</span>
-                <span className="text-emerald-400 font-bold">{db.operatorProfile ? 'Configured' : 'Default'}</span>
-              </div>
+            </div>
+
+            {/* Table Checkbox Checklist */}
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1.5 mt-2.5 text-xs max-h-72 overflow-y-auto">
+              {PUSH_TABLE_CONFIGS.map((t) => {
+                const isChecked = selectedPushTables.includes(t.key);
+                const count = t.getCount(db);
+                const IconComponent = t.icon;
+
+                return (
+                  <label
+                    key={t.key}
+                    htmlFor={`chk-push-table-${t.key}`}
+                    className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer select-none ${
+                      isChecked
+                        ? 'bg-slate-900/90 border-emerald-500/30 text-slate-200 shadow-xs'
+                        : 'bg-slate-950/50 border-slate-800/60 text-slate-500 hover:bg-slate-900/40 hover:text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                      <input
+                        type="checkbox"
+                        id={`chk-push-table-${t.key}`}
+                        checked={isChecked}
+                        onChange={() => handleToggleTablePush(t.key)}
+                        className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 cursor-pointer accent-emerald-500 shrink-0"
+                      />
+                      <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isChecked ? t.color : 'text-slate-600'}`} />
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5 truncate">
+                        <span className={`text-xs font-semibold truncate ${isChecked ? 'text-white' : 'text-slate-400'}`}>
+                          {t.labelEn}
+                        </span>
+                        <span className="text-[10px] text-slate-500 truncate">
+                          ({t.labelMm})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1 shrink-0 font-mono">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                        isChecked 
+                          ? 'bg-slate-800 text-emerald-400 border border-emerald-500/20' 
+                          : 'bg-slate-900 text-slate-600 border border-slate-800'
+                      }`}>
+                        {count} {t.unitEn && <span className="text-[10px] font-normal text-slate-500 ml-0.5">{t.unitEn}</span>}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -526,14 +861,30 @@ turso db tokens create remittance-db`;
             type="button"
             id="btn-turso-push"
             onClick={handlePushData}
-            disabled={isSyncing}
-            className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer"
+            disabled={isSyncing || selectedPushTables.length === 0}
+            className={`w-full flex items-center justify-center space-x-2 py-3 rounded-xl font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer ${
+              selectedPushTables.length === 0
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                : 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white'
+            }`}
           >
             <UploadCloud className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
             <span>
               {isSyncing
-                ? (language === 'my' ? 'Turso သို့ Table အားလုံး ပို့ဆောင်နေပါသည်...' : 'Pushing All Tables to Turso...')
-                : (language === 'my' ? 'Turso သို့ Table အားလုံး သိမ်းဆည်းမည် (Push All Tables)' : 'Push All Tables to Turso Database')}
+                ? (language === 'my' 
+                    ? `Turso သို့ Table (${selectedPushTables.length}) ခု ပို့ဆောင်နေပါသည်...` 
+                    : `Pushing ${selectedPushTables.length} Tables to Turso...`)
+                : isAllPushSelected
+                  ? (language === 'my' 
+                      ? `Turso သို့ Table အားလုံး သိမ်းဆည်းမည် (Push All ${PUSH_TABLE_CONFIGS.length} Tables)` 
+                      : `Push All ${PUSH_TABLE_CONFIGS.length} Tables to Turso Database`)
+                  : selectedPushTables.length > 0
+                    ? (language === 'my' 
+                        ? `ရွေးချယ်ထားသော Table (${selectedPushTables.length}) ခုကို Turso သို့ သိမ်းဆည်းမည် (Push Selected)` 
+                        : `Push Selected (${selectedPushTables.length} Tables) to Turso Database`)
+                    : (language === 'my' 
+                        ? 'Table မရွေးချယ်ရသေးပါ (Select Tables)' 
+                        : 'No Tables Selected (Select at least one)')}
             </span>
           </button>
         </div>
@@ -549,8 +900,8 @@ turso db tokens create remittance-db`;
             </div>
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
               {language === 'my'
-                ? 'Turso Database ထဲတွင် သိမ်းဆည်းထားသော Table အားလုံး (ငွေလွှဲ၊ ငွေလဲနှုန်း၊ ဖောက်သည်၊ ဘဏ်ခွဲ၊ အသုံးပြုသူ၊ ကုမ္ပဏီ၊ ငွေကြေး၊ နိုင်ငံ၊ Blacklist၊ စနစ်မှတ်တမ်း စသည်) ကို Remittance System ထဲသို့ ပြန်လည်ဆွဲယူပြီး ရောစပ်ဖြည့်သွင်းပါမည် (Full 13 Tables Pull & Merge).'
-                : 'Pulls all 13 cloud tables from Turso LibSQL and safely merges them with the local active state.'}
+                ? 'Turso Database ထဲတွင် သိမ်းဆည်းထားသော Table အားလုံး (ငွေလွှဲ၊ ငွေလဲနှုန်း၊ ဖောက်သည်၊ ဘဏ်ခွဲ၊ အသုံးပြုသူ၊ ကုမ္ပဏီ၊ ငွေကြေး၊ နိုင်ငံ၊ Blacklist၊ စနစ်မှတ်တမ်း နှင့် MTO & Myanmar Domestic Inward Remittance Limits စသည်) ကို Remittance System ထဲသို့ ပြန်လည်ဆွဲယူပြီး ရောစပ်ဖြည့်သွင်းပါမည် (Full 14 Tables Pull & Merge).'
+                : 'Pulls all 14 cloud tables from Turso LibSQL (including MTO & Myanmar Domestic Inward Remittance Limits) and safely merges them with the local active state.'}
             </p>
 
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1.5 mt-4 text-xs font-mono max-h-56 overflow-y-auto">
@@ -601,6 +952,13 @@ turso db tokens create remittance-db`;
               <div className="flex justify-between text-slate-400">
                 <span>Cloud Operator & Settings:</span>
                 <span className="text-emerald-400 font-bold">Synced</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span className="flex items-center gap-1.5 text-blue-400 font-medium">
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Cloud MTO & Myanmar Inward Limits:</span>
+                </span>
+                <span className="text-emerald-400 font-bold">{status?.counts?.mtoComplianceLimits ?? 'Check'}</span>
               </div>
             </div>
           </div>
@@ -718,7 +1076,7 @@ turso db tokens create remittance-db`;
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 text-xs">
           {/* Card 1: Clear Transactions */}
           <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
             <div>
@@ -869,6 +1227,70 @@ turso db tokens create remittance-db`;
               <RotateCcw className="w-3.5 h-3.5" />
               <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
             </button>
+          </div>
+
+          {/* Card 5: MTO & Myanmar Domestic Inward Remittance Limits */}
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between font-bold text-white mb-1">
+                <span className="flex items-center gap-1.5 text-blue-400">
+                  <Sliders className="w-4 h-4" />
+                  {language === 'my' ? 'MTO & Inward Limits' : 'MTO & Inward Limits'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[10px] bg-blue-500/20 text-blue-300 font-mono">
+                  {status?.counts?.mtoComplianceLimits ?? db.mtoComplianceLimits?.length ?? 0}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {language === 'my'
+                  ? 'Turso (mto_compliance_limits) နိုင်ငံအလိုက် MTO နှင့် ဗဟိုဘဏ် Inward USD ကန့်သတ်ချက်များ'
+                  : 'MTO currency limits and Myanmar Inward USD monthly caps in Turso cloud.'}
+              </p>
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  id="btn-turso-push-mto-limits"
+                  disabled={isSyncing}
+                  onClick={handleSyncMtoLimits}
+                  className="py-1.5 px-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-[11px] shadow-sm transition-all flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-40"
+                  title="Push MTO & Inward limits to Turso"
+                >
+                  <UploadCloud className="w-3 h-3" />
+                  <span>{language === 'my' ? 'Push ပို့' : 'Push'}</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-turso-pull-mto-limits"
+                  disabled={isPulling}
+                  onClick={handlePullMtoLimits}
+                  className="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-[11px] shadow-sm transition-all flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-40"
+                  title="Pull MTO & Inward limits from Turso"
+                >
+                  <DownloadCloud className="w-3 h-3" />
+                  <span>{language === 'my' ? 'Pull ယူ' : 'Pull'}</span>
+                </button>
+              </div>
+              <button
+                type="button"
+                id="btn-turso-reset-mto-limits"
+                disabled={isClearing}
+                onClick={() => setConfirmModal({
+                  isOpen: true,
+                  title: language === 'my' ? 'MTO & Myanmar Inward Limits များကို CBM မူလစံနှုန်းအတိုင်း ပြန်ထားမည်လား?' : 'Reset MTO & Myanmar Inward Limits?',
+                  description: language === 'my'
+                    ? 'ဗဟိုဘဏ် CBM စံနှုန်းများ (Inward USD $5,000/tx, $25,000/month နှင့် MTO စင်္ကြံ ၇ ခု) အဖြစ် မူလအတိုင်း ပြန်လည်ပြောင်းလဲပြီး Turso Cloud သို့ ချိန်ညှိပါမည်။'
+                    : 'Restore default Central Bank of Myanmar regulatory limits (USD $5,000/tx, $25,000/month & 7 major MTO corridors) and sync to Turso Cloud.',
+                  actionType: 'reset_mto_limits',
+                  confirmText: language === 'my' ? 'ဟုတ်ကဲ့၊ CBM စံနှုန်းအတိုင်း ပြန်ထားမည်' : 'Yes, Reset CBM Limits'
+                })}
+                className="w-full py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-[11px] border border-slate-700 transition-all flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-40"
+              >
+                <RotateCcw className="w-3 h-3 text-amber-400" />
+                <span>{language === 'my' ? 'CBM စံနှုန်းပြန်ထား' : 'Reset CBM Defaults'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

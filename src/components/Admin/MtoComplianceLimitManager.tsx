@@ -16,10 +16,13 @@ import {
   X, 
   ArrowRight,
   Calculator,
-  Info
+  Info,
+  UploadCloud,
+  DownloadCloud
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import { MtoComplianceLimit } from '../../types';
+import { pushDataToTurso, pullDataFromTurso } from '../../lib/tursoClient';
 
 export const MtoComplianceLimitManager: React.FC = () => {
   const { 
@@ -29,6 +32,7 @@ export const MtoComplianceLimitManager: React.FC = () => {
     deleteMtoComplianceLimit, 
     resetMtoComplianceLimitsToDefault, 
     db, 
+    setDb,
     currentUser,
     getCorridorExchangeRate
   } = useRemittance();
@@ -39,6 +43,8 @@ export const MtoComplianceLimitManager: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [isPushingTurso, setIsPushingTurso] = useState(false);
+  const [isPullingTurso, setIsPullingTurso] = useState(false);
 
   // Live Simulator state
   const [simCountryCode, setSimCountryCode] = useState('TH');
@@ -126,6 +132,48 @@ export const MtoComplianceLimitManager: React.FC = () => {
     );
   };
 
+  const handlePushTurso = async () => {
+    setIsPushingTurso(true);
+    try {
+      const res = await pushDataToTurso({
+        mtoComplianceLimits: mtoComplianceLimits
+      });
+      if (res.success) {
+        showToast(language === 'my'
+          ? `Turso Cloud DB သို့ MTO Limits (${mtoComplianceLimits.length} စင်္ကြံ) ပို့ဆောင်ပြီးပါပြီ!`
+          : `Pushed ${mtoComplianceLimits.length} MTO corridors to Turso Cloud DB!`);
+      } else {
+        alert(res.error || 'Failed to push to Turso');
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Error pushing to Turso');
+    } finally {
+      setIsPushingTurso(false);
+    }
+  };
+
+  const handlePullTurso = async () => {
+    setIsPullingTurso(true);
+    try {
+      const res = await pullDataFromTurso();
+      if (res.success && res.data?.mtoComplianceLimits && res.data.mtoComplianceLimits.length > 0) {
+        setDb(prev => ({
+          ...prev,
+          mtoComplianceLimits: res.data!.mtoComplianceLimits!
+        }));
+        showToast(language === 'my'
+          ? `Turso Cloud DB မှ MTO Limits (${res.data.mtoComplianceLimits.length} စင်္ကြံ) ဆွဲယူပြီးပါပြီ!`
+          : `Pulled ${res.data.mtoComplianceLimits.length} MTO corridors from Turso Cloud DB!`);
+      } else {
+        showToast(language === 'my' ? 'Turso Cloud တွင် MTO Limits အသစ် မရှိသေးပါ' : 'No new MTO limits found in Turso');
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Error pulling from Turso');
+    } finally {
+      setIsPullingTurso(false);
+    }
+  };
+
   // Live Simulator calculation
   const simActiveLimit = mtoComplianceLimits.find(l => l.countryCode === simCountryCode) || mtoComplianceLimits[0];
   const simExRate = simActiveLimit ? (getCorridorExchangeRate(simActiveLimit.currency, 'MMK') || (simActiveLimit.currency === 'THB' ? 134.5 : 1)) : 1;
@@ -174,6 +222,38 @@ export const MtoComplianceLimitManager: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              id="btn-mto-turso-push"
+              disabled={isPushingTurso}
+              onClick={handlePushTurso}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 border border-emerald-400/40 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Push MTO & Myanmar Inward Limits to Turso Cloud DB"
+            >
+              <UploadCloud className={`w-3.5 h-3.5 text-white ${isPushingTurso ? 'animate-bounce' : ''}`} />
+              <span className="text-white font-bold">
+                {isPushingTurso
+                  ? (language === 'my' ? 'Turso သို့ ပို့နေသည်...' : 'Pushing...')
+                  : (language === 'my' ? 'Turso သို့ Push' : 'Push to Turso')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-mto-turso-pull"
+              disabled={isPullingTurso}
+              onClick={handlePullTurso}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 border border-sky-400/40 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Pull MTO & Myanmar Inward Limits from Turso Cloud DB"
+            >
+              <DownloadCloud className={`w-3.5 h-3.5 text-white ${isPullingTurso ? 'animate-bounce' : ''}`} />
+              <span className="text-white font-bold">
+                {isPullingTurso
+                  ? (language === 'my' ? 'Turso မှ ရယူနေသည်...' : 'Pulling...')
+                  : (language === 'my' ? 'Turso မှ Pull' : 'Pull from Turso')}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={handleRestoreDefaults}

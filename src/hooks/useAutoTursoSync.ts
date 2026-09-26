@@ -24,7 +24,8 @@ export function useAutoTursoSync() {
         customers: currentData.customers,
         auditLogs: currentData.auditLogs,
         users: currentData.users,
-        branches: currentData.branches
+        branches: currentData.branches,
+        mtoComplianceLimits: currentData.mtoComplianceLimits
       });
       console.log(`[AutoSync] Background Push Complete (${reason}).`);
     } catch (err) {
@@ -54,7 +55,8 @@ export function useAutoTursoSync() {
         customers: currentData.customers,
         auditLogs: currentData.auditLogs,
         users: currentData.users,
-        branches: currentData.branches
+        branches: currentData.branches,
+        mtoComplianceLimits: currentData.mtoComplianceLimits
       });
 
       // Browser ပိတ်သွားသည့်အခါ connection မပြတ်ဘဲ နောက်ကွယ်မှ ပို့နိုင်ရန် keepalive နှင့် sendBeacon အသုံးပြုခြင်း

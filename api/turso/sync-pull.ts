@@ -15,10 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       authToken: process.env.TURSO_AUTH_TOKEN || TURSO_FALLBACK_TOKEN
     });
 
-    // Cloud DB မှ Tables (13 ခုလုံး) ကို တစ်ပြိုင်နက် ဖတ်ယူခြင်း
+    // Cloud DB မှ Tables (14 ခုလုံး) ကို တစ်ပြိုင်နက် ဖတ်ယူခြင်း
     const [
       txRes, rateRes, custRes, auditRes, userRes, branchRes,
-      compRes, currRes, countryRes, blRes, purpRes, profRes, settsRes
+      compRes, currRes, countryRes, blRes, purpRes, profRes, settsRes,
+      mtoLimRes
     ] = await Promise.all([
       client.execute('SELECT * FROM remittance_transactions ORDER BY created_at DESC LIMIT 500;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM exchange_rates;').catch(() => ({ rows: [] })),
@@ -32,7 +33,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       client.execute('SELECT * FROM blacklist;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM purposes;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM operator_profile LIMIT 1;').catch(() => ({ rows: [] })),
-      client.execute('SELECT * FROM system_settings;').catch(() => ({ rows: [] }))
+      client.execute('SELECT * FROM system_settings;').catch(() => ({ rows: [] })),
+      client.execute('SELECT * FROM mto_compliance_limits ORDER BY id ASC;').catch(() => ({ rows: [] }))
     ]);
 
     // Branches Data ကို Dynamic Country Detection ဖြင့် Map လုပ်ခြင်း
@@ -129,6 +131,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     });
 
+    const mtoComplianceLimits = (mtoLimRes.rows || []).map((r: any) => ({
+      id: String(r.id),
+      countryCode: String(r.country_code || r.countryCode || ''),
+      countryName: String(r.country_name || r.countryName || ''),
+      flagEmoji: String(r.flag_emoji || r.flagEmoji || '🌐'),
+      currency: String(r.currency || 'USD'),
+      mtoPartnerName: String(r.mto_partner_name || r.mtoPartnerName || ''),
+      mtoMaxLimitPerTx: Number(r.mto_max_limit_per_tx ?? r.mtoMaxLimitPerTx ?? 0),
+      mtoMaxLimitPerMonth: r.mto_max_limit_per_month !== null && r.mto_max_limit_per_month !== undefined ? Number(r.mto_max_limit_per_month) : (r.mtoMaxLimitPerMonth ? Number(r.mtoMaxLimitPerMonth) : undefined),
+      inwardCountryCode: String(r.inward_country_code || r.inwardCountryCode || 'MM'),
+      inwardMaxUsdPerTx: Number(r.inward_max_usd_per_tx ?? r.inwardMaxUsdPerTx ?? 5000),
+      inwardMaxUsdPerMonth: Number(r.inward_max_usd_per_month ?? r.inwardMaxUsdPerMonth ?? 25000),
+      regulatoryRef: String(r.regulatory_ref || r.regulatoryRef || ''),
+      description: String(r.description || ''),
+      active: r.active !== 0 && r.active !== false,
+      createdAt: String(r.created_at || r.createdAt || ''),
+      updatedAt: String(r.updated_at || r.updatedAt || ''),
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -144,7 +165,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         blacklist: blRes.rows,
         purposes: purpRes.rows,
         operatorProfile: profRes.rows[0] || null,
-        systemSettings: settsRes.rows
+        systemSettings: settsRes.rows,
+        mtoComplianceLimits
       }
     });
   } catch (err: any) {

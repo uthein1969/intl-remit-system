@@ -17,11 +17,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       authToken
     });
 
-    // Cloud Tables (13 Tables) များမှ အရေအတွက်များကို တစ်ပြိုင်နက် ရေတွက်ခြင်း
+    // Cloud Tables (14 Tables) များမှ အရေအတွက်များကို တစ်ပြိုင်နက် ရေတွက်ခြင်း
     const [
       txRes, rateRes, custRes, auditRes,
       branchRes, userRes, compRes, currRes,
-      countryRes, blRes, purpRes, profRes, settsRes
+      countryRes, blRes, purpRes, profRes, settsRes,
+      mtoRes
     ] = await Promise.all([
       client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM exchange_rates;').catch(() => ({ rows: [{ cnt: 0 }] })),
@@ -35,7 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       client.execute('SELECT COUNT(*) as cnt FROM blacklist;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM purposes;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM operator_profile;').catch(() => ({ rows: [{ cnt: 0 }] })),
-      client.execute('SELECT COUNT(*) as cnt FROM system_settings;').catch(() => ({ rows: [{ cnt: 0 }] }))
+      client.execute('SELECT COUNT(*) as cnt FROM system_settings;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM mto_compliance_limits;').catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
 
     const counts = {
@@ -51,7 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       blacklist: Number(blRes.rows[0]?.cnt ?? 0),
       purposes: Number(purpRes.rows[0]?.cnt ?? 0),
       operatorProfile: Number(profRes.rows[0]?.cnt ?? 0),
-      systemSettings: Number(settsRes.rows[0]?.cnt ?? 0)
+      systemSettings: Number(settsRes.rows[0]?.cnt ?? 0),
+      mtoComplianceLimits: Number(mtoRes.rows[0]?.cnt ?? 0),
     };
 
     const hasData = Object.values(counts).some(c => c > 0);
@@ -59,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       connected: Boolean(authToken || hasData),
-      tablesCount: 13,
+      tablesCount: 14,
       isRemote: true,
       url,
       timestamp: new Date().toISOString(),

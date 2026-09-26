@@ -25,6 +25,7 @@ export interface TursoStatusResponse {
     purposes?: number;
     operatorProfile?: number;
     systemSettings?: number;
+    mtoComplianceLimits?: number;
   };
 }
 
@@ -121,6 +122,7 @@ export async function pushDataToTurso(dbData: {
   operatorProfile?: any;
   roleMenuPermissions?: any;
   defaultStatusConfig?: any;
+  mtoComplianceLimits?: any[];
 }) {
   try {
     const { ok, data } = await safeFetchJson('/api/turso/sync-push', {
@@ -208,6 +210,71 @@ export async function searchTursoCustomers(query: string): Promise<any[]> {
     return await tursoWebSearchCustomers(query);
   } catch {
     return [];
+  }
+}
+
+export async function fetchTursoMtoLimits(): Promise<{ success: boolean; limits?: any[]; message?: string }> {
+  try {
+    const { ok, data } = await safeFetchJson('/api/turso/mto-limits');
+    if (ok && data?.success && Array.isArray(data.limits)) {
+      return { success: true, limits: data.limits };
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { tursoWebSyncPull } = await import('./tursoWebClient');
+    const pullRes = await tursoWebSyncPull();
+    if (pullRes.success && pullRes.data?.mtoComplianceLimits) {
+      return { success: true, limits: pullRes.data.mtoComplianceLimits };
+    }
+  } catch {}
+
+  return { success: false, message: 'Could not fetch MTO limits from Turso' };
+}
+
+export async function saveTursoMtoLimit(limit: any): Promise<{ success: boolean; message?: string }> {
+  try {
+    const { ok, data } = await safeFetchJson('/api/turso/mto-limits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(limit)
+    });
+    if (ok && data?.success) {
+      return data;
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { tursoWebSaveMtoLimit } = await import('./tursoWebClient');
+    return await tursoWebSaveMtoLimit(limit);
+  } catch (e: any) {
+    return { success: false, message: e?.message || 'Failed to save MTO limit to Turso' };
+  }
+}
+
+export async function deleteTursoMtoLimit(id: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const { ok, data } = await safeFetchJson('/api/turso/mto-limits', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    if (ok && data?.success) {
+      return data;
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { tursoWebDeleteMtoLimit } = await import('./tursoWebClient');
+    return await tursoWebDeleteMtoLimit(id);
+  } catch (e: any) {
+    return { success: false, message: e?.message || 'Failed to delete MTO limit from Turso' };
   }
 }
 

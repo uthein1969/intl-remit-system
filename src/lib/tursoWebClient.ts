@@ -36,6 +36,7 @@ export async function tursoWebCheckStatus(): Promise<{
     purposes?: number;
     operatorProfile?: number;
     systemSettings?: number;
+    mtoComplianceLimits?: number;
   };
 }> {
   try {
@@ -43,7 +44,8 @@ export async function tursoWebCheckStatus(): Promise<{
     const [
       txRes, custRes, rateRes, logRes,
       branchRes, userRes, compRes, currRes,
-      countryRes, blRes, purpRes, profRes, settsRes
+      countryRes, blRes, purpRes, profRes, settsRes,
+      mtoRes
     ] = await Promise.all([
       client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] })),
@@ -58,6 +60,7 @@ export async function tursoWebCheckStatus(): Promise<{
       client.execute('SELECT COUNT(*) as cnt FROM purposes;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM operator_profile;').catch(() => ({ rows: [{ cnt: 0 }] })),
       client.execute('SELECT COUNT(*) as cnt FROM system_settings;').catch(() => ({ rows: [{ cnt: 0 }] })),
+      client.execute('SELECT COUNT(*) as cnt FROM mto_compliance_limits;').catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
 
     return {
@@ -77,6 +80,7 @@ export async function tursoWebCheckStatus(): Promise<{
         purposes: Number(purpRes.rows[0]?.cnt || 0),
         operatorProfile: Number(profRes.rows[0]?.cnt || 0),
         systemSettings: Number(settsRes.rows[0]?.cnt || 0),
+        mtoComplianceLimits: Number(mtoRes.rows[0]?.cnt || 0),
       }
     };
   } catch (err: any) {
@@ -329,6 +333,7 @@ export async function tursoWebSyncPush(data: {
   roleMenuPermissions?: any;
   countryRoleMenuPermissions?: any;
   defaultStatusConfig?: any;
+  mtoComplianceLimits?: any[];
 }): Promise<{
   success: boolean;
   count: number;
@@ -350,6 +355,7 @@ export async function tursoWebSyncPush(data: {
     let purpCount = 0;
     let profCount = 0;
     let settCount = 0;
+    let mtoCount = 0;
 
     // 1. Transactions
     if (data.transactions && Array.isArray(data.transactions)) {
@@ -936,7 +942,91 @@ export async function tursoWebSyncPush(data: {
       }
     }
 
-    const totalSaved = txCount + ratesCount + custCount + logCount + branchCount + userCount + compCount + currCount + countryCount + blCount + purpCount + profCount + settCount;
+    // 14. MTO & Myanmar Domestic Inward Remittance Limits
+    if (data.mtoComplianceLimits && Array.isArray(data.mtoComplianceLimits)) {
+      try {
+        await client.execute(`CREATE TABLE IF NOT EXISTS mto_compliance_limits (
+          id TEXT PRIMARY KEY,
+          country_code TEXT UNIQUE NOT NULL,
+          country_name TEXT NOT NULL,
+          flag_emoji TEXT,
+          currency TEXT NOT NULL,
+          mto_partner_name TEXT,
+          mto_max_limit_per_tx REAL NOT NULL,
+          mto_max_limit_per_month REAL,
+          inward_country_code TEXT DEFAULT 'MM',
+          inward_max_usd_per_tx REAL NOT NULL,
+          inward_max_usd_per_month REAL NOT NULL,
+          regulatory_ref TEXT,
+          description TEXT,
+          active INTEGER DEFAULT 1,
+          created_at TEXT,
+          updated_at TEXT
+        );`).catch(() => {});
+
+        for (const lim of data.mtoComplianceLimits) {
+          if (!lim.id) continue;
+          const cCode = String(lim.countryCode || lim.country_code || '').trim().toUpperCase();
+          await client.execute({
+            sql: 'DELETE FROM mto_compliance_limits WHERE country_code = ? AND id != ?;',
+            args: [cCode, lim.id]
+          }).catch(() => {});
+
+          await client.execute({
+            sql: `INSERT INTO mto_compliance_limits (
+              id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+              mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+              inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+              active, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              country_code=excluded.country_code,
+              country_name=excluded.country_name,
+              flag_emoji=excluded.flag_emoji,
+              currency=excluded.currency,
+              mto_partner_name=excluded.mto_partner_name,
+              mto_max_limit_per_tx=excluded.mto_max_limit_per_tx,
+              mto_max_limit_per_month=excluded.mto_max_limit_per_month,
+              inward_country_code=excluded.inward_country_code,
+              inward_max_usd_per_tx=excluded.inward_max_usd_per_tx,
+              inward_max_usd_per_month=excluded.inward_max_usd_per_month,
+              regulatory_ref=excluded.regulatory_ref,
+              description=excluded.description,
+              active=excluded.active,
+              updated_at=excluded.updated_at;`,
+            args: [
+              lim.id,
+              cCode,
+              lim.countryName || lim.country_name || cCode,
+              lim.flagEmoji || lim.flag_emoji || '🌐',
+              lim.currency || 'USD',
+              lim.mtoPartnerName || lim.mto_partner_name || '',
+              Number(lim.mtoMaxLimitPerTx ?? lim.mto_max_limit_per_tx ?? 0),
+              lim.mtoMaxLimitPerMonth !== undefined && lim.mtoMaxLimitPerMonth !== null ? Number(lim.mtoMaxLimitPerMonth) : (lim.mto_max_limit_per_month ? Number(lim.mto_max_limit_per_month) : null),
+              lim.inwardCountryCode || lim.inward_country_code || 'MM',
+              Number(lim.inwardMaxUsdPerTx ?? lim.inward_max_usd_per_tx ?? 5000),
+              Number(lim.inwardMaxUsdPerMonth ?? lim.inward_max_usd_per_month ?? 25000),
+              lim.regulatoryRef || lim.regulatory_ref || '',
+              lim.description || '',
+              lim.active !== false && lim.active !== 0 ? 1 : 0,
+              lim.createdAt || lim.created_at || new Date().toISOString(),
+              lim.updatedAt || lim.updated_at || new Date().toISOString()
+            ]
+          });
+          mtoCount++;
+        }
+
+        await client.execute({
+          sql: `INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at;`,
+          args: ['mto_compliance_limits', JSON.stringify(data.mtoComplianceLimits), new Date().toISOString()]
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[Turso Web Sync] Error saving mtoComplianceLimits:', e);
+      }
+    }
+
+    const totalSaved = txCount + ratesCount + custCount + logCount + branchCount + userCount + compCount + currCount + countryCount + blCount + purpCount + profCount + settCount + mtoCount;
 
     return {
       success: true,
@@ -955,6 +1045,7 @@ export async function tursoWebSyncPush(data: {
         purposes: purpCount,
         operatorProfile: profCount,
         systemSettings: settCount,
+        mtoComplianceLimits: mtoCount,
       },
       message: `Successfully synced ${totalSaved} records across all tables directly to Turso Cloud.`
     };
@@ -985,6 +1076,7 @@ export async function tursoWebSyncPull(): Promise<{
     roleMenuPermissions?: any;
     countryRoleMenuPermissions?: any;
     defaultStatusConfig?: any;
+    mtoComplianceLimits?: any[];
   };
   message: string;
 }> {
@@ -993,7 +1085,8 @@ export async function tursoWebSyncPull(): Promise<{
     const [
       res, rateRes, custRes, logRes,
       branchRes, userRes, compRes, currRes,
-      countryRes, blRes, purpRes, profRes, settsRes
+      countryRes, blRes, purpRes, profRes, settsRes,
+      mtoLimRes
     ] = await Promise.all([
       client.execute('SELECT * FROM remittance_transactions ORDER BY created_at DESC LIMIT 500;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM exchange_rates ORDER BY updated_at DESC;').catch(() => ({ rows: [] })),
@@ -1008,6 +1101,7 @@ export async function tursoWebSyncPull(): Promise<{
       client.execute('SELECT * FROM purposes ORDER BY id ASC;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM operator_profile LIMIT 1;').catch(() => ({ rows: [] })),
       client.execute('SELECT * FROM system_settings;').catch(() => ({ rows: [] })),
+      client.execute('SELECT * FROM mto_compliance_limits ORDER BY id ASC;').catch(() => ({ rows: [] })),
     ]);
 
     const transactions = res.rows.map((r: any) => ({
@@ -1295,6 +1389,37 @@ export async function tursoWebSyncPull(): Promise<{
       }
     }
 
+    let mtoComplianceLimits = (mtoLimRes.rows || []).map((r: any) => ({
+      id: String(r.id),
+      countryCode: String(r.country_code),
+      countryName: String(r.country_name),
+      flagEmoji: String(r.flag_emoji || ''),
+      currency: String(r.currency),
+      mtoPartnerName: String(r.mto_partner_name || ''),
+      mtoMaxLimitPerTx: Number(r.mto_max_limit_per_tx) || 0,
+      mtoMaxLimitPerMonth: r.mto_max_limit_per_month !== null && r.mto_max_limit_per_month !== undefined ? Number(r.mto_max_limit_per_month) : undefined,
+      inwardCountryCode: String(r.inward_country_code || 'MM'),
+      inwardMaxUsdPerTx: Number(r.inward_max_usd_per_tx) || 5000,
+      inwardMaxUsdPerMonth: Number(r.inward_max_usd_per_month) || 25000,
+      regulatoryRef: String(r.regulatory_ref || ''),
+      description: String(r.description || ''),
+      active: r.active !== 0,
+      createdAt: String(r.created_at || ''),
+      updatedAt: String(r.updated_at || ''),
+    }));
+
+    if (mtoComplianceLimits.length === 0 && settsRes.rows && settsRes.rows.length > 0) {
+      const limSetting = (settsRes.rows as any[]).find(r => r.key === 'mto_compliance_limits');
+      if (limSetting?.value) {
+        try {
+          const parsed = JSON.parse(limSetting.value);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            mtoComplianceLimits = parsed;
+          }
+        } catch {}
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -1313,6 +1438,7 @@ export async function tursoWebSyncPull(): Promise<{
         roleMenuPermissions,
         countryRoleMenuPermissions,
         defaultStatusConfig,
+        mtoComplianceLimits,
       },
       message: `Retrieved all tables from Turso Cloud (${transactions.length} txs, ${branches.length} branches, ${users.length} users, etc.).`
     };
@@ -1678,5 +1804,97 @@ export async function tursoWebSearchCustomers(query: string): Promise<any[]> {
     return [];
   }
 }
+
+export async function tursoWebSaveMtoLimit(lim: any): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    if (!lim || !lim.id) throw new Error('MTO limit id is required.');
+    const cCode = String(lim.countryCode || lim.country_code || '').trim().toUpperCase();
+
+    await client.execute(`CREATE TABLE IF NOT EXISTS mto_compliance_limits (
+      id TEXT PRIMARY KEY,
+      country_code TEXT UNIQUE NOT NULL,
+      country_name TEXT NOT NULL,
+      flag_emoji TEXT,
+      currency TEXT NOT NULL,
+      mto_partner_name TEXT,
+      mto_max_limit_per_tx REAL NOT NULL,
+      mto_max_limit_per_month REAL,
+      inward_country_code TEXT DEFAULT 'MM',
+      inward_max_usd_per_tx REAL NOT NULL,
+      inward_max_usd_per_month REAL NOT NULL,
+      regulatory_ref TEXT,
+      description TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    );`).catch(() => {});
+
+    await client.execute({
+      sql: 'DELETE FROM mto_compliance_limits WHERE country_code = ? AND id != ?;',
+      args: [cCode, lim.id]
+    }).catch(() => {});
+
+    await client.execute({
+      sql: `INSERT INTO mto_compliance_limits (
+        id, country_code, country_name, flag_emoji, currency, mto_partner_name,
+        mto_max_limit_per_tx, mto_max_limit_per_month, inward_country_code,
+        inward_max_usd_per_tx, inward_max_usd_per_month, regulatory_ref, description,
+        active, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        country_code=excluded.country_code,
+        country_name=excluded.country_name,
+        flag_emoji=excluded.flag_emoji,
+        currency=excluded.currency,
+        mto_partner_name=excluded.mto_partner_name,
+        mto_max_limit_per_tx=excluded.mto_max_limit_per_tx,
+        mto_max_limit_per_month=excluded.mto_max_limit_per_month,
+        inward_country_code=excluded.inward_country_code,
+        inward_max_usd_per_tx=excluded.inward_max_usd_per_tx,
+        inward_max_usd_per_month=excluded.inward_max_usd_per_month,
+        regulatory_ref=excluded.regulatory_ref,
+        description=excluded.description,
+        active=excluded.active,
+        updated_at=excluded.updated_at;`,
+      args: [
+        lim.id,
+        cCode,
+        lim.countryName || lim.country_name || cCode,
+        lim.flagEmoji || lim.flag_emoji || '🌐',
+        lim.currency || 'USD',
+        lim.mtoPartnerName || lim.mto_partner_name || '',
+        Number(lim.mtoMaxLimitPerTx ?? lim.mto_max_limit_per_tx ?? 0),
+        lim.mtoMaxLimitPerMonth !== undefined && lim.mtoMaxLimitPerMonth !== null ? Number(lim.mtoMaxLimitPerMonth) : (lim.mto_max_limit_per_month ? Number(lim.mto_max_limit_per_month) : null),
+        lim.inwardCountryCode || lim.inward_country_code || 'MM',
+        Number(lim.inwardMaxUsdPerTx ?? lim.inward_max_usd_per_tx ?? 5000),
+        Number(lim.inwardMaxUsdPerMonth ?? lim.inward_max_usd_per_month ?? 25000),
+        lim.regulatoryRef || lim.regulatory_ref || '',
+        lim.description || '',
+        lim.active !== false && lim.active !== 0 ? 1 : 0,
+        lim.createdAt || lim.created_at || new Date().toISOString(),
+        lim.updatedAt || lim.updated_at || new Date().toISOString()
+      ]
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Failed to save MTO limit via Web Client' };
+  }
+}
+
+export async function tursoWebDeleteMtoLimit(id: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const client = getTursoWebClient();
+    await client.execute({
+      sql: 'DELETE FROM mto_compliance_limits WHERE id = ?;',
+      args: [id]
+    });
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Failed to delete MTO limit via Web Client' };
+  }
+}
+
 
 
