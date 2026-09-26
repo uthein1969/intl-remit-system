@@ -22,7 +22,8 @@ import {
   Users,
   Sliders,
   CheckSquare,
-  Square
+  Square,
+  ChevronDown
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import {
@@ -250,6 +251,12 @@ export const TursoSyncTab: React.FC<TursoSyncTabProps> = ({ onNotify }) => {
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   };
+
+  // Collapsible accordion sections state
+  const [showIdNormalizer, setShowIdNormalizer] = useState(false);
+  const [showTestingCleaner, setShowTestingCleaner] = useState(false);
+  const [showConnectGuide, setShowConnectGuide] = useState(false);
+  const [showSchemaDdl, setShowSchemaDdl] = useState(false);
 
   const loadStatus = async () => {
     setIsLoading(true);
@@ -982,13 +989,16 @@ turso db tokens create remittance-db`;
 
       {/* Turso Database ID Format & Cleanup Manager */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+        <div 
+          onClick={() => setShowIdNormalizer(!showIdNormalizer)}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800 cursor-pointer select-none group"
+        >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">
+              <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
                 {language === 'my' ? 'Turso Table ID များ သန့်စင်ပြင်ဆင်မှု (Clean Sequential ID Normalizer)' : 'Turso Clean Sequential ID Normalizer'}
               </h4>
               <p className="text-xs text-slate-400">
@@ -999,51 +1009,73 @@ turso db tokens create remittance-db`;
             </div>
           </div>
 
-          <button
-            type="button"
-            id="btn-turso-clean-ids"
-            onClick={handleCleanLongIds}
-            disabled={isCleaning}
-            className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer whitespace-nowrap"
-          >
-            <RefreshCw className={`w-4 h-4 ${isCleaning ? 'animate-spin' : ''}`} />
-            <span>
-              {isCleaning
-                ? (language === 'my' ? 'ID များ ရှင်းလင်းနေပါသည်...' : 'Cleaning Long IDs...')
-                : (language === 'my' ? 'Turso ID များကို နံပါတ်စဉ်အမှန်သို့ ပြင်မည်' : 'Clean & Normalize Turso IDs')}
-            </span>
-          </button>
+          <div className="flex items-center space-x-3 shrink-0">
+            <button
+              type="button"
+              id="btn-turso-clean-ids"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCleanLongIds();
+              }}
+              disabled={isCleaning}
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer whitespace-nowrap"
+            >
+              <RefreshCw className={`w-4 h-4 ${isCleaning ? 'animate-spin' : ''}`} />
+              <span>
+                {isCleaning
+                  ? (language === 'my' ? 'ID များ ရှင်းလင်းနေပါသည်...' : 'Cleaning Long IDs...')
+                  : (language === 'my' ? 'Turso ID များကို နံပါတ်စဉ်အမှန်သို့ ပြင်မည်' : 'Clean & Normalize Turso IDs')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowIdNormalizer(!showIdNormalizer);
+              }}
+              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+              title={showIdNormalizer ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showIdNormalizer ? 'rotate-180 text-amber-400' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <span className="text-slate-500 block text-[11px] mb-1">Thai Branch (ဘဏ်ခွဲ)</span>
-            <span className="text-slate-400 line-through mr-2">BR-1789830806420</span>
-            <span className="text-emerald-400 font-bold font-mono">→ BR-009</span>
+        {showIdNormalizer && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1 animate-in fade-in duration-150">
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-slate-500 block text-[11px] mb-1">Thai Branch (ဘဏ်ခွဲ)</span>
+              <span className="text-slate-400 line-through mr-2">BR-1789830806420</span>
+              <span className="text-emerald-400 font-bold font-mono">→ BR-009</span>
+            </div>
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-slate-500 block text-[11px] mb-1">Thai System Users (ဝန်ထမ်းများ)</span>
+              <span className="text-slate-400 line-through mr-2">USR-1789831...</span>
+              <span className="text-emerald-400 font-bold font-mono">→ USR-007, 008, 009</span>
+            </div>
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-slate-500 block text-[11px] mb-1">Transactions (ငွေလွှဲမှတ်တမ်း)</span>
+              <span className="text-slate-400 line-through mr-2">TX-1789...</span>
+              <span className="text-emerald-400 font-bold font-mono">→ TX-001, TX-002...</span>
+            </div>
           </div>
-          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <span className="text-slate-500 block text-[11px] mb-1">Thai System Users (ဝန်ထမ်းများ)</span>
-            <span className="text-slate-400 line-through mr-2">USR-1789831...</span>
-            <span className="text-emerald-400 font-bold font-mono">→ USR-007, 008, 009</span>
-          </div>
-          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <span className="text-slate-500 block text-[11px] mb-1">Transactions (ငွေလွှဲမှတ်တမ်း)</span>
-            <span className="text-slate-400 line-through mr-2">TX-1789...</span>
-            <span className="text-emerald-400 font-bold font-mono">→ TX-001, TX-002...</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Testing Data Reset & Table Cleaner Card */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/40 border-2 border-rose-500/30 rounded-2xl p-6 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-rose-500/20">
+        <div 
+          onClick={() => setShowTestingCleaner(!showTestingCleaner)}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-rose-500/20 cursor-pointer select-none group"
+        >
           <div className="flex items-start space-x-3.5">
             <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
               <ShieldAlert className="w-5 h-5 text-rose-400" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h4 className="text-sm font-bold text-white">
+                <h4 className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
                   {language === 'my' 
                     ? 'Turso Database စမ်းသပ်မှုဒေတာ ရှင်းလင်းခြင်း (Testing Data Cleaner)' 
                     : 'Turso Cloud Testing Data Cleaner & Reset'}
@@ -1073,10 +1105,23 @@ turso db tokens create remittance-db`;
                 {status?.counts?.customers ?? db.customers.length}
               </span>
             </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTestingCleaner(!showTestingCleaner);
+              }}
+              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer ml-1"
+              title={showTestingCleaner ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showTestingCleaner ? 'rotate-180 text-rose-400' : ''}`} />
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 text-xs">
+        {showTestingCleaner && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 text-xs pt-1 animate-in fade-in duration-150">
           {/* Card 1: Clear Transactions */}
           <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
             <div>
@@ -1293,15 +1338,19 @@ turso db tokens create remittance-db`;
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Setup Guide: How to configure remote Turso Cloud */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div 
+          onClick={() => setShowConnectGuide(!showConnectGuide)}
+          className="flex items-center justify-between pb-3 border-b border-slate-800 cursor-pointer select-none group"
+        >
           <div className="flex items-center space-x-2.5">
             <Sparkles className="w-5 h-5 text-amber-400" />
             <div>
-              <h4 className="text-sm font-bold text-white">
+              <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
                 {language === 'my' ? 'အခမဲ့ Turso Cloud Database ချိတ်ဆက်အသုံးပြုနည်း (Quick Guide)' : 'How to Connect Free Remote Turso Cloud Database'}
               </h4>
               <p className="text-[11px] text-slate-400">
@@ -1312,61 +1361,83 @@ turso db tokens create remittance-db`;
             </div>
           </div>
 
-          <button
-            onClick={copyCliCommands}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span>{copiedCli ? (language === 'my' ? 'ကူးယူပြီး!' : 'Copied!') : (language === 'my' ? 'CLI အမိန့်များ ကူးယူမည်' : 'Copy CLI Commands')}</span>
-          </button>
-        </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyCliCommands();
+              }}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedCli ? (language === 'my' ? 'ကူးယူပြီး!' : 'Copied!') : (language === 'my' ? 'CLI အမိန့်များ ကူးယူမည်' : 'Copy CLI Commands')}</span>
+            </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex items-center space-x-2 text-emerald-400 font-bold">
-              <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-500/40 flex items-center justify-center text-[11px]">1</span>
-              <span>Create Account</span>
-            </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
-              {language === 'my'
-                ? 'turso.tech သို့ သွား၍ GitHub ဖြင့် အခမဲ့ Sign Up ပြုလုပ်ပါ (Starter Plan သည် အမြဲအခမဲ့ ဖြစ်ပါသည်)'
-                : 'Visit turso.tech and sign up for free using GitHub or email.'}
-            </p>
-          </div>
-
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex items-center space-x-2 text-teal-400 font-bold">
-              <span className="w-5 h-5 rounded-full bg-teal-950 border border-teal-500/40 flex items-center justify-center text-[11px]">2</span>
-              <span>Create Database</span>
-            </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
-              {language === 'my'
-                ? 'Turso Web Dashboard သို့မဟုတ် CLI ဖြင့် "remittance-db" အမည်ရှိ Database အသစ်တစ်ခု တည်ဆောက်ပါ'
-                : 'Create a new database named "remittance-db" via Turso CLI or web dashboard.'}
-            </p>
-          </div>
-
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex items-center space-x-2 text-sky-400 font-bold">
-              <span className="w-5 h-5 rounded-full bg-sky-950 border border-sky-500/40 flex items-center justify-center text-[11px]">3</span>
-              <span>Set Environment Variables</span>
-            </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
-              {language === 'my'
-                ? 'TURSO_DATABASE_URL နှင့် TURSO_AUTH_TOKEN ကို App Settings / .env ထဲ ထည့်သွင်းလိုက်ပါက Remote Cloud သို့ အလိုအလျောက် ချိတ်ဆက်သွားပါမည်'
-                : 'Provide TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in app settings.'}
-            </p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowConnectGuide(!showConnectGuide);
+              }}
+              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+              title={showConnectGuide ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showConnectGuide ? 'rotate-180 text-amber-400' : ''}`} />
+            </button>
           </div>
         </div>
+
+        {showConnectGuide && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-1 animate-in fade-in duration-150">
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+                <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-500/40 flex items-center justify-center text-[11px]">1</span>
+                <span>Create Account</span>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                {language === 'my'
+                  ? 'turso.tech သို့ သွား၍ GitHub ဖြင့် အခမဲ့ Sign Up ပြုလုပ်ပါ (Starter Plan သည် အမြဲအခမဲ့ ဖြစ်ပါသည်)'
+                  : 'Visit turso.tech and sign up for free using GitHub or email.'}
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex items-center space-x-2 text-teal-400 font-bold">
+                <span className="w-5 h-5 rounded-full bg-teal-950 border border-teal-500/40 flex items-center justify-center text-[11px]">2</span>
+                <span>Create Database</span>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                {language === 'my'
+                  ? 'Turso Web Dashboard သို့မဟုတ် CLI ဖြင့် "remittance-db" အမည်ရှိ Database အသစ်တစ်ခု တည်ဆောက်ပါ'
+                  : 'Create a new database named "remittance-db" via Turso CLI or web dashboard.'}
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex items-center space-x-2 text-sky-400 font-bold">
+                <span className="w-5 h-5 rounded-full bg-sky-950 border border-sky-500/40 flex items-center justify-center text-[11px]">3</span>
+                <span>Set Environment Variables</span>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                {language === 'my'
+                  ? 'TURSO_DATABASE_URL နှင့် TURSO_AUTH_TOKEN ကို App Settings / .env ထဲ ထည့်သွင်းလိုက်ပါက Remote Cloud သို့ အလိုအလျောက် ချိတ်ဆက်သွားပါမည်'
+                  : 'Provide TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in app settings.'}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Turso Schema SQL DDL Preview */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div 
+          onClick={() => setShowSchemaDdl(!showSchemaDdl)}
+          className="flex items-center justify-between pb-3 border-b border-slate-800 cursor-pointer select-none group"
+        >
           <div className="flex items-center space-x-2.5">
             <Terminal className="w-5 h-5 text-emerald-400" />
             <div>
-              <h4 className="text-sm font-bold text-white">
+              <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
                 {language === 'my' ? 'Turso LibSQL Table တည်ဆောက်ရန် Schema (DDL)' : 'Turso LibSQL Schema (DDL)'}
               </h4>
               <p className="text-[11px] text-slate-400">
@@ -1377,19 +1448,38 @@ turso db tokens create remittance-db`;
             </div>
           </div>
 
-          <button
-            id="btn-copy-turso-sql"
-            onClick={copySql}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span>{copiedSql ? (language === 'my' ? 'ကူးယူပြီး!' : 'Copied!') : (language === 'my' ? 'SQL Copy ကူးမည်' : 'Copy Turso SQL')}</span>
-          </button>
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              id="btn-copy-turso-sql"
+              onClick={(e) => {
+                e.stopPropagation();
+                copySql();
+              }}
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedSql ? (language === 'my' ? 'ကူးယူပြီး!' : 'Copied!') : (language === 'my' ? 'SQL Copy ကူးမည်' : 'Copy Turso SQL')}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSchemaDdl(!showSchemaDdl);
+              }}
+              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+              title={showSchemaDdl ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showSchemaDdl ? 'rotate-180 text-emerald-400' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto max-h-72 text-emerald-200/90 font-mono text-[11px] leading-relaxed">
-          <pre>{schemaSql || '-- Loading Turso LibSQL Schema...'}</pre>
-        </div>
+        {showSchemaDdl && (
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto max-h-72 text-emerald-200/90 font-mono text-[11px] leading-relaxed pt-1 animate-in fade-in duration-150">
+            <pre>{schemaSql || '-- Loading Turso LibSQL Schema...'}</pre>
+          </div>
+        )}
       </div>
 
       {/* Confirmation Modal */}

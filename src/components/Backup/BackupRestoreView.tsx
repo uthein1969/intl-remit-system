@@ -28,9 +28,19 @@ import {
   Globe,
   Unplug,
   Check,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  X,
+  FileText,
+  SlidersHorizontal,
+  Info
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
+import { AuditRecord } from '../../types';
 import { TursoSyncTab } from './TursoSyncTab';
 import { SupabaseSyncTab } from './SupabaseSyncTab';
 import { LOCAL_STORAGE_DB_KEY, clearIndexedDb } from '../../lib/indexedDbStorage';
@@ -70,6 +80,19 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [showJsonPreview, setShowJsonPreview] = useState(false);
+
+  // Collapsible sections state for Backup & Restore
+  const [showExportBackup, setShowExportBackup] = useState(false);
+  const [showRestoreBackup, setShowRestoreBackup] = useState(false);
+  const [showTestingMaintenance, setShowTestingMaintenance] = useState(false);
+
+  // Audit Trail Table Pagination & Selection State
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditRecord | null>(null);
+  const [auditPage, setAuditPage] = useState<number>(1);
+  const [auditPageSize, setAuditPageSize] = useState<number>(15);
+  const [copiedAuditDetail, setCopiedAuditDetail] = useState<boolean>(false);
+  const [copiedAuditJson, setCopiedAuditJson] = useState<boolean>(false);
+  const [copiedTargetId, setCopiedTargetId] = useState<boolean>(false);
 
   // Testing & Reset confirmation modal state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -298,6 +321,93 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
     );
   });
 
+  // Reset pagination to page 1 on filter or search or page size change
+  useEffect(() => {
+    setAuditPage(1);
+  }, [searchAudit, selectedModule, auditPageSize]);
+
+  // Pagination calculation for Audit Logs
+  const totalAuditRecords = filteredLogs.length;
+  const totalAuditPages = Math.max(1, Math.ceil(totalAuditRecords / auditPageSize));
+  const currentAuditPage = Math.min(Math.max(1, auditPage), totalAuditPages);
+  const startAuditIndex = (currentAuditPage - 1) * auditPageSize;
+  const endAuditIndex = Math.min(startAuditIndex + auditPageSize, totalAuditRecords);
+  const paginatedLogs = filteredLogs.slice(startAuditIndex, endAuditIndex);
+
+  // Selected Log record index in current filtered list
+  const selectedLogIndex = selectedAuditLog 
+    ? filteredLogs.findIndex(l => l.id === selectedAuditLog.id) 
+    : -1;
+  const hasPrevRecord = selectedLogIndex > 0;
+  const hasNextRecord = selectedLogIndex >= 0 && selectedLogIndex < filteredLogs.length - 1;
+
+  const handlePrevRecord = () => {
+    if (hasPrevRecord) {
+      setSelectedAuditLog(filteredLogs[selectedLogIndex - 1]);
+      setCopiedAuditDetail(false);
+      setCopiedAuditJson(false);
+      setCopiedTargetId(false);
+    }
+  };
+
+  const handleNextRecord = () => {
+    if (hasNextRecord) {
+      setSelectedAuditLog(filteredLogs[selectedLogIndex + 1]);
+      setCopiedAuditDetail(false);
+      setCopiedAuditJson(false);
+      setCopiedTargetId(false);
+    }
+  };
+
+  // Keyboard navigation for Audit Detail Modal (ArrowLeft/ArrowRight/Esc)
+  useEffect(() => {
+    if (!selectedAuditLog) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedAuditLog(null);
+      } else if (e.key === 'ArrowLeft') {
+        const idx = filteredLogs.findIndex(l => l.id === selectedAuditLog.id);
+        if (idx > 0) {
+          setSelectedAuditLog(filteredLogs[idx - 1]);
+          setCopiedAuditDetail(false);
+          setCopiedAuditJson(false);
+          setCopiedTargetId(false);
+        }
+      } else if (e.key === 'ArrowRight') {
+        const idx = filteredLogs.findIndex(l => l.id === selectedAuditLog.id);
+        if (idx >= 0 && idx < filteredLogs.length - 1) {
+          setSelectedAuditLog(filteredLogs[idx + 1]);
+          setCopiedAuditDetail(false);
+          setCopiedAuditJson(false);
+          setCopiedTargetId(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedAuditLog, filteredLogs]);
+
+  const handleCopyAuditDetails = () => {
+    if (!selectedAuditLog?.details) return;
+    navigator.clipboard.writeText(selectedAuditLog.details);
+    setCopiedAuditDetail(true);
+    setTimeout(() => setCopiedAuditDetail(false), 2000);
+  };
+
+  const handleCopyTargetId = () => {
+    if (!selectedAuditLog?.entityId) return;
+    navigator.clipboard.writeText(selectedAuditLog.entityId);
+    setCopiedTargetId(true);
+    setTimeout(() => setCopiedTargetId(false), 2000);
+  };
+
+  const handleCopyAuditJson = () => {
+    if (!selectedAuditLog) return;
+    navigator.clipboard.writeText(JSON.stringify(selectedAuditLog, null, 2));
+    setCopiedAuditJson(true);
+    setTimeout(() => setCopiedAuditJson(false), 2000);
+  };
+
   const handleExecuteConfirmAction = async () => {
     if (!confirmDialog) return;
     setIsProcessingAction(true);
@@ -469,169 +579,240 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
       {/* TAB 1: BACKUP & RESTORE */}
       {activeTab === 'backup' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Export Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-                <Download className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  {language === 'my' ? 'ဒေတာ အရန်သိမ်းဆည်းခြင်း (Export Database Backup)' : 'Export Full JSON Backup'}
-                </h3>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div 
+              onClick={() => setShowExportBackup(!showExportBackup)}
+              className="flex items-center justify-between pb-3 border-b border-slate-800 cursor-pointer select-none group"
+            >
+              <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <Download className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors uppercase tracking-wider truncate">
+                    {language === 'my' ? 'ဒေတာ အရန်သိမ်းဆည်းခြင်း (Export Database Backup)' : 'Export Full JSON Backup'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                    {language === 'my'
+                      ? 'ဘဏ်ခွဲများ၊ မိတ်ဖက်များ၊ ငွေလဲနှုန်းများ၊ နာမည်ပျက်စာရင်း၊ ဖောက်သည်များနှင့် ငွေလွှဲမှတ်တမ်း အားလုံး'
+                      : 'Structured JSON archive of all branches, exchange rates, customers & transactions'}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-                {language === 'my'
-                  ? 'ဘဏ်ခွဲများ၊ အသုံးပြုသူများ၊ မိတ်ဖက်များ၊ ငွေလဲနှုန်းများ၊ နာမည်ပျက်စာရင်း၊ ဖောက်သည်များနှင့် ငွေလွှဲမှတ်တမ်း အားလုံးကို JSON ဖိုင်အဖြစ် ဒေါင်းလုဒ်ရယူနိုင်ပါသည်။'
-                  : 'Generates a timestamped, structured JSON archive containing all branches, exchange rates, AML blacklists, customers, and remittance transactions.'}
-              </p>
 
-              {/* Stats overview */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4 text-xs">
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-500 block">Transactions</span>
-                  <strong className="text-white font-mono text-sm">{db.transactions.length}</strong>
-                </div>
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-500 block">Blacklist</span>
-                  <strong className="text-rose-400 font-mono text-sm">{db.blacklist.length}</strong>
-                </div>
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-500 block">Customers</span>
-                  <strong className="text-sky-400 font-mono text-sm">{db.customers.length}</strong>
-                </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-block">
+                  JSON
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowExportBackup(!showExportBackup);
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+                  title={showExportBackup ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showExportBackup ? 'rotate-180 text-emerald-400' : ''}`} />
+                </button>
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="space-y-2 mt-4">
-              <button
-                type="button"
-                id="btn-card-download-backup"
-                onClick={handleDownloadBackup}
-                disabled={isDownloading}
-                className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer"
-              >
-                <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
-                <span>{isDownloading ? (language === 'my' ? 'ဒေါင်းလုဒ် ပြုလုပ်နေပါသည်...' : 'Generating Backup File...') : (language === 'my' ? 'ဒေတာ အရန်ဖိုင် ဒေါင်းလုဒ်ရယူမည် (Download Backup JSON)' : 'Download Backup File (.json)')}</span>
-              </button>
+            {showExportBackup && (
+              <div className="space-y-4 pt-1 animate-in fade-in duration-150">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {language === 'my'
+                    ? 'ဘဏ်ခွဲများ၊ အသုံးပြုသူများ၊ မိတ်ဖက်များ၊ ငွေလဲနှုန်းများ၊ နာမည်ပျက်စာရင်း၊ ဖောက်သည်များနှင့် ငွေလွှဲမှတ်တမ်း အားလုံးကို JSON ဖိုင်အဖြစ် ဒေါင်းလုဒ်ရယူနိုင်ပါသည်။'
+                    : 'Generates a timestamped, structured JSON archive containing all branches, exchange rates, AML blacklists, customers, and remittance transactions.'}
+                </p>
 
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  id="btn-card-copy-backup"
-                  onClick={handleCopyBackup}
-                  className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Copy className="w-3.5 h-3.5 text-sky-400" />
-                  <span>{copiedBackup ? (language === 'my' ? 'ကူးယူပြီးပါပြီ (Copied)' : 'Copied!') : (language === 'my' ? 'JSON အချက်အလက်များ Copy ကူးမည်' : 'Copy JSON to Clipboard')}</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn-card-toggle-preview"
-                  onClick={() => setShowJsonPreview(!showJsonPreview)}
-                  className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
-                  title="Toggle JSON Preview"
-                >
-                  <FileCode className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {showJsonPreview && (
-                <div className="mt-2 p-3 bg-slate-950 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-300 max-h-40 overflow-y-auto">
-                  <pre>{getBackupJsonString().slice(0, 1500)}...</pre>
+                {/* Stats overview */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <span className="text-slate-500 block">Transactions</span>
+                    <strong className="text-white font-mono text-sm">{db.transactions.length}</strong>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <span className="text-slate-500 block">Blacklist</span>
+                    <strong className="text-rose-400 font-mono text-sm">{db.blacklist.length}</strong>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <span className="text-slate-500 block">Customers</span>
+                    <strong className="text-sky-400 font-mono text-sm">{db.customers.length}</strong>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Action buttons */}
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    id="btn-card-download-backup"
+                    onClick={handleDownloadBackup}
+                    disabled={isDownloading}
+                    className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs shadow-lg transition-all active:scale-[0.99] cursor-pointer"
+                  >
+                    <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
+                    <span>{isDownloading ? (language === 'my' ? 'ဒေါင်းလုဒ် ပြုလုပ်နေပါသည်...' : 'Generating Backup File...') : (language === 'my' ? 'ဒေတာ အရန်ဖိုင် ဒေါင်းလုဒ်ရယူမည် (Download Backup JSON)' : 'Download Backup File (.json)')}</span>
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      id="btn-card-copy-backup"
+                      onClick={handleCopyBackup}
+                      className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{copiedBackup ? (language === 'my' ? 'ကူးယူပြီးပါပြီ (Copied)' : 'Copied!') : (language === 'my' ? 'JSON အချက်အလက်များ Copy ကူးမည်' : 'Copy JSON to Clipboard')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="btn-card-toggle-preview"
+                      onClick={() => setShowJsonPreview(!showJsonPreview)}
+                      className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                      title="Toggle JSON Preview"
+                    >
+                      <FileCode className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {showJsonPreview && (
+                    <div className="mt-2 p-3 bg-slate-950 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-300 max-h-40 overflow-y-auto">
+                      <pre>{getBackupJsonString().slice(0, 1500)}...</pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Restore Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-                <Upload className="w-5 h-5 text-sky-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  {language === 'my' ? 'အရန်ဖိုင်မှ ပြန်လည်ထည့်သွင်းခြင်း (Restore Database)' : 'Restore From JSON'}
-                </h3>
-              </div>
-              <p className="text-xs text-slate-400 mt-3">
-                {language === 'my'
-                  ? 'ယခင် အရန်သိမ်းထားသော .json ဖိုင်ကို ရွေးချယ်ပြီး စနစ်ထဲသို့ ပြန်လည် ထည့်သွင်းနိုင်ပါသည်။'
-                  : 'Upload an existing backup file or paste raw JSON below to overwrite and restore complete database state.'}
-              </p>
-
-              <div className="mt-3">
-                <input
-                  type="file"
-                  id="input-file-restore"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
-                />
-                {uploadedFileName && (
-                  <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-medium">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Loaded: {uploadedFileName}</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div 
+              onClick={() => setShowRestoreBackup(!showRestoreBackup)}
+              className="flex items-center justify-between pb-3 border-b border-slate-800 cursor-pointer select-none group"
+            >
+              <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                  <Upload className="w-4 h-4 text-sky-400" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors uppercase tracking-wider truncate">
+                    {language === 'my' ? 'အရန်ဖိုင်မှ ပြန်လည်ထည့်သွင်းခြင်း (Restore Database)' : 'Restore From JSON'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                    {language === 'my'
+                      ? 'ယခင် အရန်သိမ်းထားသော .json ဖိုင်မှ စနစ်ဒေတာများကို ပြန်လည် ထည့်သွင်းမည်'
+                      : 'Upload backup .json or paste raw JSON to restore system database'}
                   </p>
-                )}
+                </div>
               </div>
 
-              <div className="mt-3">
-                <textarea
-                  rows={3}
-                  id="textarea-json-restore"
-                  value={restoreJson}
-                  onChange={(e) => setRestoreJson(e.target.value)}
-                  placeholder={language === 'my' ? 'သို့မဟုတ် JSON backup ကုဒ်များကို ဤနေရာတွင် paste ချပါ...' : 'Or paste JSON backup content directly here...'}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-sky-500"
-                />
+              <div className="flex items-center space-x-2 shrink-0">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 hidden sm:inline-block">
+                  Restore
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRestoreBackup(!showRestoreBackup);
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+                  title={showRestoreBackup ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showRestoreBackup ? 'rotate-180 text-sky-400' : ''}`} />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 mt-4">
-              <button
-                type="button"
-                id="btn-apply-restore"
-                onClick={handleRestore}
-                disabled={!restoreJson.trim()}
-                className="flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-xs shadow-lg transition-colors disabled:opacity-40 cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-                <span>{language === 'my' ? 'ဒေတာများ ပြန်လည် ထည့်သွင်းမည် (Restore)' : 'Apply Restore'}</span>
-              </button>
+            {showRestoreBackup && (
+              <div className="space-y-4 pt-1 animate-in fade-in duration-150">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {language === 'my'
+                    ? 'ယခင် အရန်သိမ်းထားသော .json ဖိုင်ကို ရွေးချယ်ပြီး စနစ်ထဲသို့ ပြန်လည် ထည့်သွင်းနိုင်ပါသည်။'
+                    : 'Upload an existing backup file or paste raw JSON below to overwrite and restore complete database state.'}
+                </p>
 
-              <button
-                type="button"
-                id="btn-reset-default-data"
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်လား?' : 'Reset to Factory Mock Data?',
-                  description: language === 'my'
-                    ? 'လက်ရှိဒေတာများကို မူလနမူနာစနစ် (Standard Factory Seed Data) အတိုင်း ပြန်လည်ပြောင်းလဲပါမည်။'
-                    : 'This will reset all system data back to default factory demo records and users.',
-                  actionType: 'reset_seed',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
-                })}
-                className="px-4 py-3 bg-slate-800 hover:bg-amber-950/80 hover:text-amber-300 border border-slate-700 rounded-xl text-slate-300 font-bold text-xs transition-colors flex items-center space-x-2 cursor-pointer"
-                title={language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်' : 'Reset to Factory Mock Data'}
-              >
-                <RotateCcw className="w-4 h-4 text-amber-400" />
-                <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
-              </button>
-            </div>
+                <div>
+                  <input
+                    type="file"
+                    id="input-file-restore"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
+                  />
+                  {uploadedFileName && (
+                    <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Loaded: {uploadedFileName}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <textarea
+                    rows={3}
+                    id="textarea-json-restore"
+                    value={restoreJson}
+                    onChange={(e) => setRestoreJson(e.target.value)}
+                    placeholder={language === 'my' ? 'သို့မဟုတ် JSON backup ကုဒ်များကို ဤနေရာတွင် paste ချပါ...' : 'Or paste JSON backup content directly here...'}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-3 pt-2">
+                  <button
+                    type="button"
+                    id="btn-apply-restore"
+                    onClick={handleRestore}
+                    disabled={!restoreJson.trim()}
+                    className="flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-xs shadow-lg transition-colors disabled:opacity-40 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>{language === 'my' ? 'ဒေတာများ ပြန်လည် ထည့်သွင်းမည် (Restore)' : 'Apply Restore'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-reset-default-data"
+                    onClick={() => setConfirmDialog({
+                      isOpen: true,
+                      title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်လား?' : 'Reset to Factory Mock Data?',
+                      description: language === 'my'
+                        ? 'လက်ရှိဒေတာများကို မူလနမူနာစနစ် (Standard Factory Seed Data) အတိုင်း ပြန်လည်ပြောင်းလဲပါမည်။'
+                        : 'This will reset all system data back to default factory demo records and users.',
+                      actionType: 'reset_seed',
+                      confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
+                    })}
+                    className="px-4 py-3 bg-slate-800 hover:bg-amber-950/80 hover:text-amber-300 border border-slate-700 rounded-xl text-slate-300 font-bold text-xs transition-colors flex items-center space-x-2 cursor-pointer"
+                    title={language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်ထားမည်' : 'Reset to Factory Mock Data'}
+                  >
+                    <RotateCcw className="w-4 h-4 text-amber-400" />
+                    <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* DEDICATED TESTING & MAINTENANCE SECTION: CLEAR DATA & RESET */}
         <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/40 border-2 border-rose-500/30 rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-rose-500/20">
+          <div 
+            onClick={() => setShowTestingMaintenance(!showTestingMaintenance)}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-rose-500/20 cursor-pointer select-none group"
+          >
             <div className="flex items-start space-x-3.5">
               <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
                 <ShieldAlert className="w-6 h-6 text-rose-400" />
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-base font-bold text-white tracking-wide">
+                  <h3 className="text-base font-bold text-white group-hover:text-rose-300 transition-colors tracking-wide">
                     {language === 'my' 
                       ? 'စမ်းသပ်မှုအသစ် ပြုလုပ်ရန် ဒေတာရှင်းလင်းခြင်း (Testing & Maintenance / Reset)' 
                       : 'Testing & Maintenance (Reset Data & Clear Cache)'}
@@ -648,239 +829,260 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
               </div>
             </div>
 
-            {/* Real-time Counts Badges */}
-            <div className="flex items-center space-x-2 shrink-0">
-              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
-                <span className="text-[10px] text-slate-400 block font-semibold">Transactions</span>
-                <span className={`text-sm font-mono font-bold ${db.transactions.length > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
-                  {db.transactions.length}
-                </span>
+            <div className="flex items-center space-x-3 shrink-0">
+              {/* Real-time Counts Badges */}
+              <div className="flex items-center space-x-2">
+                <div className="bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Transactions</span>
+                  <span className={`text-xs font-mono font-bold ${db.transactions.length > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+                    {db.transactions.length}
+                  </span>
+                </div>
+                <div className="bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Audit Logs</span>
+                  <span className={`text-xs font-mono font-bold ${db.auditLogs.length > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                    {db.auditLogs.length}
+                  </span>
+                </div>
+                <div className="bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Customers</span>
+                  <span className={`text-xs font-mono font-bold ${db.customers.length > 0 ? 'text-sky-400' : 'text-slate-500'}`}>
+                    {db.customers.length}
+                  </span>
+                </div>
               </div>
-              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
-                <span className="text-[10px] text-slate-400 block font-semibold">Audit Logs</span>
-                <span className={`text-sm font-mono font-bold ${db.auditLogs.length > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
-                  {db.auditLogs.length}
-                </span>
-              </div>
-              <div className="bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-center">
-                <span className="text-[10px] text-slate-400 block font-semibold">Customers</span>
-                <span className={`text-sm font-mono font-bold ${db.customers.length > 0 ? 'text-sky-400' : 'text-slate-500'}`}>
-                  {db.customers.length}
-                </span>
-              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTestingMaintenance(!showTestingMaintenance);
+                }}
+                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer ml-1"
+                title={showTestingMaintenance ? (language === 'my' ? 'ခေါက်သိမ်းမည်' : 'Hide') : (language === 'my' ? 'အသေးစိတ်ကြည့်မည်' : 'Show')}
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showTestingMaintenance ? 'rotate-180 text-rose-400' : ''}`} />
+              </button>
             </div>
           </div>
 
           {/* Action Buttons Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {/* Button 1: Clear Transactions */}
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
-                  <span className="flex items-center gap-1.5 text-rose-400">
-                    <Trash2 className="w-4 h-4" />
-                    {language === 'my' ? 'ငွေလွှဲမှတ်တမ်း ရှင်းလင်းမည်' : 'Clear Transactions'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-mono">
-                    {db.transactions.length}
-                  </span>
+          {showTestingMaintenance && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-1 animate-in fade-in duration-150">
+              {/* Button 1: Clear Transactions */}
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                    <span className="flex items-center gap-1.5 text-rose-400">
+                      <Trash2 className="w-4 h-4" />
+                      {language === 'my' ? 'ငွေလွှဲမှတ်တမ်း ရှင်းလင်းမည်' : 'Clear Transactions'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-mono">
+                      {db.transactions.length}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    {language === 'my'
+                      ? 'Local Storage နှင့် Turso Cloud ရှိ ငွေလွှဲ Transaction စာရင်းများအားလုံးကို ရှင်းလင်းမည်'
+                      : 'Clears all transactions in both local browser cache and Turso LibSQL table.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  {language === 'my'
-                    ? 'Local Storage နှင့် Turso Cloud ရှိ ငွေလွှဲ Transaction စာရင်းများအားလုံးကို ရှင်းလင်းမည်'
-                    : 'Clears all transactions in both local browser cache and Turso LibSQL table.'}
-                </p>
+                <button
+                  type="button"
+                  id="btn-clear-transactions"
+                  disabled={db.transactions.length === 0 || isProcessingAction}
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: language === 'my' ? 'ငွေလွှဲမှတ်တမ်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Transactions?',
+                    description: language === 'my'
+                      ? `လက်ရှိ စနစ်ထဲရှိ ငွေလွှဲမှတ်တမ်း (${db.transactions.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (remittance_transactions) နှစ်ခုစလုံးမှ အပြီးအပိုင် ရှင်းထုတ်ပါမည်။ စမ်းသပ်မှုအသစ် ပြုလုပ်ရန်အတွက် အဆင်သင့် ဖြစ်ပါမည်။`
+                      : `Are you sure you want to clear all ${db.transactions.length} transactions from both local storage and Turso cloud database? This will prepare a clean slate for new testing.`,
+                    actionType: 'clear_tx',
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ အားလုံးရှင်းလင်းမည်' : 'Yes, Clear All Transactions'
+                  })}
+                  className="w-full py-2.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'ငွေလွှဲများ ရှင်းလင်းမည်' : 'Clear Transactions'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                id="btn-clear-transactions"
-                disabled={db.transactions.length === 0 || isProcessingAction}
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'ငွေလွှဲမှတ်တမ်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Transactions?',
-                  description: language === 'my'
-                    ? `လက်ရှိ စနစ်ထဲရှိ ငွေလွှဲမှတ်တမ်း (${db.transactions.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (remittance_transactions) နှစ်ခုစလုံးမှ အပြီးအပိုင် ရှင်းထုတ်ပါမည်။ စမ်းသပ်မှုအသစ် ပြုလုပ်ရန်အတွက် အဆင်သင့် ဖြစ်ပါမည်။`
-                    : `Are you sure you want to clear all ${db.transactions.length} transactions from both local storage and Turso cloud database? This will prepare a clean slate for new testing.`,
-                  actionType: 'clear_tx',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ အားလုံးရှင်းလင်းမည်' : 'Yes, Clear All Transactions'
-                })}
-                className="w-full py-2.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{language === 'my' ? 'ငွေလွှဲများ ရှင်းလင်းမည်' : 'Clear Transactions'}</span>
-              </button>
-            </div>
 
-            {/* Button 2: Clear Audit Logs */}
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
-                  <span className="flex items-center gap-1.5 text-purple-400">
-                    <History className="w-4 h-4" />
-                    {language === 'my' ? 'Audit Logs ရှင်းလင်းမည်' : 'Clear Audit Logs'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-mono">
-                    {db.auditLogs.length}
-                  </span>
+              {/* Button 2: Clear Audit Logs */}
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                    <span className="flex items-center gap-1.5 text-purple-400">
+                      <History className="w-4 h-4" />
+                      {language === 'my' ? 'Audit Logs ရှင်းလင်းမည်' : 'Clear Audit Logs'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-mono">
+                      {db.auditLogs.length}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    {language === 'my'
+                      ? 'Local Storage နှင့် Turso Cloud ရှိ Audit Trail မှတ်တမ်းဟောင်းများကို ရှင်းလင်းမည်'
+                      : 'Clears audit history from both local state and Turso LibSQL table.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  {language === 'my'
-                    ? 'Local Storage နှင့် Turso Cloud ရှိ Audit Trail မှတ်တမ်းဟောင်းများကို ရှင်းလင်းမည်'
-                    : 'Clears audit history from both local state and Turso LibSQL table.'}
-                </p>
+                <button
+                  type="button"
+                  id="btn-clear-audit-logs"
+                  disabled={db.auditLogs.length === 0 || isProcessingAction}
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: language === 'my' ? 'Audit Logs မှတ်တမ်းများ ရှင်းလင်းမည်လား?' : 'Clear All Audit Logs?',
+                    description: language === 'my'
+                      ? `လက်ရှိ စနစ်ထဲရှိ Audit Logs (${db.auditLogs.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud (audit_logs) မှ ရှင်းထုတ်ပါမည်။`
+                      : `Are you sure you want to clear all ${db.auditLogs.length} audit trail records from local and Turso cloud?`,
+                    actionType: 'clear_audit',
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Yes, Clear Audit Logs'
+                  })}
+                  className="w-full py-2.5 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Clear Audit Logs'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                id="btn-clear-audit-logs"
-                disabled={db.auditLogs.length === 0 || isProcessingAction}
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'Audit Logs မှတ်တမ်းများ ရှင်းလင်းမည်လား?' : 'Clear All Audit Logs?',
-                  description: language === 'my'
-                    ? `လက်ရှိ စနစ်ထဲရှိ Audit Logs (${db.auditLogs.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud (audit_logs) မှ ရှင်းထုတ်ပါမည်။`
-                    : `Are you sure you want to clear all ${db.auditLogs.length} audit trail records from local and Turso cloud?`,
-                  actionType: 'clear_audit',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Yes, Clear Audit Logs'
-                })}
-                className="w-full py-2.5 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>{language === 'my' ? 'မှတ်တမ်းများ ရှင်းလင်းမည်' : 'Clear Audit Logs'}</span>
-              </button>
-            </div>
 
-            {/* Button 3: Clear Customer Profiles */}
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
-                  <span className="flex items-center gap-1.5 text-sky-400">
-                    <Users className="w-4 h-4" />
-                    {language === 'my' ? 'Customer စာရင်း ရှင်းလင်းမည်' : 'Clear Customers'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-mono">
-                    {db.customers.length}
-                  </span>
+              {/* Button 3: Clear Customer Profiles */}
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                    <span className="flex items-center gap-1.5 text-sky-400">
+                      <Users className="w-4 h-4" />
+                      {language === 'my' ? 'Customer စာရင်း ရှင်းလင်းမည်' : 'Clear Customers'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-300 font-mono">
+                      {db.customers.length}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    {language === 'my'
+                      ? 'Local Storage နှင့် Turso Cloud (customer_profiles) ရှိ Customer မှတ်တမ်းများကို ရှင်းလင်းမည်'
+                      : 'Clears customer profiles from both local state and Turso LibSQL table.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  {language === 'my'
-                    ? 'Local Storage နှင့် Turso Cloud (customer_profiles) ရှိ Customer မှတ်တမ်းများကို ရှင်းလင်းမည်'
-                    : 'Clears customer profiles from both local state and Turso LibSQL table.'}
-                </p>
+                <button
+                  type="button"
+                  id="btn-clear-customers"
+                  disabled={db.customers.length === 0 || isProcessingAction}
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: language === 'my' ? 'Customer စာရင်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Customer Profiles?',
+                    description: language === 'my'
+                      ? `လက်ရှိ စနစ်ထဲရှိ Customer မှတ်တမ်း (${db.customers.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (customer_profiles) နှစ်ခုစလုံးမှ ရှင်းထုတ်ပါမည်။`
+                      : `Are you sure you want to clear all ${db.customers.length} customer profiles from both local storage and Turso customer_profiles table?`,
+                    actionType: 'clear_customers',
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Customer စာရင်းများ ရှင်းမည်' : 'Yes, Clear Customer Profiles'
+                  })}
+                  className="w-full py-2.5 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'Customers ရှင်းလင်းမည်' : 'Clear Customers'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                id="btn-clear-customers"
-                disabled={db.customers.length === 0 || isProcessingAction}
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'Customer စာရင်း အားလုံး ရှင်းလင်းမည်လား?' : 'Clear All Customer Profiles?',
-                  description: language === 'my'
-                    ? `လက်ရှိ စနစ်ထဲရှိ Customer မှတ်တမ်း (${db.customers.length}) ခုလုံးအား Local Storage နှင့် Turso Cloud Database (customer_profiles) နှစ်ခုစလုံးမှ ရှင်းထုတ်ပါမည်။`
-                    : `Are you sure you want to clear all ${db.customers.length} customer profiles from both local storage and Turso customer_profiles table?`,
-                  actionType: 'clear_customers',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Customer စာရင်းများ ရှင်းမည်' : 'Yes, Clear Customer Profiles'
-                })}
-                className="w-full py-2.5 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>{language === 'my' ? 'Customers ရှင်းလင်းမည်' : 'Clear Customers'}</span>
-              </button>
-            </div>
 
-            {/* Button 3: Reset Demo Data */}
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
-                  <span className="flex items-center gap-1.5 text-amber-400">
-                    <RotateCcw className="w-4 h-4" />
-                    {language === 'my' ? 'မူလနမူနာဒေတာ ပြန်ထားမည်' : 'Reset Demo Data'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">
-                    Seed Data
-                  </span>
+              {/* Button 4: Reset Demo Data */}
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                    <span className="flex items-center gap-1.5 text-amber-400">
+                      <RotateCcw className="w-4 h-4" />
+                      {language === 'my' ? 'မူလနမူနာဒေတာ ပြန်ထားမည်' : 'Reset Demo Data'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">
+                      Seed Data
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    {language === 'my'
+                      ? 'စနစ်တစ်ခုလုံးကို မူလစတင်ချိန်က Demo Data များ (ဘဏ်ခွဲများ၊ User အကောင့်များ) အတိုင်း ပြန်ထားမည်'
+                      : 'Resets the whole database to initial standard seed mock dataset.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  {language === 'my'
-                    ? 'စနစ်တစ်ခုလုံးကို မူလစတင်ချိန်က Demo Data များ (ဘဏ်ခွဲများ၊ User အကောင့်များ) အတိုင်း ပြန်ထားမည်'
-                    : 'Resets the whole database to initial standard seed mock dataset.'}
-                </p>
+                <button
+                  type="button"
+                  id="btn-reset-demo-data-card"
+                  disabled={isProcessingAction}
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲမည်လား?' : 'Reset to Default Demo Data?',
+                    description: language === 'my'
+                      ? 'စနစ်ကို စတင်တပ်ဆင်စဉ်က မူလနမူနာဒေတာများ (Standard Seed Data) သို့ ပြန်လည်ပြောင်းလဲပေးပါမည်။'
+                      : 'This will reset the entire system state back to default factory demo records and users.',
+                    actionType: 'reset_seed',
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
+                  })}
+                  className="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-40 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                id="btn-reset-demo-data-card"
-                disabled={isProcessingAction}
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'မူလနမူနာဒေတာများသို့ ပြန်လည်ပြောင်းလဲမည်လား?' : 'Reset to Default Demo Data?',
-                  description: language === 'my'
-                    ? 'စနစ်ကို စတင်တပ်ဆင်စဉ်က မူလနမူနာဒေတာများ (Standard Seed Data) သို့ ပြန်လည်ပြောင်းလဲပေးပါမည်။'
-                    : 'This will reset the entire system state back to default factory demo records and users.',
-                  actionType: 'reset_seed',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ မူလအတိုင်း ပြန်ထားမည်' : 'Yes, Reset Demo Data'
-                })}
-                className="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-40 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{language === 'my' ? 'Reset Demo Data' : 'Reset Demo Data'}</span>
-              </button>
-            </div>
 
-            {/* Button 4: Clear Local Cache */}
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
-                  <span className="flex items-center gap-1.5 text-cyan-400">
-                    <RefreshCw className="w-4 h-4" />
-                    {language === 'my' ? 'Clear Local Cache' : 'Clear Browser Cache'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 font-bold">
-                    Storage
-                  </span>
+              {/* Button 5: Clear Local Cache */}
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
+                    <span className="flex items-center gap-1.5 text-cyan-400">
+                      <RefreshCw className="w-4 h-4" />
+                      {language === 'my' ? 'Clear Local Cache' : 'Clear Browser Cache'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 font-bold">
+                      Storage
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    {language === 'my'
+                      ? 'Browser ထဲတွင် အရန်သိမ်းထားသော LocalStorage & IndexedDB cache များကို ရှင်းလင်းမည်'
+                      : 'Clears offline storage and cached IndexedDB records from the browser.'}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  {language === 'my'
-                    ? 'Browser ထဲတွင် အရန်သိမ်းထားသော LocalStorage & IndexedDB cache များကို ရှင်းလင်းမည်'
-                    : 'Clears offline storage and cached IndexedDB records from the browser.'}
-                </p>
+                <button
+                  type="button"
+                  id="btn-clear-local-cache-card"
+                  disabled={isProcessingAction}
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: language === 'my' ? 'Browser Cache ရှင်းလင်းမည်လား?' : 'Clear Local Cache & Storage?',
+                    description: language === 'my'
+                      ? 'Browser ထဲရှိ LocalStorage နှင့် IndexedDB အဟောင်း cache များကို ရှင်းလင်းပြီး App ကို reload လုပ်ပါမည်။'
+                      : 'This will purge all local browser caches, IndexedDB, and localStorage keys, then refresh.',
+                    actionType: 'clear_cache',
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Cache ရှင်းလင်းမည်' : 'Yes, Clear Local Cache'
+                  })}
+                  className="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'Clear Local Cache' : 'Clear Local Cache'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                id="btn-clear-local-cache-card"
-                disabled={isProcessingAction}
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: language === 'my' ? 'Browser Cache ရှင်းလင်းမည်လား?' : 'Clear Local Cache & Storage?',
-                  description: language === 'my'
-                    ? 'Browser ထဲရှိ LocalStorage နှင့် IndexedDB အဟောင်း cache များကို ရှင်းလင်းပြီး App ကို reload လုပ်ပါမည်။'
-                    : 'This will purge all local browser caches, IndexedDB, and localStorage keys, then refresh.',
-                  actionType: 'clear_cache',
-                  confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Cache ရှင်းလင်းမည်' : 'Yes, Clear Local Cache'
-                })}
-                className="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{language === 'my' ? 'Clear Local Cache' : 'Clear Local Cache'}</span>
-              </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
       )}
 
       {/* TAB 2: AUDIT TRAIL LOGS */}
       {activeTab === 'audit' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
           {/* Header & Controls */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div>
-              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <div className="flex items-center space-x-2">
                 <History className="w-5 h-5 text-indigo-400" />
-                <span>{language === 'my' ? 'စနစ် လုပ်ဆောင်မှု မှတ်တမ်းများ (Audit Trail)' : 'Complete System Audit Trail'}</span>
-              </h3>
+                <h3 className="text-base font-bold text-white uppercase tracking-wider">
+                  {language === 'my' ? 'စနစ် လုပ်ဆောင်မှု မှတ်တမ်းများ (Audit Trail)' : 'Complete System Audit Trail'}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  {filteredLogs.length}
+                </span>
+              </div>
               <p className="text-xs text-slate-400 mt-1">
                 {language === 'my' 
-                  ? 'User အသစ်သွင်းခြင်း၊ ငွေလွှဲပြင်ဆင်ခြင်း၊ အတည်ပြုခြင်း စသည့် စနစ်တွင်း လုပ်ဆောင်ချက်အားလုံးကို အချိန်နှင့်တကွ အပြည့်အစုံ မှတ်တမ်းတင်ထားပါသည်' 
-                  : 'Immutable compliance record of every create, update, approval, and rejection across all modules.'}
+                  ? 'လိုင်းတစ်ခုချင်းစီကို နှိပ်၍ အချက်အလက်များအား အသေးစိတ် စာမျက်နှာအလိုက် ကြည့်ရှုနိုင်ပါသည်။' 
+                  : 'Click any row to open full audit details and navigate record-by-record.'}
               </p>
             </div>
 
@@ -899,7 +1101,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
               <button
                 type="button"
                 onClick={handleExportAuditCsv}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold shrink-0 transition-colors shadow-xs"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold shrink-0 transition-colors shadow-xs cursor-pointer"
                 title="Export Audit Trail to CSV"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
@@ -909,55 +1111,65 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
           </div>
 
           {/* Module Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            <span className="text-slate-500 text-[11px] font-semibold flex items-center gap-1 mr-1">
-              <Filter className="w-3 h-3 text-slate-400" />
-              <span>{language === 'my' ? 'ကဏ္ဍ:' : 'Module:'}</span>
-            </span>
-            {auditModules.map(mod => {
-              const count = mod.key === 'ALL' 
-                ? db.auditLogs.length 
-                : db.auditLogs.filter(l => l.entityType === mod.key).length;
-              const isSelected = selectedModule === mod.key;
+          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
+            <div className="flex items-center gap-1.5 min-w-max">
+              <span className="text-slate-500 text-[11px] font-semibold flex items-center gap-1 mr-1">
+                <Filter className="w-3 h-3 text-slate-400" />
+                <span>{language === 'my' ? 'ကဏ္ဍ:' : 'Module:'}</span>
+              </span>
+              {auditModules.map(mod => {
+                const count = mod.key === 'ALL' 
+                  ? db.auditLogs.length 
+                  : db.auditLogs.filter(l => l.entityType === mod.key).length;
+                const isSelected = selectedModule === mod.key;
 
-              return (
-                <button
-                  key={mod.key}
-                  onClick={() => setSelectedModule(mod.key)}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
-                    isSelected 
-                      ? 'bg-indigo-600 text-white shadow-xs font-bold' 
-                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
-                  }`}
-                >
-                  <span>{language === 'my' ? mod.labelMm : mod.labelEn}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    isSelected ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-900 text-slate-400'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={mod.key}
+                    type="button"
+                    onClick={() => setSelectedModule(mod.key)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg font-medium text-xs whitespace-nowrap transition-all cursor-pointer ${
+                      isSelected 
+                        ? 'bg-indigo-600 text-white shadow-xs font-bold' 
+                        : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
+                    }`}
+                  >
+                    <span>{language === 'my' ? mod.labelMm : mod.labelEn}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      isSelected ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-900 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Tip Pill */}
+            <div className="hidden xl:flex items-center space-x-1.5 text-[11px] text-slate-400 bg-slate-950/60 px-2.5 py-1 rounded-lg border border-slate-800 shrink-0">
+              <Info className="w-3 h-3 text-indigo-400" />
+              <span>{language === 'my' ? 'လိုင်းနှိပ်၍ စာမျက်နှာအလိုက် ကြည့်နိုင်သည်' : 'Click row to view details'}</span>
+            </div>
           </div>
 
-          {/* Audit Logs Table */}
-          <div className="overflow-x-auto border border-slate-800 rounded-xl">
-            <table className="w-full text-left text-xs text-slate-300">
+          {/* Audit Logs Table - Fixed column widths & clean uniform row height */}
+          <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/40">
+            <table className="w-full text-left text-xs text-slate-300 table-fixed border-collapse">
               <thead className="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800 text-[11px]">
                 <tr>
-                  <th className="px-4 py-3 whitespace-nowrap">{t.timestamp}</th>
-                  <th className="px-4 py-3 whitespace-nowrap">{t.user}</th>
-                  <th className="px-4 py-3 whitespace-nowrap">{t.module}</th>
-                  <th className="px-4 py-3 whitespace-nowrap">{t.action}</th>
-                  <th className="px-4 py-3 whitespace-nowrap">{language === 'my' ? 'ပစ်မှတ် (Target)' : 'Target ID'}</th>
-                  <th className="px-4 py-3">{t.details}</th>
+                  <th className="w-[170px] px-3.5 py-2.5 whitespace-nowrap">{t.timestamp}</th>
+                  <th className="w-[210px] px-3.5 py-2.5 whitespace-nowrap">{t.user}</th>
+                  <th className="w-[125px] px-3.5 py-2.5 whitespace-nowrap">{t.module}</th>
+                  <th className="w-[110px] px-3.5 py-2.5 whitespace-nowrap">{t.action}</th>
+                  <th className="w-[180px] px-3.5 py-2.5 whitespace-nowrap">{language === 'my' ? 'ပစ်မှတ် (Target)' : 'Target ID'}</th>
+                  <th className="px-3.5 py-2.5 min-w-[260px]">{t.details}</th>
+                  <th className="w-[75px] px-3 py-2.5 text-center whitespace-nowrap">{language === 'my' ? 'အသေးစိတ်' : 'View'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredLogs.length === 0 ? (
+                {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <History className="w-8 h-8 text-slate-600 stroke-[1.5]" />
                         <span>{language === 'my' ? 'မှတ်တမ်း မတွေ့ရှိပါ' : 'No matching audit records found'}</span>
@@ -965,7 +1177,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map(log => {
+                  paginatedLogs.map(log => {
                     const isCreate = log.action === 'CREATE';
                     const isUpdate = log.action === 'UPDATE';
                     const isDelete = log.action === 'DELETE';
@@ -993,39 +1205,86 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                       'bg-slate-800 text-slate-300 border-slate-700';
 
                     return (
-                      <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-4 py-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                      <tr 
+                        key={log.id} 
+                        onClick={() => setSelectedAuditLog(log)}
+                        className="hover:bg-slate-800/80 active:bg-slate-800 transition-colors cursor-pointer group h-11"
+                        title={language === 'my' ? 'အသေးစိတ်ကြည့်ရန် နှိပ်ပါ' : 'Click to view full record details'}
+                      >
+                        {/* Timestamp */}
+                        <td className="w-[170px] px-3.5 py-2 font-mono text-[11px] text-slate-400 whitespace-nowrap">
                           {new Date(log.timestamp).toLocaleString()}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center space-x-1.5">
-                            <strong className="text-slate-200 font-semibold">{log.userName}</strong>
+
+                        {/* User & Role */}
+                        <td className="w-[210px] px-3.5 py-2 whitespace-nowrap">
+                          <div className="flex items-center space-x-1.5 overflow-hidden">
+                            <span 
+                              className="text-slate-200 font-semibold text-xs truncate max-w-[130px] group-hover:text-indigo-200 transition-colors" 
+                              title={log.userName}
+                            >
+                              {log.userName}
+                            </span>
                             {log.userRole && (
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700 shrink-0">
                                 {log.userRole}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+
+                        {/* Module */}
+                        <td className="w-[125px] px-3.5 py-2 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded border text-[10px] font-mono font-bold ${moduleColorClass}`}>
                             {log.entityType}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+
+                        {/* Action */}
+                        <td className="w-[110px] px-3.5 py-2 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded border text-[10px] font-mono font-bold ${actionColorClass}`}>
                             {log.action}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-slate-300 whitespace-nowrap">
+
+                        {/* Target ID */}
+                        <td className="w-[180px] px-3.5 py-2 font-mono text-[11px] text-slate-300 whitespace-nowrap">
                           {log.entityId ? (
-                            <span className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
+                            <span 
+                              className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px] inline-block truncate max-w-[160px]" 
+                              title={log.entityId}
+                            >
                               {log.entityId}
                             </span>
-                          ) : '-'}
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-slate-300 max-w-md leading-relaxed">
-                          {log.details}
+
+                        {/* Operation Details (Single line with clean ellipsis) */}
+                        <td className="px-3.5 py-2 text-slate-300 min-w-[260px]">
+                          <div 
+                            className="truncate text-xs text-slate-300 group-hover:text-white transition-colors" 
+                            title={log.details}
+                          >
+                            {log.details}
+                          </div>
+                        </td>
+
+                        {/* Action / View */}
+                        <td className="w-[75px] px-3 py-2 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAuditLog(log);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700 hover:border-indigo-500 text-[10px] font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                            title={language === 'my' ? 'အသေးစိတ် အချက်အလက် ကြည့်မည်' : 'View Details'}
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{language === 'my' ? 'ကြည့်မည်' : 'View'}</span>
+                          </button>
                         </td>
                       </tr>
                     );
@@ -1033,6 +1292,91 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs text-slate-400 border-t border-slate-800">
+            {/* Records Range Info */}
+            <div className="flex items-center space-x-2">
+              <span>
+                {language === 'my'
+                  ? `ဖော်ပြထားသော မှတ်တမ်း ${totalAuditRecords === 0 ? 0 : startAuditIndex + 1} မှ ${endAuditIndex} (စုစုပေါင်း ${totalAuditRecords} ခု)`
+                  : `Showing ${totalAuditRecords === 0 ? 0 : startAuditIndex + 1} to ${endAuditIndex} of ${totalAuditRecords} audit logs`}
+              </span>
+            </div>
+
+            {/* Page Size & Page Navigation */}
+            <div className="flex items-center space-x-3 shrink-0">
+              {/* Rows Per Page */}
+              <div className="flex items-center space-x-1.5">
+                <span className="text-[11px] text-slate-500">
+                  {language === 'my' ? 'စာမျက်နှာတစ်ခုလျှင်:' : 'Rows per page:'}
+                </span>
+                <select
+                  value={auditPageSize}
+                  onChange={(e) => setAuditPageSize(Number(e.target.value))}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="flex items-center space-x-1">
+                {/* First Page */}
+                <button
+                  type="button"
+                  onClick={() => setAuditPage(1)}
+                  disabled={currentAuditPage <= 1}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                  title="First Page"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Prev Page */}
+                <button
+                  type="button"
+                  onClick={() => setAuditPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentAuditPage <= 1}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Current Page Badge */}
+                <span className="px-2.5 py-1 text-xs font-mono font-semibold bg-slate-950 border border-slate-800 rounded-lg text-slate-200">
+                  {currentAuditPage} / {totalAuditPages}
+                </span>
+
+                {/* Next Page */}
+                <button
+                  type="button"
+                  onClick={() => setAuditPage(prev => Math.min(totalAuditPages, prev + 1))}
+                  disabled={currentAuditPage >= totalAuditPages}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Last Page */}
+                <button
+                  type="button"
+                  onClick={() => setAuditPage(totalAuditPages)}
+                  disabled={currentAuditPage >= totalAuditPages}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                  title="Last Page"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1092,6 +1436,279 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                 {isProcessingAction && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                 <span>{confirmDialog.confirmButtonText}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AUDIT RECORD DETAIL MODAL (PAGE-BY-PAGE BROWSER) */}
+      {selectedAuditLog && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-xs"
+          onClick={() => setSelectedAuditLog(null)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80 shrink-0">
+              <div className="flex items-center space-x-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <History className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                    <h3 className="text-base font-bold text-white tracking-wide truncate">
+                      {language === 'my' ? 'လုပ်ဆောင်ချက် မှတ်တမ်း အသေးစိတ်' : 'Audit Trail Record Details'}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                      ID: {selectedAuditLog.id ? selectedAuditLog.id.slice(0, 14) : 'N/A'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {language === 'my' 
+                      ? 'လုံခြုံရေးနှင့် ဥပဒေလိုက်နာမှုဆိုင်ရာ လုပ်ဆောင်ချက်မှတ်တမ်း အပြည့်အစုံ' 
+                      : 'Immutable system compliance activity log record'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Record Pagination in Header */}
+              <div className="flex items-center space-x-2 shrink-0 ml-3">
+                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs shadow-inner">
+                  <button
+                    type="button"
+                    onClick={handlePrevRecord}
+                    disabled={!hasPrevRecord}
+                    className="p-1.5 rounded-lg hover:bg-slate-800 disabled:opacity-25 disabled:hover:bg-transparent text-slate-300 transition-colors cursor-pointer"
+                    title={language === 'my' ? 'ယခင်မှတ်တမ်း (←)' : 'Previous Record (←)'}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-2 text-[11px] font-mono text-slate-200 font-semibold select-none whitespace-nowrap">
+                    {selectedLogIndex + 1} / {totalAuditRecords}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNextRecord}
+                    disabled={!hasNextRecord}
+                    className="p-1.5 rounded-lg hover:bg-slate-800 disabled:opacity-25 disabled:hover:bg-transparent text-slate-300 transition-colors cursor-pointer"
+                    title={language === 'my' ? 'နောက်မှတ်တမ်း (→)' : 'Next Record (→)'}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditLog(null)}
+                  className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer ml-1"
+                  title="Close (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (Scrollable) */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-300">
+              {/* Badges Ribbon */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-bold ${
+                  selectedAuditLog.action === 'CREATE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                  selectedAuditLog.action === 'UPDATE' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                  selectedAuditLog.action === 'DELETE' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                  selectedAuditLog.action === 'APPROVE' ? 'bg-teal-500/20 text-teal-300 border-teal-500/30' :
+                  selectedAuditLog.action === 'REJECT' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                  selectedAuditLog.action === 'LOGIN' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                  'bg-slate-800 text-slate-300 border-slate-700'
+                }`}>
+                  Action: {selectedAuditLog.action}
+                </span>
+
+                <span className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-bold ${
+                  selectedAuditLog.entityType === 'USER' ? 'bg-purple-900/40 text-purple-300 border-purple-800/50' :
+                  selectedAuditLog.entityType === 'BRANCH' ? 'bg-blue-900/40 text-blue-300 border-blue-800/50' :
+                  selectedAuditLog.entityType === 'OUTWARD' ? 'bg-emerald-900/40 text-emerald-300 border-emerald-800/50' :
+                  selectedAuditLog.entityType === 'INWARD' ? 'bg-teal-900/40 text-teal-300 border-teal-800/50' :
+                  selectedAuditLog.entityType === 'EXCHANGE_RATE' ? 'bg-amber-900/40 text-amber-300 border-amber-800/50' :
+                  selectedAuditLog.entityType === 'PURPOSE' ? 'bg-indigo-900/40 text-indigo-300 border-indigo-800/50' :
+                  selectedAuditLog.entityType === 'BLACKLIST' ? 'bg-rose-900/40 text-rose-300 border-rose-800/50' :
+                  'bg-slate-800 text-slate-300 border-slate-700'
+                }`}>
+                  Module: {selectedAuditLog.entityType}
+                </span>
+
+                <span className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Immutable Audit Trail</span>
+                </span>
+
+                <span className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono text-[11px] ml-auto">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                  <span>{new Date(selectedAuditLog.timestamp).toLocaleString()}</span>
+                </span>
+              </div>
+
+              {/* 4-Box Key Property Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Timestamp */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">
+                    {t.timestamp}
+                  </span>
+                  <div className="text-xs font-mono font-bold text-white">
+                    {new Date(selectedAuditLog.timestamp).toLocaleDateString()}
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                    {new Date(selectedAuditLog.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+
+                {/* 2. User & Role */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">
+                    {t.user} (Operator)
+                  </span>
+                  <div className="text-xs font-bold text-white truncate" title={selectedAuditLog.userName}>
+                    {selectedAuditLog.userName}
+                  </div>
+                  <div className="flex items-center space-x-1.5 mt-1">
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                      {selectedAuditLog.userRole || 'USER'}
+                    </span>
+                    {selectedAuditLog.userId && (
+                      <span className="text-[10px] font-mono text-slate-500">
+                        ({selectedAuditLog.userId})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Module & Action */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">
+                    {language === 'my' ? 'ကဏ္ဍ နှင့် လုပ်ဆောင်ချက်' : 'Module & Action'}
+                  </span>
+                  <div className="text-xs font-mono font-bold text-indigo-300">
+                    {selectedAuditLog.entityType}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-0.5">
+                    Action: {selectedAuditLog.action}
+                  </div>
+                </div>
+
+                {/* 4. Target Entity ID */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-1">
+                      {language === 'my' ? 'ပစ်မှတ် ကုတ် (Target ID)' : 'Target Entity ID'}
+                    </span>
+                    <div className="text-xs font-mono font-bold text-sky-400 truncate" title={selectedAuditLog.entityId || 'N/A'}>
+                      {selectedAuditLog.entityId || 'N/A'}
+                    </div>
+                  </div>
+                  {selectedAuditLog.entityId && (
+                    <button
+                      type="button"
+                      onClick={handleCopyTargetId}
+                      className="mt-2 self-start flex items-center space-x-1 text-[10px] text-slate-400 hover:text-sky-300 transition-colors cursor-pointer"
+                    >
+                      {copiedTargetId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedTargetId ? (language === 'my' ? 'ကူးပြီး' : 'Copied!') : (language === 'my' ? 'ID ကူးမည်' : 'Copy ID')}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Full Operation Details Card */}
+              <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-indigo-400" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      {language === 'my' ? 'လုပ်ဆောင်ချက် အပြည့်အစုံ (Operation Details)' : 'Operation Details (Full Description)'}
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAuditDetails}
+                    className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    {copiedAuditDetail ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-400" />}
+                    <span>{copiedAuditDetail ? (language === 'my' ? 'ကူးပြီးပါပြီ' : 'Copied Details!') : (language === 'my' ? 'အသေးစိတ် Copy ကူးမည်' : 'Copy Details')}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-200 leading-relaxed font-sans whitespace-pre-wrap select-text p-2 bg-slate-900/60 rounded-lg border border-slate-800/80">
+                  {selectedAuditLog.details}
+                </div>
+              </div>
+
+              {/* Value Changes Diff (if previousValue or newValue exists) */}
+              {(selectedAuditLog.previousValue || selectedAuditLog.newValue) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-rose-950/20 border border-rose-900/40 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-rose-400 block">
+                      {language === 'my' ? 'ယခင် အချက်အလက် (Previous Value)' : 'Previous Value (Before)'}
+                    </span>
+                    <pre className="text-[11px] font-mono text-rose-200 whitespace-pre-wrap break-all">
+                      {selectedAuditLog.previousValue || '-'}
+                    </pre>
+                  </div>
+                  <div className="bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-3 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-emerald-400 block">
+                      {language === 'my' ? 'အသစ် ပြောင်းလဲမှု (New Value)' : 'New Value (After)'}
+                    </span>
+                    <pre className="text-[11px] font-mono text-emerald-200 whitespace-pre-wrap break-all">
+                      {selectedAuditLog.newValue || '-'}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-slate-800 bg-slate-950/80 shrink-0">
+              <button
+                type="button"
+                onClick={handleCopyAuditJson}
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer w-full sm:w-auto justify-center"
+              >
+                {copiedAuditJson ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-sky-400" />}
+                <span>{copiedAuditJson ? (language === 'my' ? 'JSON ကူးယူပြီး' : 'JSON Copied!') : (language === 'my' ? 'မှတ်တမ်းတစ်ခုလုံး JSON ကူးမည်' : 'Copy Record (JSON)')}</span>
+              </button>
+
+              <div className="flex items-center space-x-2 justify-end w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handlePrevRecord}
+                  disabled={!hasPrevRecord}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>{language === 'my' ? 'ယခင်' : 'Previous'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNextRecord}
+                  disabled={!hasNextRecord}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <span>{language === 'my' ? 'နောက်တစ်ခု' : 'Next'}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditLog(null)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer ml-1"
+                >
+                  {language === 'my' ? 'ပိတ်မည် (Close)' : 'Close'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
