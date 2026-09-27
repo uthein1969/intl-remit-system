@@ -1836,10 +1836,10 @@ export const OutwardEntryView: React.FC = () => {
                                 size: senderNrcFrontDoc.size,
                                 idNumber: senderNrc
                               })}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all cursor-pointer hover:scale-[1.02]"
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
                               title={language === 'my' ? 'အသေးစိတ် ကြည့်ရှုရန်' : 'Preview Attached Document'}
                             >
-                              <Eye className="w-3.5 h-3.5 text-sky-400" />
+                              <Eye className="w-3.5 h-3.5" />
                               <span>{language === 'my' ? 'Preview' : 'Preview'}</span>
                             </button>
 
@@ -1867,29 +1867,17 @@ export const OutwardEntryView: React.FC = () => {
                             </button>
                           </>
                         ) : (
-                          <>
-                            {/* Quick Sample Button */}
-                            <button
-                              type="button"
-                              id="sample-sender-nrc-front-btn"
-                              onClick={handleAttachSampleNrcFront}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                            </button>
-
-                            {/* Upload Button */}
-                            <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                              <Upload className="w-3 h-3" />
-                              <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                              <input
-                                type="file"
-                                accept="image/*,.pdf,.svg"
-                                className="hidden"
-                                onChange={(e) => handleUploadFile(e, 'nrc-front')}
-                              />
-                            </label>
-                          </>
+                          /* Only Upload Button when not attached */
+                          <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,.svg"
+                              className="hidden"
+                              onChange={(e) => handleUploadFile(e, 'nrc-front')}
+                            />
+                          </label>
                         )}
                       </div>
                     </div>
@@ -1957,10 +1945,10 @@ export const OutwardEntryView: React.FC = () => {
                                 size: senderNrcBackDoc.size,
                                 idNumber: senderNrc
                               })}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all cursor-pointer hover:scale-[1.02]"
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
                               title={language === 'my' ? 'အသေးစိတ် ကြည့်ရှုရန်' : 'Preview Attached Document'}
                             >
-                              <Eye className="w-3.5 h-3.5 text-sky-400" />
+                              <Eye className="w-3.5 h-3.5" />
                               <span>{language === 'my' ? 'Preview' : 'Preview'}</span>
                             </button>
 
@@ -1988,29 +1976,17 @@ export const OutwardEntryView: React.FC = () => {
                             </button>
                           </>
                         ) : (
-                          <>
-                            {/* Quick Sample Button */}
-                            <button
-                              type="button"
-                              id="sample-sender-nrc-back-btn"
-                              onClick={handleAttachSampleNrcBack}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                            </button>
-
-                            {/* Upload Button */}
-                            <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                              <Upload className="w-3 h-3" />
-                              <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                              <input
-                                type="file"
-                                accept="image/*,.pdf,.svg"
-                                className="hidden"
-                                onChange={(e) => handleUploadFile(e, 'nrc-back')}
-                              />
-                            </label>
-                          </>
+                          /* Only Upload Button when not attached */
+                          <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,.svg"
+                              className="hidden"
+                              onChange={(e) => handleUploadFile(e, 'nrc-back')}
+                            />
+                          </label>
                         )}
                       </div>
                     </div>
@@ -2078,10 +2054,10 @@ export const OutwardEntryView: React.FC = () => {
                                 size: senderPassportDoc.size,
                                 idNumber: senderPassport
                               })}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all cursor-pointer hover:scale-[1.02]"
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]"
                               title={language === 'my' ? 'အသေးစိတ် ကြည့်ရှုရန်' : 'Preview Attached Document'}
                             >
-                              <Eye className="w-3.5 h-3.5 text-sky-400" />
+                              <Eye className="w-3.5 h-3.5" />
                               <span>{language === 'my' ? 'Preview' : 'Preview'}</span>
                             </button>
 
@@ -2109,29 +2085,17 @@ export const OutwardEntryView: React.FC = () => {
                             </button>
                           </>
                         ) : (
-                          <>
-                            {/* Quick Sample Button */}
-                            <button
-                              type="button"
-                              id="sample-sender-passport-btn"
-                              onClick={handleAttachSamplePassport}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                            </button>
-
-                            {/* Upload Button */}
-                            <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                              <Upload className="w-3 h-3" />
-                              <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                              <input
-                                type="file"
-                                accept="image/*,.pdf,.svg"
-                                className="hidden"
-                                onChange={(e) => handleUploadFile(e, 'passport')}
-                              />
-                            </label>
-                          </>
+                          /* Only Upload Button when not attached */
+                          <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-[1.02]">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,.svg"
+                              className="hidden"
+                              onChange={(e) => handleUploadFile(e, 'passport')}
+                            />
+                          </label>
                         )}
                       </div>
                     </div>
@@ -2978,14 +2942,17 @@ export const OutwardEntryView: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
             {/* Sending Branch */}
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">
-                {language === 'my' ? 'ငွေလွှဲပေးပို့သည့် ဘဏ်ခွဲ (Sending Branch)' : 'Sending Branch'} *
-              </label>
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between h-[26px] mb-1.5">
+                <label className="text-slate-400 font-medium flex items-center gap-1">
+                  <span>{language === 'my' ? 'ငွေလွှဲပေးပို့သည့် ဘဏ်ခွဲ (Sending Branch)' : 'Sending Branch'}</span>
+                  <span className="text-slate-400 font-bold">*</span>
+                </label>
+              </div>
               <select
                 value={sendingBranchId}
                 onChange={(e) => setSendingBranchId(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:border-sky-500 focus:outline-none font-medium"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:border-sky-500 focus:outline-none font-medium h-[42px]"
               >
                 {db.branches.map(b => {
                   const bCountry = db.countries.find(c => c.code === b.countryCode);
@@ -2999,15 +2966,20 @@ export const OutwardEntryView: React.FC = () => {
             </div>
 
             {/* Receiving Branch (For Both Domestic & International Remittance with Auto-Dispatch) */}
-            <div>
-              <label className="block text-amber-400 mb-1 font-semibold flex items-center justify-between">
-                <span>{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch)' : 'Receive Branch (Destination)'} *</span>
-                <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">Auto Inward Dispatch</span>
-              </label>
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between h-[26px] mb-1.5 gap-2">
+                <label className="text-amber-400 font-semibold flex items-center gap-1 min-w-0">
+                  <span className="truncate">{language === 'my' ? 'လက်ခံထုတ်ယူမည့် ဘဏ်ခွဲ (Receive Branch)' : 'Receive Branch (Destination)'}</span>
+                  <span className="text-amber-400 font-bold shrink-0">*</span>
+                </label>
+                <span className="shrink-0 text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
+                  Auto Inward Dispatch
+                </span>
+              </div>
               <select
                 value={payoutBranchId}
                 onChange={(e) => setPayoutBranchId(e.target.value)}
-                className="w-full bg-slate-800 border border-amber-500/50 rounded-xl px-3 py-2.5 text-white focus:border-amber-400 focus:outline-none font-semibold text-xs shadow-inner"
+                className="w-full bg-slate-800 border border-amber-500/50 rounded-xl px-3 py-2.5 text-white focus:border-amber-400 focus:outline-none font-semibold text-xs shadow-inner h-[42px]"
               >
                 {db.branches.map(b => {
                   const bCountry = db.countries.find(c => c.code === b.countryCode);
