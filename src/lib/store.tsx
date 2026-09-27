@@ -1417,7 +1417,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Real-time Cloud Auto-Sync for Live Data (Supabase & Turso)
-  const syncLiveTransactionToCloud = (tx: RemittanceTransaction, auditRecord?: AuditRecord) => {
+  const syncLiveTransactionToCloud = (tx: RemittanceTransaction, auditRecord?: AuditRecord, extraData?: { customers?: Customer[] }) => {
     // 1. Supabase live upsert
     try {
       const client = getSupabaseClient(db.supabaseConfig);
@@ -1506,6 +1506,29 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (error) console.warn('Supabase live audit log sync warning:', error.message);
           }, () => {});
         }
+
+        // Live customers sync to Supabase
+        if (extraData?.customers && extraData.customers.length > 0) {
+          const cuPayload = extraData.customers.map(c => ({
+            id: c.id,
+            customer_code: c.customerCode,
+            full_name_en: c.fullNameEn,
+            full_name_mm: c.fullNameMm,
+            nrc_number: c.nrcNumber,
+            passport_number: c.passportNumber || c.passbookNumber || '',
+            phone: c.phone,
+            address: c.address,
+            customer_type: c.customerType,
+            risk_rating: c.riskRating,
+            total_transactions: c.totalTransactions,
+            total_volume_mmk: c.totalVolumeMMK,
+            notes: c.notes,
+            created_at: c.createdAt,
+          }));
+          client.from('customers').upsert(cuPayload, { onConflict: 'id' }).then(({ error }: any) => {
+            if (error) console.warn('Supabase live customer sync warning:', error.message);
+          }, () => {});
+        }
       }
     } catch {
       // ignore
@@ -1529,6 +1552,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           entityId: auditRecord.entityId,
           details: auditRecord.details,
         }];
+      }
+
+      if (extraData?.customers && extraData.customers.length > 0) {
+        requestPayload.customers = extraData.customers;
       }
 
       safeFetchJson('/api/turso/sync-push', {
@@ -1704,6 +1731,201 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       blacklistAlert = `RECEIVER_MATCH: ${receiverBlacklist.fullNameEn} (${receiverBlacklist.reason})`;
     }
 
+    // Auto-register / update Customer Profiles for Sender and Receiver
+    const currentCustomers = [...db.customers];
+    const newOrUpdatedCustomers: Customer[] = [];
+    const newCustomerAudits: AuditRecord[] = [];
+
+    const findCustomerMatch = (
+      name: string,
+      nrc?: string,
+      passport?: string,
+      phone?: string,
+      preferredId?: string
+    ): Customer | undefined => {
+      if (preferredId) {
+        const byId = currentCustomers.find(c => c.id === preferredId);
+        if (byId) return byId;
+      }
+      const cleanName = (name || '').trim().toLowerCase();
+      const cleanNrc = (nrc || '').trim().toLowerCase();
+      const cleanPassport = (passport || '').trim().toLowerCase();
+      const cleanPhone = (phone || '').trim().replace(/[\s-]/g, '');
+
+      return currentCustomers.find(c => {
+        const cNrc = (c.nrcNumber || '').trim().toLowerCase();
+        const cPassport = (c.passportNumber || c.passbookNumber || '').trim().toLowerCase();
+        const cPhone = (c.phone || '').trim().replace(/[\s-]/g, '');
+        const cNameEn = (c.fullNameEn || '').trim().toLowerCase();
+        const cNameMm = (c.fullNameMm || '').trim().toLowerCase();
+
+        // 1. NRC match (if non-empty)
+        if (cleanNrc && cNrc && cleanNrc === cNrc) return true;
+
+        // 2. Passport match (if non-empty)
+        if (cleanPassport && cPassport && cleanPassport === cPassport) return true;
+
+        // 3. Name match with phone match or without conflict
+        if (cleanName && (cNameEn === cleanName || cNameMm === cleanName)) {
+          if (cleanPhone && cPhone) {
+            return cleanPhone === cPhone;
+          }
+          if (!cleanNrc && !cNrc && !cleanPassport && !cPassport) {
+            return true;
+          }
+        }
+        return false;
+      });
+    };
+
+    // 1. Process Sender Customer
+    let senderCustomerId = txData.senderCustomerId;
+    if (txData.senderName && txData.senderName.trim()) {
+      const matchedSender = findCustomerMatch(
+        txData.senderName,
+        txData.senderNrc,
+        senderPassportVal,
+        txData.senderPhone,
+        txData.senderCustomerId
+      );
+
+      const senderAmountMmk = Number(txData.sourceCurrency === 'MMK' ? txData.sendAmount : (txData.receiveAmount || txData.sendAmount || 0));
+
+      if (!matchedSender) {
+        // New Sender Customer: Auto-add to customers table
+        const senderCleanId = getNextCleanId('CUST', currentCustomers, 3);
+        const senderNumSuffix = senderCleanId.replace('CUST-', '');
+        const newSender: Customer = {
+          id: senderCleanId,
+          customerCode: `CUS-2026-${senderNumSuffix}`,
+          fullNameEn: txData.senderName.trim(),
+          fullNameMm: (txData.senderNameMm || '').trim(),
+          nrcNumber: (txData.senderNrc || '').trim(),
+          passportNumber: senderPassportVal || undefined,
+          passbookNumber: senderPassportVal || undefined,
+          phone: (txData.senderPhone || '').trim(),
+          address: (txData.senderAddress || '').trim(),
+          customerType: 'SENDER',
+          riskRating: 'LOW',
+          totalTransactions: 1,
+          totalVolumeMMK: senderAmountMmk,
+          fatherName: (txData.senderFatherName || '').trim() || undefined,
+          occupation: (txData.senderOccupation || '').trim() || undefined,
+          dateOfBirth: txData.senderDateOfBirth || undefined,
+          dob: txData.senderDateOfBirth || undefined,
+          createdAt: new Date().toISOString(),
+          notes: `Auto-registered from Outward Remittance ${txNo}`,
+        };
+        currentCustomers.push(newSender);
+        newOrUpdatedCustomers.push(newSender);
+        senderCustomerId = newSender.id;
+
+        newCustomerAudits.push({
+          id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'CREATE',
+          entityType: 'CUSTOMER',
+          entityId: newSender.customerCode,
+          details: `Auto-registered new Sender customer ${newSender.customerCode} (${newSender.fullNameEn}) from Outward Remittance ${txNo}`
+        });
+      } else {
+        // Existing Sender: update details and accumulators
+        senderCustomerId = matchedSender.id;
+        const updatedSender: Customer = {
+          ...matchedSender,
+          fullNameMm: matchedSender.fullNameMm || (txData.senderNameMm || '').trim(),
+          nrcNumber: matchedSender.nrcNumber || (txData.senderNrc || '').trim(),
+          passportNumber: matchedSender.passportNumber || senderPassportVal || undefined,
+          passbookNumber: matchedSender.passbookNumber || senderPassportVal || undefined,
+          phone: matchedSender.phone || (txData.senderPhone || '').trim(),
+          address: matchedSender.address || (txData.senderAddress || '').trim(),
+          fatherName: matchedSender.fatherName || (txData.senderFatherName || '').trim() || undefined,
+          occupation: matchedSender.occupation || (txData.senderOccupation || '').trim() || undefined,
+          dateOfBirth: matchedSender.dateOfBirth || txData.senderDateOfBirth || undefined,
+          dob: matchedSender.dob || txData.senderDateOfBirth || undefined,
+          customerType: matchedSender.customerType === 'RECEIVER' ? 'BOTH' : matchedSender.customerType,
+          totalTransactions: (matchedSender.totalTransactions || 0) + 1,
+          totalVolumeMMK: (matchedSender.totalVolumeMMK || 0) + senderAmountMmk,
+        };
+        const sIdx = currentCustomers.findIndex(c => c.id === matchedSender.id);
+        if (sIdx >= 0) currentCustomers[sIdx] = updatedSender;
+        newOrUpdatedCustomers.push(updatedSender);
+      }
+    }
+
+    // 2. Process Receiver Customer
+    let receiverCustomerId = txData.receiverCustomerId;
+    if (txData.receiverName && txData.receiverName.trim()) {
+      const matchedReceiver = findCustomerMatch(
+        txData.receiverName,
+        txData.receiverNrc,
+        receiverPassportVal,
+        txData.receiverPhone,
+        txData.receiverCustomerId
+      );
+
+      const receiverAmountMmk = Number(txData.targetCurrency === 'MMK' ? txData.receiveAmount : (txData.sendAmount || txData.receiveAmount || 0));
+
+      if (!matchedReceiver) {
+        // New Receiver Customer: Auto-add to customers table
+        const receiverCleanId = getNextCleanId('CUST', currentCustomers, 3);
+        const receiverNumSuffix = receiverCleanId.replace('CUST-', '');
+        const newReceiver: Customer = {
+          id: receiverCleanId,
+          customerCode: `CUS-2026-${receiverNumSuffix}`,
+          fullNameEn: txData.receiverName.trim(),
+          fullNameMm: (txData.receiverNameMm || '').trim(),
+          nrcNumber: (txData.receiverNrc || '').trim(),
+          passportNumber: receiverPassportVal || undefined,
+          passbookNumber: receiverPassportVal || undefined,
+          phone: (txData.receiverPhone || '').trim(),
+          address: (txData.receiverAddress || '').trim(),
+          customerType: 'RECEIVER',
+          riskRating: 'LOW',
+          totalTransactions: 1,
+          totalVolumeMMK: receiverAmountMmk,
+          createdAt: new Date().toISOString(),
+          notes: `Auto-registered from Outward Remittance ${txNo} (Beneficiary)`,
+        };
+        currentCustomers.push(newReceiver);
+        newOrUpdatedCustomers.push(newReceiver);
+        receiverCustomerId = newReceiver.id;
+
+        newCustomerAudits.push({
+          id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000) + 1}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.fullName,
+          userRole: currentUser.role,
+          action: 'CREATE',
+          entityType: 'CUSTOMER',
+          entityId: newReceiver.customerCode,
+          details: `Auto-registered new Receiver customer ${newReceiver.customerCode} (${newReceiver.fullNameEn}) from Outward Remittance ${txNo}`
+        });
+      } else {
+        // Existing Receiver: update details and accumulators
+        receiverCustomerId = matchedReceiver.id;
+        const updatedReceiver: Customer = {
+          ...matchedReceiver,
+          fullNameMm: matchedReceiver.fullNameMm || (txData.receiverNameMm || '').trim(),
+          nrcNumber: matchedReceiver.nrcNumber || (txData.receiverNrc || '').trim(),
+          passportNumber: matchedReceiver.passportNumber || receiverPassportVal || undefined,
+          passbookNumber: matchedReceiver.passbookNumber || receiverPassportVal || undefined,
+          phone: matchedReceiver.phone || (txData.receiverPhone || '').trim(),
+          address: matchedReceiver.address || (txData.receiverAddress || '').trim(),
+          customerType: matchedReceiver.customerType === 'SENDER' ? 'BOTH' : matchedReceiver.customerType,
+          totalTransactions: (matchedReceiver.totalTransactions || 0) + 1,
+          totalVolumeMMK: (matchedReceiver.totalVolumeMMK || 0) + receiverAmountMmk,
+        };
+        const rIdx = currentCustomers.findIndex(c => c.id === matchedReceiver.id);
+        if (rIdx >= 0) currentCustomers[rIdx] = updatedReceiver;
+        newOrUpdatedCustomers.push(updatedReceiver);
+      }
+    }
+
     const newTx: RemittanceTransaction = {
       id: getNextCleanId('TX', db.transactions, 3),
       transactionNo: txNo,
@@ -1712,6 +1934,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       scope: txData.scope || 'INTERNATIONAL',
       status: (txData.status as RemittanceStatus) || 'PENDING_APPROVAL',
       
+      senderCustomerId,
       senderName: txData.senderName || '',
       senderNameMm: txData.senderNameMm || '',
       senderNrc: txData.senderNrc || '',
@@ -1746,6 +1969,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       senderPassbookAttachmentType: txData.senderPassportAttachmentType || txData.senderPassbookAttachmentType,
       senderPassbookAttachmentSize: txData.senderPassportAttachmentSize || txData.senderPassbookAttachmentSize,
       
+      receiverCustomerId,
       receiverName: txData.receiverName || '',
       receiverNameMm: txData.receiverNameMm || '',
       receiverNrc: txData.receiverNrc || '',
@@ -1812,10 +2036,11 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setDb(prev => ({
       ...prev,
       transactions: [newTx, ...prev.transactions],
-      auditLogs: [auditRecord, ...prev.auditLogs]
+      customers: currentCustomers,
+      auditLogs: [...newCustomerAudits, auditRecord, ...prev.auditLogs]
     }));
 
-    syncLiveTransactionToCloud(newTx, auditRecord);
+    syncLiveTransactionToCloud(newTx, auditRecord, { customers: newOrUpdatedCustomers });
 
     return newTx;
   };

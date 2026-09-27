@@ -215,6 +215,7 @@ export interface RemittanceTransaction {
   status: RemittanceStatus;
   
   // Sender
+  senderCustomerId?: string; // Linked customer profile ID
   senderName: string;
   senderNameMm?: string;
   senderIdType?: 'NRC' | 'PASSPORT';
@@ -250,6 +251,7 @@ export interface RemittanceTransaction {
   senderPassbookAttachmentSize?: string;
   
   // Receiver
+  receiverCustomerId?: string; // Linked customer profile ID
   receiverName: string;
   receiverNameMm?: string;
   receiverNrc: string;
