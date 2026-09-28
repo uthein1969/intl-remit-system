@@ -302,7 +302,12 @@ CREATE TABLE IF NOT EXISTS mto_compliance_limits (
 );
 `;
 
-export async function initTursoSchema(client?: Client) {
+let isSchemaInitialized = false;
+
+export async function initTursoSchema(client?: Client, force: boolean = false) {
+  if (isSchemaInitialized && !force) {
+    return { success: true, count: 0, cached: true };
+  }
   const cli = client || initTursoClient();
   const statements = TURSO_SCHEMA_SQL
     .split(';')
@@ -430,6 +435,7 @@ export async function initTursoSchema(client?: Client) {
     console.warn('Turso auto-seed check error:', e);
   }
 
+  isSchemaInitialized = true;
   return { success: true, count: statements.length };
 }
 
@@ -2102,11 +2108,43 @@ export async function clearTursoTable(tableName: 'remittance_transactions' | 'au
     throw new Error(`Table ${tableName} is not allowed to be cleared.`);
   }
   const client = initTursoClient();
-  await initTursoSchema(client);
+  if (!isSchemaInitialized) {
+    await initTursoSchema(client);
+  }
   const countRes = await client.execute(`SELECT COUNT(*) as cnt FROM ${tableName};`).catch(() => ({ rows: [{ cnt: 0 }] }));
   const count = Number(countRes.rows[0]?.cnt || 0);
   await client.execute(`DELETE FROM ${tableName};`);
   return { success: true, table: tableName, count };
+}
+
+export async function clearAllTursoTestData() {
+  const client = initTursoClient();
+  if (!isSchemaInitialized) {
+    await initTursoSchema(client);
+  }
+  const [txCountRes, logCountRes, custCountRes] = await Promise.all([
+    client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] })),
+    client.execute('SELECT COUNT(*) as cnt FROM audit_logs;').catch(() => ({ rows: [{ cnt: 0 }] })),
+    client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] })),
+  ]);
+  const txCount = Number(txCountRes.rows[0]?.cnt || 0);
+  const logCount = Number(logCountRes.rows[0]?.cnt || 0);
+  const custCount = Number(custCountRes.rows[0]?.cnt || 0);
+
+  await Promise.all([
+    client.execute('DELETE FROM remittance_transactions;'),
+    client.execute('DELETE FROM audit_logs;'),
+    client.execute('DELETE FROM customer_profiles;'),
+  ]);
+
+  return {
+    success: true,
+    cleared: {
+      transactions: txCount,
+      auditLogs: logCount,
+      customers: custCount,
+    }
+  };
 }
 
 export async function searchTursoCustomers(query: string) {

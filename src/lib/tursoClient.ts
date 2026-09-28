@@ -194,6 +194,27 @@ export async function clearTursoRemoteTable(table: 'remittance_transactions' | '
   }
 }
 
+export async function clearAllTursoTestDataRemote(): Promise<{ success: boolean; cleared?: any }> {
+  try {
+    const { ok, data } = await safeFetchJson('/api/turso/clear-all-test-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (ok && data?.success) {
+      return data;
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { tursoWebClearAllTestData } = await import('./tursoWebClient');
+    return await tursoWebClearAllTestData();
+  } catch (err: any) {
+    return { success: false, cleared: {} };
+  }
+}
+
 export async function searchTursoCustomers(query: string): Promise<any[]> {
   try {
     const q = encodeURIComponent(query || '');

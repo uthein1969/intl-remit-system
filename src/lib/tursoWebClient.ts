@@ -1756,6 +1756,25 @@ export async function tursoWebClearCustomerProfiles(): Promise<{ success: boolea
   }
 }
 
+export async function tursoWebClearAllTestData(): Promise<{
+  success: boolean;
+  cleared: { transactions: number; auditLogs: number; customers: number };
+}> {
+  const [txRes, logRes, custRes] = await Promise.all([
+    tursoWebClearTransactions(),
+    tursoWebClearAuditLogs(),
+    tursoWebClearCustomerProfiles(),
+  ]);
+  return {
+    success: (txRes.success !== false) && (logRes.success !== false),
+    cleared: {
+      transactions: txRes.count || 0,
+      auditLogs: logRes.count || 0,
+      customers: custRes.count || 0,
+    }
+  };
+}
+
 export async function tursoWebSearchCustomers(query: string): Promise<any[]> {
   try {
     const client = getTursoWebClient();

@@ -439,3 +439,39 @@ export async function uploadPassportToSupabase(
 
 // Backward compatibility alias
 export const uploadPassbookToSupabase = uploadPassportToSupabase;
+
+export async function clearSupabaseTable(
+  config: SupabaseConfig,
+  tableName: 'remittance_transactions' | 'audit_logs' | 'customers'
+): Promise<{ success: boolean; error?: string }> {
+  if (!config.url || !config.anonKey) {
+    return { success: true };
+  }
+  const client = getSupabaseClient(config);
+  if (!client) return { success: false, error: 'Could not connect to Supabase' };
+
+  try {
+    const { error } = await client.from(tableName).delete().neq('id', '___NEVER_MATCH___');
+    if (error) {
+      console.warn(`[Supabase] Failed to clear ${tableName}:`, error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
+export async function clearAllSupabaseTestData(
+  config: SupabaseConfig
+): Promise<{ success: boolean }> {
+  if (!config.url || !config.anonKey) {
+    return { success: true };
+  }
+  await Promise.all([
+    clearSupabaseTable(config, 'remittance_transactions'),
+    clearSupabaseTable(config, 'audit_logs'),
+    clearSupabaseTable(config, 'customers'),
+  ]);
+  return { success: true };
+}

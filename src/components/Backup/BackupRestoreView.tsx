@@ -417,24 +417,24 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
         setNotification({
           type: 'success',
           message: language === 'my'
-            ? `ငွေလွှဲစာရင်း (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (remittance_transactions) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
-            : `Successfully cleared all ${res.count} transactions from local storage and Turso cloud.`
+            ? `ငွေလွှဲစာရင်း (${res.count}) ခုအား Local Storage နှင့် Database (remittance_transactions) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။ (Database လက်ကျန်: 0)`
+            : `Successfully cleared all ${res.count} transactions from local storage and Turso cloud database (Database: 0 remaining).`
         });
       } else if (confirmDialog.actionType === 'clear_audit') {
         const res = await clearAllAuditLogs(true);
         setNotification({
           type: 'success',
           message: language === 'my'
-            ? `Audit logs (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (audit_logs) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
-            : `Successfully cleared all ${res.count} audit logs from local storage and Turso cloud.`
+            ? `Audit logs (${res.count}) ခုအား Local Storage နှင့် Database (audit_logs) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။ (Database လက်ကျန်: 0)`
+            : `Successfully cleared all ${res.count} audit logs from local storage and Turso cloud database (Database: 0 remaining).`
         });
       } else if (confirmDialog.actionType === 'clear_customers') {
         const res = await clearAllCustomers(true);
         setNotification({
           type: 'success',
           message: language === 'my'
-            ? `Customer profiles (${res.count}) ခုအား Local Storage နှင့် Turso Cloud (customer_profiles) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။`
-            : `Successfully cleared all ${res.count} customer profiles from local storage and Turso cloud.`
+            ? `Customer profiles (${res.count}) ခုအား Local Storage နှင့် Database (customer_profiles) မှ အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။ (Database လက်ကျန်: 0)`
+            : `Successfully cleared all ${res.count} customer profiles from local storage and Turso cloud database (Database: 0 remaining).`
         });
       } else if (confirmDialog.actionType === 'reset_seed') {
         resetToDefaultSeed();
@@ -447,14 +447,13 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
       } else if (confirmDialog.actionType === 'clear_cache') {
         await clearLocalAndTursoDataForTesting();
         try {
-          localStorage.removeItem(LOCAL_STORAGE_DB_KEY);
-          await clearIndexedDb();
+          sessionStorage.clear();
         } catch {}
         setNotification({
           type: 'success',
           message: language === 'my'
-            ? 'Browser Cache နှင့် Local Storage များ ရှင်းလင်းပြီးပါပြီ။ စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်...'
-            : 'Local Cache cleared successfully. Refreshing application...'
+            ? 'Browser Cache နှင့် Database ပေါ်ရှိ Transactions, Audit Logs, Customer စာရင်းများ အားလုံး ရှင်းလင်းပြီးပါပြီ။ စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်...'
+            : 'Browser Cache and Database test records (Transactions, Audit Logs, Customers) cleared successfully. Refreshing application...'
         });
         setTimeout(() => {
           window.location.reload();

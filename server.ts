@@ -23,6 +23,7 @@ import {
   saveTursoExchangeRates,
   deleteTursoExchangeRate,
   clearTursoTable,
+  clearAllTursoTestData,
   searchTursoCustomers,
   getTursoMtoLimits,
   saveTursoMtoLimit,
@@ -268,6 +269,15 @@ app.post('/api/turso/clear-table', async (req, res) => {
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || 'Failed to clear table' });
+  }
+});
+
+app.post('/api/turso/clear-all-test-data', async (req, res) => {
+  try {
+    const result = await clearAllTursoTestData();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Failed to clear all test data' });
   }
 });
 
