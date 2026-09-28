@@ -24,6 +24,22 @@ import {
   DefaultStatusConfig,
   MtoComplianceLimit
 } from '../types';
+
+export type TableKey =
+  | 'transactions'
+  | 'customers'
+  | 'branches'
+  | 'users'
+  | 'exchangeRates'
+  | 'mtoComplianceLimits'
+  | 'companies'
+  | 'currencies'
+  | 'countries'
+  | 'blacklist'
+  | 'purposes'
+  | 'auditLogs'
+  | 'operatorProfile'
+  | 'roleMenuPermissions';
 import { initialDatabase, defaultOperatorProfile, initialMtoComplianceLimits } from './mockData';
 import { sampleSenderNrcAttachment, sampleSenderPassportAttachment } from './sampleDocuments';
 import { translations } from '../i18n/translations';
@@ -165,7 +181,7 @@ interface RemittanceContextType {
     newValue?: string
   ) => void;
   
-  // Backup & Restore
+  // Backup & Restore (Full Database)
   exportBackupJson: () => string;
   exportDatabaseJson: () => string;
   restoreBackupJson: (jsonString: string) => boolean;
@@ -176,6 +192,15 @@ interface RemittanceContextType {
   clearAllAuditLogs: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
   clearAllCustomers: (alsoClearTurso?: boolean) => Promise<{ count: number; tursoSuccess?: boolean }>;
   clearLocalAndTursoDataForTesting: () => Promise<void>;
+
+  // Table-by-Table Backup & Restore
+  exportTableJson: (tableKey: TableKey) => string;
+  exportSelectedTablesJson: (tableKeys: TableKey[]) => string;
+  restoreTableFromJson: (
+    tableKey: TableKey, 
+    jsonString: string, 
+    mode?: 'replace' | 'merge'
+  ) => Promise<{ success: boolean; count: number; message: string }>;
   
   // Default Status Configuration (Admin Setup for User Admin Role)
   defaultStatusConfig: DefaultStatusConfig;
@@ -377,7 +402,6 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           // Return safely merged object with initialDatabase fallback
           const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
           const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
-          const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
 
           return {
             ...initialDatabase,
@@ -401,9 +425,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             exchangeRates: Array.isArray(parsed.exchangeRates) && parsed.exchangeRates.length > 0 ? parsed.exchangeRates : initialDatabase.exchangeRates,
             blacklist: Array.isArray(parsed.blacklist) ? parsed.blacklist : initialDatabase.blacklist,
             purposes: Array.isArray(parsed.purposes) && parsed.purposes.length > 0 ? parsed.purposes : initialDatabase.purposes,
-            customers: isCustCleared 
-              ? (Array.isArray(parsed.customers) ? parsed.customers : [])
-              : (Array.isArray(parsed.customers) ? parsed.customers : initialDatabase.customers),
+            customers: Array.isArray(parsed.customers) && parsed.customers.length > 0 ? parsed.customers : initialDatabase.customers,
             auditLogs: isAuditCleared 
               ? (Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [])
               : (Array.isArray(parsed.auditLogs) ? parsed.auditLogs : initialDatabase.auditLogs),
@@ -425,13 +447,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
     const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
-    const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
 
     const base: AppDatabase = { 
       ...initialDatabase,
       transactions: isTxCleared ? [] : initialDatabase.transactions,
       auditLogs: isAuditCleared ? [] : initialDatabase.auditLogs,
-      customers: isCustCleared ? [] : initialDatabase.customers,
+      customers: initialDatabase.customers,
       supabaseConfig: {
         ...initialDatabase.supabaseConfig,
         ...(envUrl ? { url: envUrl, anonKey: envKey } : {})
@@ -448,7 +469,6 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (Array.isArray(idbDb.branches)) {
         const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
         const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
-        const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
 
         setDb((prev) => {
           return {
@@ -456,7 +476,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ...idbDb,
             transactions: isTxCleared ? [] : sanitizeTransactionsList(idbDb.transactions || prev.transactions),
             auditLogs: isAuditCleared ? [] : (idbDb.auditLogs || prev.auditLogs),
-            customers: isCustCleared ? [] : (idbDb.customers || prev.customers),
+            customers: Array.isArray(idbDb.customers) && idbDb.customers.length > 0 ? idbDb.customers : prev.customers,
             users: Array.isArray(idbDb.users) ? sanitizeUsersList(idbDb.users) : prev.users,
             operatorProfile: {
               ...prev.operatorProfile,
@@ -3087,6 +3107,159 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  // Table-by-Table Backup & Restore
+  const exportTableJson = (tableKey: TableKey): string => {
+    const tableData = db[tableKey];
+    const count = Array.isArray(tableData) ? tableData.length : (tableData ? 1 : 0);
+    const meta = {
+      app: 'Remittance Management System',
+      version: '1.0.0',
+      type: 'single_table_backup',
+      table: tableKey,
+      recordCount: count,
+      exportedAt: new Date().toISOString(),
+      exportedBy: currentUser ? `${currentUser.fullName} (${currentUser.username}, ${currentUser.role})` : 'System Admin',
+    };
+    logActionDirect(
+      'BACKUP',
+      'SYSTEM',
+      `BACKUP-${tableKey.toUpperCase()}-${Date.now()}`,
+      `Exported single table JSON backup for ${tableKey} (${count} records).`
+    );
+    return JSON.stringify({ metadata: meta, table: tableKey, data: tableData }, null, 2);
+  };
+
+  const exportSelectedTablesJson = (tableKeys: TableKey[]): string => {
+    const data: Partial<Record<TableKey, any>> = {};
+    const summary: Record<string, number> = {};
+    for (const key of tableKeys) {
+      data[key] = db[key];
+      summary[key] = Array.isArray(db[key]) ? (db[key] as any[]).length : (db[key] ? 1 : 0);
+    }
+    const meta = {
+      app: 'Remittance Management System',
+      version: '1.0.0',
+      type: 'selective_table_backup',
+      selectedTables: tableKeys,
+      summary,
+      exportedAt: new Date().toISOString(),
+      exportedBy: currentUser ? `${currentUser.fullName} (${currentUser.username}, ${currentUser.role})` : 'System Admin',
+    };
+    logActionDirect(
+      'BACKUP',
+      'SYSTEM',
+      `BACKUP-SELECTIVE-${Date.now()}`,
+      `Exported selective tables JSON backup for [${tableKeys.join(', ')}].`
+    );
+    return JSON.stringify({ metadata: meta, data }, null, 2);
+  };
+
+  const restoreTableFromJson = async (
+    tableKey: TableKey, 
+    jsonString: string, 
+    mode: 'replace' | 'merge' = 'merge'
+  ): Promise<{ success: boolean; count: number; message: string }> => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      let incomingData: any = null;
+
+      // Smart format detection:
+      if (parsed.table && parsed.data !== undefined) {
+        incomingData = parsed.data;
+      } else if (parsed.data && parsed.data[tableKey] !== undefined) {
+        incomingData = parsed.data[tableKey];
+      } else if (parsed[tableKey] !== undefined) {
+        incomingData = parsed[tableKey];
+      } else if (Array.isArray(parsed)) {
+        incomingData = parsed;
+      } else if (typeof parsed === 'object') {
+        if (tableKey === 'operatorProfile' || tableKey === 'roleMenuPermissions') {
+          incomingData = parsed.data || parsed;
+        }
+      }
+
+      if (incomingData === null || incomingData === undefined) {
+        throw new Error(`Could not find valid records for table "${tableKey}" in provided JSON.`);
+      }
+
+      let restoredCount = 0;
+
+      setDb(prev => {
+        let updatedTable: any;
+        if (Array.isArray(incomingData)) {
+          if (mode === 'replace') {
+            updatedTable = incomingData;
+            restoredCount = incomingData.length;
+          } else {
+            // Merge by unique id, code, or customerCode
+            const currentList = Array.isArray(prev[tableKey]) ? (prev[tableKey] as any[]) : [];
+            const map = new Map<string, any>();
+            currentList.forEach(item => {
+              const k = item?.id || item?.code || item?.customerCode || item?.transactionNo || JSON.stringify(item);
+              map.set(k, item);
+            });
+            incomingData.forEach(item => {
+              const k = item?.id || item?.code || item?.customerCode || item?.transactionNo || JSON.stringify(item);
+              const existing = map.get(k);
+              map.set(k, { ...(existing || {}), ...item });
+            });
+            updatedTable = Array.from(map.values());
+            restoredCount = incomingData.length;
+          }
+        } else {
+          updatedTable = mode === 'replace' ? incomingData : { ...(prev[tableKey] as any || {}), ...incomingData };
+          restoredCount = 1;
+        }
+
+        const updatedDb = {
+          ...prev,
+          [tableKey]: updatedTable
+        };
+        dbRef.current = updatedDb;
+        persistDatabaseSafely(updatedDb);
+
+        // Remove cleared flags if restoring those tables
+        if (tableKey === 'transactions') {
+          try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
+        }
+        if (tableKey === 'auditLogs') {
+          try { localStorage.removeItem('REMITTANCE_DEMO_AUDIT_CLEARED'); } catch {}
+        }
+
+        return updatedDb;
+      });
+
+      // Background auto-sync restored table to Turso Cloud
+      try {
+        const { pushDataToTurso } = await import('./tursoClient');
+        const syncPayload: any = { [tableKey]: incomingData };
+        await pushDataToTurso(syncPayload);
+      } catch (syncErr) {
+        console.warn('Background Turso sync for restored table failed:', syncErr);
+      }
+
+      logActionDirect(
+        'RESTORE',
+        'SYSTEM',
+        `RESTORE-${tableKey.toUpperCase()}-${Date.now()}`,
+        `Restored table "${tableKey}" (${restoredCount} records, mode: ${mode}) from JSON.`
+      );
+
+      return {
+        success: true,
+        count: restoredCount,
+        message: `Successfully restored table "${tableKey}" (${restoredCount} records, mode: ${mode}).`
+      };
+    } catch (err: any) {
+      console.error('Error restoring table from JSON:', err);
+      return {
+        success: false,
+        count: 0,
+        message: err?.message || 'Failed to restore table from JSON.'
+      };
+    }
+  };
+
   const resetToDefaultData = () => {
     try {
       localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
@@ -3209,7 +3382,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       localStorage.setItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED', 'true');
       localStorage.setItem('REMITTANCE_DEMO_AUDIT_CLEARED', 'true');
-      localStorage.setItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED', 'true');
+      localStorage.removeItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED');
     } catch {}
 
     setDb(prev => {
@@ -3217,7 +3390,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...prev,
         transactions: [],
         auditLogs: [],
-        customers: [],
+        customers: prev.customers, // Customers are master records; keep intact
       };
       dbRef.current = updated;
       persistDatabaseSafely(updated);
@@ -3227,31 +3400,37 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ...dbRef.current,
       transactions: [],
       auditLogs: [],
-      customers: [],
+      customers: dbRef.current.customers,
     };
 
-    // Clear remote Turso database completely
+    // Clear remote Turso database: ONLY transactions and audit logs
     try {
-      const { clearAllTursoTestDataRemote } = await import('./tursoClient');
-      await clearAllTursoTestDataRemote();
+      const { clearTursoRemoteTable } = await import('./tursoClient');
+      await Promise.all([
+        clearTursoRemoteTable('remittance_transactions'),
+        clearTursoRemoteTable('audit_logs'),
+      ]);
     } catch (e) {
-      console.warn('Failed to clear Turso test data:', e);
+      console.warn('Failed to clear Turso test transactions and audit logs:', e);
     }
 
-    // Clear Supabase if connected
+    // Clear Supabase: ONLY transactions and audit logs
     try {
-      const { clearAllSupabaseTestData } = await import('./supabase');
-      await clearAllSupabaseTestData(db.supabaseConfig);
+      const { clearSupabaseTable } = await import('./supabase');
+      await Promise.all([
+        clearSupabaseTable(db.supabaseConfig, 'remittance_transactions'),
+        clearSupabaseTable(db.supabaseConfig, 'audit_logs'),
+      ]);
     } catch (e) {
       console.warn('Failed to clear Supabase test data:', e);
     }
 
-    // Persist lean clean database (preserving branches, users, rates, settings)
+    // Persist lean clean database (preserving customers, branches, users, rates, settings)
     const cleanDb: AppDatabase = {
       ...dbRef.current,
       transactions: [],
       auditLogs: [],
-      customers: [],
+      customers: dbRef.current.customers,
     };
     persistDatabaseSafely(cleanDb);
   };
@@ -5051,6 +5230,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         exportDatabaseJson: exportBackupJson,
         restoreBackupJson,
         restoreDatabaseFromJson: restoreBackupJson,
+        exportTableJson,
+        exportSelectedTablesJson,
+        restoreTableFromJson,
         resetToDefaultData,
         resetToDefaultSeed: resetToDefaultData,
         clearAllTransactions,

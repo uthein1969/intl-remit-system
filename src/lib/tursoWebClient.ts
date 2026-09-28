@@ -1758,19 +1758,17 @@ export async function tursoWebClearCustomerProfiles(): Promise<{ success: boolea
 
 export async function tursoWebClearAllTestData(): Promise<{
   success: boolean;
-  cleared: { transactions: number; auditLogs: number; customers: number };
+  cleared: { transactions: number; auditLogs: number };
 }> {
-  const [txRes, logRes, custRes] = await Promise.all([
+  const [txRes, logRes] = await Promise.all([
     tursoWebClearTransactions(),
     tursoWebClearAuditLogs(),
-    tursoWebClearCustomerProfiles(),
   ]);
   return {
     success: (txRes.success !== false) && (logRes.success !== false),
     cleared: {
       transactions: txRes.count || 0,
       auditLogs: logRes.count || 0,
-      customers: custRes.count || 0,
     }
   };
 }

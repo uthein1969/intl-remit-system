@@ -2122,19 +2122,16 @@ export async function clearAllTursoTestData() {
   if (!isSchemaInitialized) {
     await initTursoSchema(client);
   }
-  const [txCountRes, logCountRes, custCountRes] = await Promise.all([
+  const [txCountRes, logCountRes] = await Promise.all([
     client.execute('SELECT COUNT(*) as cnt FROM remittance_transactions;').catch(() => ({ rows: [{ cnt: 0 }] })),
     client.execute('SELECT COUNT(*) as cnt FROM audit_logs;').catch(() => ({ rows: [{ cnt: 0 }] })),
-    client.execute('SELECT COUNT(*) as cnt FROM customer_profiles;').catch(() => ({ rows: [{ cnt: 0 }] })),
   ]);
   const txCount = Number(txCountRes.rows[0]?.cnt || 0);
   const logCount = Number(logCountRes.rows[0]?.cnt || 0);
-  const custCount = Number(custCountRes.rows[0]?.cnt || 0);
 
   await Promise.all([
     client.execute('DELETE FROM remittance_transactions;'),
     client.execute('DELETE FROM audit_logs;'),
-    client.execute('DELETE FROM customer_profiles;'),
   ]);
 
   return {
@@ -2142,7 +2139,6 @@ export async function clearAllTursoTestData() {
     cleared: {
       transactions: txCount,
       auditLogs: logCount,
-      customers: custCount,
     }
   };
 }

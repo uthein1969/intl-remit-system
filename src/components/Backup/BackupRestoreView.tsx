@@ -43,7 +43,8 @@ import { useRemittance } from '../../lib/store';
 import { AuditRecord } from '../../types';
 import { TursoSyncTab } from './TursoSyncTab';
 import { SupabaseSyncTab } from './SupabaseSyncTab';
-import { LOCAL_STORAGE_DB_KEY, clearIndexedDb } from '../../lib/indexedDbStorage';
+import { LOCAL_STORAGE_DB_KEY, clearIndexedDb, persistDatabaseSafely } from '../../lib/indexedDbStorage';
+import { TableBackupRestoreSection } from './TableBackupRestoreSection';
 
 export interface BackupRestoreViewProps {
   initialTab?: 'backup' | 'audit' | 'turso' | 'supabase';
@@ -445,15 +446,20 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
             : 'Reset to factory seed data complete.'
         });
       } else if (confirmDialog.actionType === 'clear_cache') {
-        await clearLocalAndTursoDataForTesting();
         try {
           sessionStorage.clear();
-        } catch {}
+          // Ensure all customer profiles, master setups and database records remain 100% intact and saved
+          if (typeof persistDatabaseSafely === 'function') {
+            persistDatabaseSafely(db);
+          }
+        } catch (e) {
+          console.warn('Cache clear error:', e);
+        }
         setNotification({
           type: 'success',
           message: language === 'my'
-            ? 'Browser Cache နှင့် Database ပေါ်ရှိ Transactions, Audit Logs, Customer စာရင်းများ အားလုံး ရှင်းလင်းပြီးပါပြီ။ စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်...'
-            : 'Browser Cache and Database test records (Transactions, Audit Logs, Customers) cleared successfully. Refreshing application...'
+            ? 'Browser Cache အောင်မြင်စွာ ရှင်းလင်းပြီးပါပြီ။ Customer စာရင်း (Customer Profiles) နှင့် Master Data များကို လုံးဝမထိခိုက်ဘဲ အပြည့်အဝ ထိန်းသိမ်းထားရှိပါသည်။ စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်...'
+            : 'Browser cache cleared successfully. Customer profiles and all master data are safely preserved intact. Refreshing...'
         });
         setTimeout(() => {
           window.location.reload();
@@ -799,6 +805,9 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
           </div>
         </div>
 
+        {/* TABLE-BY-TABLE BACKUP & RESTORE SECTION */}
+        <TableBackupRestoreSection onNotify={setNotification} />
+
         {/* DEDICATED TESTING & MAINTENANCE SECTION: CLEAR DATA & RESET */}
         <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/40 border-2 border-rose-500/30 rounded-2xl p-6 shadow-xl space-y-5">
           <div 
@@ -1020,13 +1029,13 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                 </button>
               </div>
 
-              {/* Button 5: Clear Local Cache */}
+              {/* Button 5: Clear Browser Cache */}
               <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
                 <div>
                   <div className="flex items-center justify-between text-xs font-bold text-white mb-1.5">
                     <span className="flex items-center gap-1.5 text-cyan-400">
                       <RefreshCw className="w-4 h-4" />
-                      {language === 'my' ? 'Clear Local Cache' : 'Clear Browser Cache'}
+                      {language === 'my' ? 'Browser Cache ရှင်းလင်းမည်' : 'Clear Browser Cache'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 font-bold">
                       Storage
@@ -1034,8 +1043,8 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-400 leading-normal">
                     {language === 'my'
-                      ? 'Browser ထဲတွင် အရန်သိမ်းထားသော LocalStorage & IndexedDB cache များကို ရှင်းလင်းမည်'
-                      : 'Clears offline storage and cached IndexedDB records from the browser.'}
+                      ? 'Browser ထဲရှိ ယာယီ Session Cache များကို ရှင်းလင်းမည် (Customers နှင့် Master Data များ လုံးဝ မပျက်ပါ)'
+                      : 'Purges temporary browser session cache (Customer profiles & master data are 100% safely preserved).'}
                   </p>
                 </div>
                 <button
@@ -1044,17 +1053,17 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
                   disabled={isProcessingAction}
                   onClick={() => setConfirmDialog({
                     isOpen: true,
-                    title: language === 'my' ? 'Browser Cache ရှင်းလင်းမည်လား?' : 'Clear Local Cache & Storage?',
+                    title: language === 'my' ? 'Browser Cache ရှင်းလင်းမည်လား?' : 'Clear Browser Cache?',
                     description: language === 'my'
-                      ? 'Browser ထဲရှိ LocalStorage နှင့် IndexedDB အဟောင်း cache များကို ရှင်းလင်းပြီး App ကို reload လုပ်ပါမည်။'
-                      : 'This will purge all local browser caches, IndexedDB, and localStorage keys, then refresh.',
+                      ? 'Browser ထဲရှိ ယာယီ Session Cache များကို ရှင်းလင်းပြီး စာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်။ Customer စာရင်း (Customer Profiles) နှင့် အခြား Master Data များကို လုံးဝဖျက်ပစ်မည်မဟုတ်ဘဲ အပြည့်အဝ ထိန်းသိမ်းထားရှိပါမည်။'
+                      : 'This will purge temporary browser session caches and refresh the app. Customer profiles, transactions, and all master data will be 100% safely preserved.',
                     actionType: 'clear_cache',
-                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Cache ရှင်းလင်းမည်' : 'Yes, Clear Local Cache'
+                    confirmButtonText: language === 'my' ? 'ဟုတ်ကဲ့၊ Cache ရှင်းလင်းမည်' : 'Yes, Clear Browser Cache'
                   })}
                   className="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>{language === 'my' ? 'Clear Local Cache' : 'Clear Local Cache'}</span>
+                  <span>{language === 'my' ? 'Clear Browser Cache' : 'Clear Browser Cache'}</span>
                 </button>
               </div>
             </div>
