@@ -32,9 +32,17 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
-  const { db, language, t, currentUser, operatorProfile } = useRemittance();
+  const { db, language, t, currentUser, operatorProfile, activeBranchId, activeCountryCode } = useRemittance();
   const [selectedVoucherTx, setSelectedVoucherTx] = useState<RemittanceTransaction | null>(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+
+  // Active Operating Scope (Branch and Country selected in header or user logon)
+  const currentBranch = db.branches.find(b => b.id === (activeBranchId || currentUser?.branchId)) 
+    || db.branches.find(b => b.countryCode === (activeCountryCode || currentUser?.countryCode || 'MM'))
+    || db.branches[0];
+  const currentBranchId = currentBranch?.id || activeBranchId || currentUser?.branchId || 'BR-001';
+  const effectiveCountryCode = currentBranch?.countryCode || activeCountryCode || currentUser?.countryCode || 'MM';
+  const currentCountry = db.countries.find(c => c.code === effectiveCountryCode) || db.countries[0];
 
   // Safe number formatter
   const formatAmount = (val: any): string => {
@@ -54,10 +62,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     }
   };
 
-  // Calculations
-  const outwardTxs = (db?.transactions || []).filter(t => t?.type === 'OUTWARD');
-  const inwardTxs = (db?.transactions || []).filter(t => t?.type === 'INWARD');
-  
+  // 1. Transactions Awaiting Approval - Relevant Branch Data Only
+  // Outward approvals belong exclusively to the originating SENDING branch
+  // Inward approvals/payouts belong exclusively to the destination RECEIVING payout branch
+  // SENDER branch (e.g. SG Branch) must NEVER show inward approvals for other branches
+  const pendingTxs = (db?.transactions || []).filter(tx => {
+    if (tx?.status !== 'PENDING_APPROVAL') return false;
+    if (tx.type === 'OUTWARD') {
+      return (tx.sendingBranchId === currentBranchId || tx.branchId === currentBranchId);
+    } else if (tx.type === 'INWARD') {
+      return ((tx.payoutBranchId || tx.branchId) === currentBranchId);
+    }
+    return tx.branchId === currentBranchId;
+  });
+
+  // 2. Recent Transactions Feed - Relevant Branch Data Only
+  // Outward transactions belong to the originating SENDING branch
+  // Inward transactions belong to the destination RECEIVING payout branch
+  const recentBranchTxs = (db?.transactions || []).filter(tx => {
+    if (tx.type === 'OUTWARD') {
+      return (tx.sendingBranchId === currentBranchId || tx.branchId === currentBranchId);
+    } else if (tx.type === 'INWARD') {
+      return ((tx.payoutBranchId || tx.branchId) === currentBranchId);
+    }
+    return tx.branchId === currentBranchId;
+  });
+
+  // Branch Scoped Outward & Inward for Metrics Cards
+  const outwardTxs = (db?.transactions || []).filter(t => 
+    t?.type === 'OUTWARD' && (t.sendingBranchId === currentBranchId || t.branchId === currentBranchId)
+  );
+  const inwardTxs = (db?.transactions || []).filter(t => 
+    t?.type === 'INWARD' && ((t.payoutBranchId || t.branchId) === currentBranchId)
+  );
+
   const totalOutwardMMK = outwardTxs.reduce((sum, tx) => {
     const amt = Number(
       tx.targetCurrency === 'MMK'
@@ -74,8 +112,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     return sum + (isNaN(amt) ? 0 : amt);
   }, 0);
 
-  const pendingTxs = (db?.transactions || []).filter(t => t?.status === 'PENDING_APPROVAL');
-  const activeBlacklistCount = (db?.blacklist || []).filter(b => b?.active).length;
+  // 3. AML Blacklist Monitor Information - Relevant Country Data Only
+  const countryBlacklist = (db?.blacklist || []).filter(item => {
+    const itemCountry = item.countryCode 
+      ? item.countryCode.toUpperCase()
+      : (item.nrcNumber && item.nrcNumber.includes('/') ? 'MM' : 'MM');
+    return itemCountry === effectiveCountryCode.toUpperCase();
+  });
+  const activeBlacklistCount = countryBlacklist.filter(b => b.active).length;
 
   const handleOpenApproval = (tx: RemittanceTransaction) => {
     if (tx.type === 'OUTWARD') {
@@ -103,11 +147,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 mt-1">
             {language === 'my' ? 'ငွေလွှဲလုပ်ငန်း ပင်မ စီမံခန့်ခွဲမှု (Dashboard)' : 'Remittance Control Terminal'}
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {language === 'my' 
-              ? 'ပြည်တွင်းနှင့် ပြည်ပ ငွေလွှဲစီးဆင်းမှု၊ စစ်ဆေးအတည်ပြုရန် ကျန်ရှိမှုများ နှင့် နာမည်ပျက်စာရင်း စောင့်ကြည့်မှုများ' 
-              : 'Real-time overview of outward & inward transfer flows, maker-checker queues, and AML watchlist.'}
-          </p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
+              <span>{currentCountry?.flagEmoji || '🌐'}</span>
+              <span>{currentCountry?.nameEn || effectiveCountryCode}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-900 border border-slate-300">
+              <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>{language === 'my' ? currentBranch?.nameMm : currentBranch?.nameEn}</span>
+              <span className="font-mono text-blue-700 bg-blue-100/80 px-1 rounded text-[10px]">({currentBranch?.code})</span>
+            </span>
+            <span className="text-[11px] text-slate-500 hidden sm:inline">
+              • {language === 'my' ? 'သက်ဆိုင်ရာ ဘဏ်ခွဲ နှင့် နိုင်ငံဒေတာများကိုသာ ဖော်ပြထားပါသည်' : 'Relevant branch & country data only'}
+            </span>
+          </div>
         </div>
 
         {/* Quick Action Buttons */}
@@ -280,7 +333,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span className="text-amber-700 font-medium">{language === 'my' ? 'Maker တင်ပြချက်' : 'Requires action'}</span>
+            <span className="text-amber-700 font-bold font-mono text-[10px] bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+              {currentBranch?.code} ({language === 'my' ? currentBranch?.city : currentBranch?.city})
+            </span>
             <button 
               onClick={() => onNavigate('outward_approve')}
               className="text-amber-600 hover:text-amber-700 font-semibold flex items-center gap-0.5"
@@ -310,7 +365,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span className="text-rose-700 font-medium">NRC & Passport</span>
+            <span className="text-rose-700 font-bold flex items-center gap-1 text-[11px]">
+              <span>{currentCountry?.flagEmoji || '🌐'}</span>
+              <span>{currentCountry?.code || effectiveCountryCode} Watchlist</span>
+            </span>
             <button 
               onClick={() => onNavigate('admin_setup', 'blacklist')}
               className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5"
@@ -403,7 +461,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-3.5 relative z-10">
           {db.branches.map((b) => {
             const branchTxCount = db.transactions.filter(
-              t => t.sendingBranchId === b.id || t.payoutBranchId === b.id
+              t => (t.type === 'OUTWARD' 
+                ? (t.sendingBranchId === b.id || t.branchId === b.id) 
+                : ((t.payoutBranchId || t.branchId) === b.id))
             ).length;
             const isActive = b.status === 'ACTIVE';
             return (
@@ -452,6 +512,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   {t.urgentQueue} ({pendingTxs.length})
                 </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold">
+                  {currentBranch?.code}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -473,8 +536,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             {pendingTxs.length === 0 ? (
               <div className="text-center py-8 text-slate-400 text-xs">
                 <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
-                <p className="font-medium text-slate-600">{t.noPendingTransactions}</p>
-                <span className="text-[11px] text-slate-400">All pending transfers have been processed</span>
+                <p className="font-medium text-slate-600">
+                  {language === 'my' 
+                    ? `${currentBranch?.nameMm || currentBranch?.nameEn} ဘဏ်ခွဲအတွက် စိစစ်ရန် ငွေလွှဲမှတ်တမ်း မရှိပါ` 
+                    : `All pending transfers for ${currentBranch?.nameEn || 'this branch'} have been processed`}
+                </p>
+                <span className="text-[11px] text-slate-400">
+                  {language === 'my' ? 'ဘဏ်ခွဲအလိုက် သက်ဆိုင်ရာ စိစစ်မှုများ ပြီးစီးပါပြီ' : 'No items awaiting approval for this branch'}
+                </span>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -553,6 +622,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
                   {t.recentTransactions}
                 </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-700/50 font-bold">
+                  {currentBranch?.code}
+                </span>
               </div>
               <button
                 onClick={() => onNavigate('outward_report')}
@@ -564,12 +636,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
 
             <div className="divide-y divide-slate-800/70 relative z-10">
-              {db.transactions.length === 0 ? (
+              {recentBranchTxs.length === 0 ? (
                 <div className="text-center py-6 text-slate-400 text-xs">
-                  {language === 'my' ? 'လတ်တလော ငွေလွှဲမှတ်တမ်း မရှိသေးပါ' : 'No recent transactions yet'}
+                  {language === 'my' 
+                    ? `${currentBranch?.nameMm || currentBranch?.nameEn} ဘဏ်ခွဲအတွက် လတ်တလော ငွေလွှဲမှတ်တမ်း မရှိသေးပါ` 
+                    : `No recent transactions for ${currentBranch?.nameEn || 'this branch'} yet`}
                 </div>
               ) : (
-                db.transactions.slice(0, 4).map((tx) => (
+                recentBranchTxs.slice(0, 5).map((tx) => (
                   <div key={tx.id} className="py-2.5 flex items-center justify-between hover:bg-slate-800/60 px-1.5 rounded-lg transition-colors">
                     <div>
                       <div className="flex items-center space-x-1.5">
@@ -598,7 +672,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         <span className="truncate max-w-[150px] font-medium">{tx.senderName} <span className="text-slate-500">➔</span> {tx.receiverName}</span>
                         <span className="text-slate-600">•</span>
                         <span className="text-sky-300 bg-sky-950/70 border border-sky-800/60 px-1 py-0.2 rounded font-mono font-semibold text-[10px]">
-                          {db.branches.find(b => b.id === (tx.sendingBranchId || tx.payoutBranchId))?.code || 'BR-001'}
+                          {tx.type === 'INWARD'
+                            ? (db.branches.find(b => b.id === (tx.payoutBranchId || tx.branchId))?.code || 'BR-001')
+                            : (db.branches.find(b => b.id === (tx.sendingBranchId || tx.branchId))?.code || 'BR-001')}
                         </span>
                       </div>
                     </div>
@@ -639,6 +715,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
                   AML Blacklist Monitor
                 </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-300 border border-rose-700/50 font-bold flex items-center gap-1">
+                  <span>{currentCountry?.flagEmoji || '🌐'}</span>
+                  <span>{currentCountry?.code || effectiveCountryCode}</span>
+                </span>
               </div>
               <button
                 onClick={() => onNavigate('admin_setup', 'blacklist')}
@@ -650,28 +730,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
 
             <div className="mt-3 space-y-2 relative z-10">
-              {db.blacklist.slice(0, 2).map((item) => (
-                <div key={item.id} className="bg-slate-800/80 border border-slate-700/80 hover:border-rose-500/40 rounded-lg p-2.5 text-xs transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-100 text-[11px]">{item.fullNameEn || (item as any).nameEn} ({item.fullNameMm || (item as any).nameMm})</span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase tracking-wider ${
-                      item.riskLevel === 'CRITICAL'
-                        ? 'bg-rose-950/90 text-rose-300 border-rose-700/60'
-                        : item.riskLevel === 'HIGH'
-                        ? 'bg-amber-950/90 text-amber-300 border-amber-700/60'
-                        : 'bg-blue-950/90 text-blue-300 border-blue-700/60'
-                    }`}>
-                      {item.riskLevel}
-                    </span>
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400 mt-1">
-                    NRC: {item.nrcNumber || 'N/A'} • Passport: {item.passportNumber || item.passbookNumber || 'N/A'}
-                  </div>
-                  <p className="text-[10px] text-rose-300/90 mt-1 line-clamp-1 italic">
-                    {item.reason}
-                  </p>
+              {countryBlacklist.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  {language === 'my' 
+                    ? `${currentCountry?.nameMm || effectiveCountryCode} နိုင်ငံအတွက် AML နာမည်ပျက်စာရင်း မရှိသေးပါ` 
+                    : `No AML watchlist records for ${currentCountry?.nameEn || effectiveCountryCode}`}
                 </div>
-              ))}
+              ) : (
+                countryBlacklist.slice(0, 3).map((item) => (
+                  <div key={item.id} className="bg-slate-800/80 border border-slate-700/80 hover:border-rose-500/40 rounded-lg p-2.5 text-xs transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-100 text-[11px]">{item.fullNameEn || (item as any).nameEn} ({item.fullNameMm || (item as any).nameMm})</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase tracking-wider ${
+                        item.riskLevel === 'CRITICAL'
+                          ? 'bg-rose-950/90 text-rose-300 border-rose-700/60'
+                          : item.riskLevel === 'HIGH'
+                          ? 'bg-amber-950/90 text-amber-300 border-amber-700/60'
+                          : 'bg-blue-950/90 text-blue-300 border-blue-700/60'
+                      }`}>
+                        {item.riskLevel}
+                      </span>
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-2">
+                      <span>NRC: {item.nrcNumber || 'N/A'}</span>
+                      <span>•</span>
+                      <span>Passport: {item.passportNumber || item.passbookNumber || 'N/A'}</span>
+                    </div>
+                    <p className="text-[10px] text-rose-300/90 mt-1 line-clamp-1 italic">
+                      {item.reason}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

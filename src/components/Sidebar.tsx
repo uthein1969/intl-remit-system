@@ -80,11 +80,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [setupExpanded, setSetupExpanded] = React.useState(true);
 
   // Active Operating Branch Scope
-  const effectiveCountryCode = activeCountryCode || currentUser.countryCode || 'MM';
   const currentBranch = db.branches.find(b => b.id === (activeBranchId || currentUser.branchId)) 
-    || db.branches.find(b => b.countryCode === effectiveCountryCode)
+    || db.branches.find(b => b.countryCode === (activeCountryCode || currentUser.countryCode || 'MM'))
     || db.branches[0];
   const currentBranchId = currentBranch?.id || activeBranchId || currentUser?.branchId || 'BR-001';
+  const effectiveCountryCode = currentBranch?.countryCode || activeCountryCode || currentUser.countryCode || 'MM';
 
   // Outward approvals belong to the originating SENDING branch
   const pendingOutward = db.transactions.filter(
@@ -102,7 +102,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ).length;
 
   const totalPending = pendingOutward + pendingInward;
-  const activeBlacklistCount = db.blacklist.filter(b => b.active).length;
+  const countryBlacklist = db.blacklist.filter(item => {
+    const itemCountry = item.countryCode 
+      ? item.countryCode.toUpperCase()
+      : (item.nrcNumber && item.nrcNumber.includes('/') ? 'MM' : 'MM');
+    return itemCountry === effectiveCountryCode.toUpperCase();
+  });
+  const activeBlacklistCount = countryBlacklist.filter(b => b.active).length;
 
   const handleNavClick = (tab: NavigationTab) => {
     setActiveTab(tab);

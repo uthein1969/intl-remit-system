@@ -1306,29 +1306,17 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
                         </button>
                       </>
                     ) : (
-                      <>
-                        {/* Quick Sample Button */}
-                        <button
-                          type="button"
-                          id="edit-sample-sender-nrc-front-btn"
-                          onClick={() => handleAttachSample('nrc-front')}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                        </button>
-
-                        {/* Upload Button */}
-                        <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                          <Upload className="w-3 h-3" />
-                          <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf,.svg"
-                            className="hidden"
-                            onChange={(e) => handleUploadFile(e, 'nrc-front')}
-                          />
-                        </label>
-                      </>
+                      /* Upload Button Only */
+                      <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.svg"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, 'nrc-front')}
+                        />
+                      </label>
                     )}
                   </div>
                 </div>
@@ -1430,29 +1418,17 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
                         </button>
                       </>
                     ) : (
-                      <>
-                        {/* Quick Sample Button */}
-                        <button
-                          type="button"
-                          id="edit-sample-sender-nrc-back-btn"
-                          onClick={() => handleAttachSample('nrc-back')}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                        </button>
-
-                        {/* Upload Button */}
-                        <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                          <Upload className="w-3 h-3" />
-                          <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf,.svg"
-                            className="hidden"
-                            onChange={(e) => handleUploadFile(e, 'nrc-back')}
-                          />
-                        </label>
-                      </>
+                      /* Upload Button Only */
+                      <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.svg"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, 'nrc-back')}
+                        />
+                      </label>
                     )}
                   </div>
                 </div>
@@ -1554,29 +1530,17 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
                         </button>
                       </>
                     ) : (
-                      <>
-                        {/* Quick Sample Button */}
-                        <button
-                          type="button"
-                          id="edit-sample-sender-passport-btn"
-                          onClick={() => handleAttachSample('passport')}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                        </button>
-
-                        {/* Upload Button */}
-                        <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                          <Upload className="w-3 h-3" />
-                          <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf,.svg"
-                            className="hidden"
-                            onChange={(e) => handleUploadFile(e, 'passport')}
-                          />
-                        </label>
-                      </>
+                      /* Upload Button Only */
+                      <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.svg"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, 'passport')}
+                        />
+                      </label>
                     )}
                   </div>
                 </div>
@@ -1673,29 +1637,17 @@ export const EditOutwardModal: React.FC<EditOutwardModalProps> = ({
                         </button>
                       </>
                     ) : (
-                      <>
-                        {/* Quick Sample Button */}
-                        <button
-                          type="button"
-                          id="edit-sample-deposit-slip-btn"
-                          onClick={() => handleAttachSample('deposit')}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          <span>+ {language === 'my' ? 'နမူနာတွဲ' : 'Sample'}</span>
-                        </button>
-
-                        {/* Upload Button */}
-                        <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
-                          <Upload className="w-3 h-3" />
-                          <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf,.svg"
-                            className="hidden"
-                            onChange={(e) => handleUploadFile(e, 'deposit')}
-                          />
-                        </label>
-                      </>
+                      /* Upload Button Only */
+                      <label className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>{language === 'my' ? 'ဖိုင်တင်မည်' : 'Upload'}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.svg"
+                          className="hidden"
+                          onChange={(e) => handleUploadFile(e, 'deposit')}
+                        />
+                      </label>
                     )}
                   </div>
                 </div>

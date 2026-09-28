@@ -1279,38 +1279,6 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                 </div>
               </div>
 
-              {/* Quick Attach Presets Toolbar */}
-              <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-slate-900/60 border border-slate-800">
-                <span className="text-[11px] text-slate-400 font-medium mr-1 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{language === 'my' ? 'နမူနာ အမြန်တွဲရန်:' : 'Quick Presets:'}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleQuickAttach('nrc-both')}
-                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                  title="Generate both Front and Back NRC cards"
-                >
-                  <span>+ {language === 'my' ? 'NRC ရှေ့/နောက် နှစ်ဖက်လုံး နမူနာတွဲမည်' : 'Attach Both NRC Front & Back'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickAttach('passport')}
-                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                  title="Generate Passport document"
-                >
-                  <span>+ {language === 'my' ? 'Passport နမူနာတွဲမည်' : 'Attach Sample Passport'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickAttach('deposit')}
-                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                  title="Generate Bank Deposit Slip voucher"
-                >
-                  <span>+ {language === 'my' ? 'ငွေသွင်းပြေစာ နမူနာ ထုတ်ယူတွဲမည်' : 'Attach Sample Deposit Slip'}</span>
-                </button>
-              </div>
-
               {/* Informational Banner on Data Text View & Preview */}
               <div className="flex items-start space-x-2 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs">
                 <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -1449,25 +1417,16 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                               </button>
                             </>
                           ) : (
-                            <div className="flex items-center space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAttach('nrc-front')}
-                                className="px-2 py-1 rounded-md bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                              >
-                                + Sample
-                              </button>
-                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
-                                <Upload className="w-3 h-3" />
-                                <span>Upload</span>
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf,.svg"
-                                  className="hidden"
-                                  onChange={(e) => handleFileUpload(e, 'nrc-front')}
-                                />
-                              </label>
-                            </div>
+                            <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-xs">
+                              <Upload className="w-3 h-3" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.svg"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, 'nrc-front')}
+                              />
+                            </label>
                           )}
                         </div>
                       </td>
@@ -1566,25 +1525,16 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                               </button>
                             </>
                           ) : (
-                            <div className="flex items-center space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAttach('nrc-back')}
-                                className="px-2 py-1 rounded-md bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                              >
-                                + Sample
-                              </button>
-                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
-                                <Upload className="w-3 h-3" />
-                                <span>Upload</span>
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf,.svg"
-                                  className="hidden"
-                                  onChange={(e) => handleFileUpload(e, 'nrc-back')}
-                                />
-                              </label>
-                            </div>
+                            <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-xs">
+                              <Upload className="w-3 h-3" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.svg"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, 'nrc-back')}
+                              />
+                            </label>
                           )}
                         </div>
                       </td>
@@ -1683,25 +1633,16 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                               </button>
                             </>
                           ) : (
-                            <div className="flex items-center space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAttach('passport')}
-                                className="px-2 py-1 rounded-md bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                              >
-                                + Sample
-                              </button>
-                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
-                                <Upload className="w-3 h-3" />
-                                <span>Upload</span>
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf,.svg"
-                                  className="hidden"
-                                  onChange={(e) => handleFileUpload(e, 'passport')}
-                                />
-                              </label>
-                            </div>
+                            <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-xs">
+                              <Upload className="w-3 h-3" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.svg"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, 'passport')}
+                              />
+                            </label>
                           )}
                         </div>
                       </td>
@@ -1800,25 +1741,16 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
                               </button>
                             </>
                           ) : (
-                            <div className="flex items-center space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAttach('deposit')}
-                                className="px-2 py-1 rounded-md bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                              >
-                                + Sample
-                              </button>
-                              <label className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] transition-colors cursor-pointer">
-                                <Upload className="w-3 h-3" />
-                                <span>Upload</span>
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf,.svg"
-                                  className="hidden"
-                                  onChange={(e) => handleFileUpload(e, 'deposit')}
-                                />
-                              </label>
-                            </div>
+                            <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-xs">
+                              <Upload className="w-3 h-3" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.svg"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, 'deposit')}
+                              />
+                            </label>
                           )}
                         </div>
                       </td>

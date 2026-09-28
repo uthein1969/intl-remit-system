@@ -1638,6 +1638,7 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
               <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200 text-[11px]">
                 <tr>
                   <th className="px-4 py-3">{t.fullName}</th>
+                  <th className="px-4 py-3">Country</th>
                   <th className="px-4 py-3">{t.myanmarNrc}</th>
                   <th className="px-4 py-3">{t.passbookNumber}</th>
                   <th className="px-4 py-3">{t.riskLevel}</th>
@@ -1651,6 +1652,12 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                     <td className="px-4 py-3">
                       <strong className="text-slate-900 block font-semibold">{b.fullNameEn}</strong>
                       <span className="text-[11px] text-slate-500">{b.fullNameMm}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                        <span>{db.countries.find(c => c.code === (b.countryCode || 'MM'))?.flagEmoji || '🌐'}</span>
+                        <span>{b.countryCode || 'MM'}</span>
+                      </span>
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-rose-600">{b.nrcNumber}</td>
                     <td className="px-4 py-3 font-mono text-amber-600 font-semibold">{b.passportNumber || b.passbookNumber || '-'}</td>
@@ -2468,7 +2475,21 @@ export const AdminSetupManager: React.FC<AdminSetupProps> = ({ currentSubTab, on
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Country / နိုင်ငံ *</label>
+                      <select
+                        value={editingItem.countryCode || 'MM'}
+                        onChange={(e) => setEditingItem({ ...editingItem, countryCode: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs"
+                      >
+                        {db.countries.map(c => (
+                          <option key={c.id} value={c.code}>
+                            {c.flagEmoji} {c.nameEn} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-slate-700 font-semibold mb-1">Risk Level *</label>
                       <select

@@ -166,6 +166,7 @@ export interface BlacklistEntry {
   nrcNumber: string; // Myanmar NRC e.g. 12/LKN(N)123456
   passportNumber?: string; // Passport No
   passbookNumber?: string; // Legacy alias
+  countryCode?: string; // Country Code e.g. MM, SG, TH, MY
   reason: string;
   note: string; // Detail note text box requested by user
   riskLevel: RiskLevel;
