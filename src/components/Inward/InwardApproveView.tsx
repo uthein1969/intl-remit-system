@@ -18,7 +18,9 @@ import {
   Receipt,
   Download,
   Maximize2,
-  Lock
+  Lock,
+  Globe,
+  MapPin
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useRemittance } from '../../lib/store';
@@ -132,6 +134,78 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
     if (!isAdmin) return;
     setEditingTx(tx);
     setShowEditModal(true);
+  };
+
+  // Helper to format Sender Country with flag & name
+  const getSenderCountryDisplay = (tx: RemittanceTransaction) => {
+    const code = tx.senderCountryCode || ((tx as any).from_country) || (tx.scope === 'DOMESTIC' ? 'MM' : 'MM');
+    const country = db.countries.find(c => c.code.toUpperCase() === code.toUpperCase());
+    if (country) {
+      const name = language === 'my' && country.nameMm ? country.nameMm : country.nameEn;
+      return `${country.flagEmoji} ${name} (${country.code})`;
+    }
+    return code === 'MM' ? '🇲🇲 Myanmar (MM)' : code;
+  };
+
+  // Helper to format Receiver Country with flag & name
+  const getReceiverCountryDisplay = (tx: RemittanceTransaction) => {
+    const code = tx.receiverCountryCode || ((tx as any).to_country) || 'MM';
+    const country = db.countries.find(c => c.code.toUpperCase() === code.toUpperCase());
+    if (country) {
+      const name = language === 'my' && country.nameMm ? country.nameMm : country.nameEn;
+      return `${country.flagEmoji} ${name} (${country.code})`;
+    }
+    return '🇲🇲 Myanmar (MM)';
+  };
+
+  // Helper to resolve Sender Branch display name
+  const getSenderBranchDisplay = (tx: RemittanceTransaction) => {
+    if (tx.senderBranchName) {
+      const b = db.branches.find(br => br.nameEn === tx.senderBranchName || br.nameMm === tx.senderBranchName);
+      if (b) {
+        return language === 'my' && b.nameMm ? `${b.nameMm} (${b.code})` : `${b.nameEn} (${b.code})`;
+      }
+      return tx.senderBranchName;
+    }
+    const branchId = tx.sendingBranchId || (tx.scope === 'DOMESTIC' ? tx.branchId : undefined);
+    if (branchId) {
+      const b = db.branches.find(br => br.id === branchId || br.code === branchId);
+      if (b) {
+        return language === 'my' && b.nameMm ? `${b.nameMm} (${b.code})` : `${b.nameEn} (${b.code})`;
+      }
+      return branchId;
+    }
+    return tx.scope === 'DOMESTIC'
+      ? (language === 'my' ? 'ရန်ကုန် ပင်မရုံးချုပ် ဘဏ်ခွဲ (YGN-HQ)' : 'Yangon Head Office Branch (YGN-HQ)')
+      : (language === 'my' ? 'ပြည်ပ ငွေလွှဲကောင်တာ' : 'Overseas Remittance Counter');
+  };
+
+  // Helper to resolve Receiver Branch (Payout Branch) display name
+  const getReceiverBranchDisplay = (tx: RemittanceTransaction) => {
+    if (tx.receiverBranchName) {
+      const b = db.branches.find(br => br.nameEn === tx.receiverBranchName || br.nameMm === tx.receiverBranchName);
+      if (b) {
+        return language === 'my' && b.nameMm ? `${b.nameMm} (${b.code})` : `${b.nameEn} (${b.code})`;
+      }
+      return tx.receiverBranchName;
+    }
+    const payoutId = tx.payoutBranchId || tx.branchId;
+    if (payoutId) {
+      const b = db.branches.find(br => br.id === payoutId || br.code === payoutId);
+      if (b) {
+        return language === 'my' && b.nameMm ? `${b.nameMm} (${b.code})` : `${b.nameEn} (${b.code})`;
+      }
+      return payoutId;
+    }
+    if (tx.partnerCompanyId) {
+      const partner = db.companies.find(c => c.id === tx.partnerCompanyId);
+      if (partner) {
+        return language === 'my' && partner.nameMm ? `${partner.nameMm} (${partner.nameEn})` : partner.nameEn;
+      }
+    }
+    return tx.scope === 'DOMESTIC'
+      ? (language === 'my' ? 'မန္တလေး ၇၈ လမ်း ဘဏ်ခွဲ (MDY-01)' : 'Mandalay 78th Street Branch (MDY-01)')
+      : (language === 'my' ? 'မြန်မာ ငွေထုတ်ယူသည့် ဘဏ်ခွဲ' : 'Myanmar Payout Branch');
   };
 
   const inwardTxs = db.transactions.filter(t => t.type === 'INWARD');
@@ -422,17 +496,29 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                       <div className="font-bold text-slate-200">{tx.receiverName}</div>
                       <div className="font-mono text-[11px] text-slate-400">{tx.receiverNrc}</div>
                       <div className="text-[10px] text-slate-500">{tx.receiverPhone}</div>
+                      <div className="mt-1 pt-1 border-t border-slate-800 text-[10px] space-y-0.5">
+                        <div className="text-teal-400 flex items-center space-x-1 font-mono">
+                          <Globe className="w-3 h-3 text-teal-400 shrink-0" />
+                          <span className="truncate">{getReceiverCountryDisplay(tx)}</span>
+                        </div>
+                        <div className="text-slate-300 flex items-center space-x-1 font-mono">
+                          <Building2 className="w-3 h-3 text-teal-400/80 shrink-0" />
+                          <span className="truncate">{getReceiverBranchDisplay(tx)}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-slate-200 font-medium">{tx.senderName}</div>
-                      {tx.scope === 'DOMESTIC' ? (
-                        <div className="flex items-center space-x-1 text-[10px] text-sky-400 font-mono mt-0.5">
-                          <Building2 className="w-3 h-3 text-sky-400 shrink-0" />
-                          <span>From: {db.branches.find(b => b.id === tx.sendingBranchId)?.nameEn || tx.sendingBranchId || 'Yangon HQ'}</span>
+                      <div className="mt-1 pt-1 border-t border-slate-800 text-[10px] space-y-0.5">
+                        <div className="text-sky-400 flex items-center space-x-1 font-mono">
+                          <Globe className="w-3 h-3 text-sky-400 shrink-0" />
+                          <span className="truncate">{getSenderCountryDisplay(tx)}</span>
                         </div>
-                      ) : (
-                        <div className="text-[11px] text-slate-400">From: {tx.senderCountryCode}</div>
-                      )}
+                        <div className="text-slate-300 flex items-center space-x-1 font-mono">
+                          <Building2 className="w-3 h-3 text-sky-400/80 shrink-0" />
+                          <span className="truncate">{getSenderBranchDisplay(tx)}</span>
+                        </div>
+                      </div>
                       {tx.linkedTransactionNo && (
                         <div className="text-[9px] text-emerald-400 font-mono mt-0.5">
                           Outward: {tx.linkedTransactionNo}
@@ -587,9 +673,14 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
               {/* Beneficiary & Sender Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
-                    <UserCheck className="w-3.5 h-3.5" />
-                    <span>{language === 'my' ? 'ငွေထုတ်ယူသူ (လက်ခံသူ)' : 'Beneficiary / Receiver'}</span>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-teal-400 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>{language === 'my' ? 'ငွေထုတ်ယူသူ / လက်ခံသူ (Beneficiary)' : 'Beneficiary / Receiver'}</span>
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 text-[10px] font-mono font-bold">
+                      {language === 'my' ? 'ငွေထုတ်ယူမည့်သူ' : 'Payout Receiver'}
+                    </span>
                   </div>
                   <div className="text-sm font-bold text-white">{selectedTx.receiverName}</div>
                   {selectedTx.receiverNameMm && (
@@ -601,9 +692,25 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                   <div className="text-xs text-slate-300">
                     <span className="text-slate-400">Phone:</span> <span className="font-mono">{selectedTx.receiverPhone}</span>
                   </div>
+                  <div className="text-xs text-slate-300">
+                    <span className="text-slate-400">
+                      {language === 'my' ? 'လက်ခံမည့် နိုင်ငံ (Receiver Country):' : 'Receiver Country:'}
+                    </span>{' '}
+                    <span className="font-semibold text-white">
+                      {getReceiverCountryDisplay(selectedTx)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    <span className="text-slate-400">
+                      {language === 'my' ? 'ငွေထုတ်မည့် ဘဏ်ခွဲ (Receiver Branch):' : 'Receiver Branch:'}
+                    </span>{' '}
+                    <span className="font-semibold text-teal-300">
+                      {getReceiverBranchDisplay(selectedTx)}
+                    </span>
+                  </div>
                   {selectedTx.receiverAddress && (
                     <div className="text-xs text-slate-400 truncate">
-                      <span>Address:</span> {selectedTx.receiverAddress}
+                      <span className="text-slate-400">{language === 'my' ? 'လိပ်စာ:' : 'Address:'}</span> {selectedTx.receiverAddress}
                     </div>
                   )}
                 </div>
@@ -612,28 +719,46 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
                   <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Building2 className="w-3.5 h-3.5" />
-                      {language === 'my' ? 'ငွေလွှဲပို့သူ (Sender)' : 'Remitter / Sender'}
+                      <span>{language === 'my' ? 'ငွေလွှဲပို့သူ (Sender)' : 'Remitter / Sender'}</span>
                     </span>
-                    {selectedTx.scope === 'DOMESTIC' && (
+                    {selectedTx.scope === 'DOMESTIC' ? (
                       <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 text-[10px] font-mono font-bold">
                         Domestic
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">
+                        International
                       </span>
                     )}
                   </div>
                   <div className="text-sm font-bold text-white">{selectedTx.senderName}</div>
+                  {selectedTx.senderNameMm && (
+                    <div className="text-xs text-slate-300 font-myanmar">{selectedTx.senderNameMm}</div>
+                  )}
+                  {selectedTx.senderNrc && (
+                    <div className="text-xs text-slate-300">
+                      <span className="text-slate-400">NRC / ID:</span> <span className="font-mono text-white">{selectedTx.senderNrc}</span>
+                    </div>
+                  )}
                   <div className="text-xs text-slate-300">
                     <span className="text-slate-400">
-                      {selectedTx.scope === 'DOMESTIC' ? (language === 'my' ? 'လွှဲပို့သည့် ဘဏ်ခွဲ:' : 'Sending Branch:') : 'Origin Country:'}
+                      {language === 'my' ? 'လွှဲပို့သည့် နိုင်ငံ (Sender Country):' : 'Sender Country:'}
                     </span>{' '}
                     <span className="font-semibold text-white">
-                      {selectedTx.scope === 'DOMESTIC' 
-                        ? (db.branches.find(b => b.id === selectedTx.sendingBranchId)?.nameEn || selectedTx.sendingBranchId || 'Yangon HQ')
-                        : selectedTx.senderCountryCode}
+                      {getSenderCountryDisplay(selectedTx)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    <span className="text-slate-400">
+                      {language === 'my' ? 'လွှဲပို့သည့် ဘဏ်ခွဲ (Sender Branch):' : 'Sender Branch:'}
+                    </span>{' '}
+                    <span className="font-semibold text-sky-300">
+                      {getSenderBranchDisplay(selectedTx)}
                     </span>
                   </div>
                   {selectedTx.linkedTransactionNo && (
                     <div className="text-xs text-emerald-400 font-mono">
-                      <span className="text-slate-400">Outward No:</span> <span className="font-bold">{selectedTx.linkedTransactionNo}</span>
+                      <span className="text-slate-400">{language === 'my' ? 'လွှဲပို့လွှဲစာ အမှတ်:' : 'Outward No:'}</span> <span className="font-bold">{selectedTx.linkedTransactionNo}</span>
                     </div>
                   )}
                   <div className="text-xs text-slate-300">
