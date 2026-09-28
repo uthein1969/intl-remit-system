@@ -76,15 +76,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   setIsMobileOpen,
 }) => {
-  const { db, language, currentUser, logout, t, isMenuAllowedForRole } = useRemittance();
+  const { db, language, currentUser, logout, t, isMenuAllowedForRole, activeBranchId, activeCountryCode } = useRemittance();
   const [setupExpanded, setSetupExpanded] = React.useState(true);
 
+  // Active Operating Branch Scope
+  const effectiveCountryCode = activeCountryCode || currentUser.countryCode || 'MM';
+  const currentBranch = db.branches.find(b => b.id === (activeBranchId || currentUser.branchId)) 
+    || db.branches.find(b => b.countryCode === effectiveCountryCode)
+    || db.branches[0];
+  const currentBranchId = currentBranch?.id || activeBranchId || currentUser?.branchId || 'BR-001';
+
+  // Outward approvals belong to the originating SENDING branch
   const pendingOutward = db.transactions.filter(
-    tx => tx.type === 'OUTWARD' && tx.status === 'PENDING_APPROVAL'
+    tx => tx.type === 'OUTWARD' && 
+          tx.status === 'PENDING_APPROVAL' &&
+          (tx.sendingBranchId === currentBranchId || tx.branchId === currentBranchId)
   ).length;
 
+  // Inward approvals/payouts belong EXCLUSIVELY to the destination RECEIVER branch
+  // SENDER branch (e.g. SG Branch) must NEVER show this inward notification
   const pendingInward = db.transactions.filter(
-    tx => tx.type === 'INWARD' && tx.status === 'PENDING_APPROVAL'
+    tx => tx.type === 'INWARD' && 
+          tx.status === 'PENDING_APPROVAL' &&
+          ((tx.payoutBranchId || tx.branchId) === currentBranchId)
   ).length;
 
   const totalPending = pendingOutward + pendingInward;

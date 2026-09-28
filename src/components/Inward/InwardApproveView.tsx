@@ -58,14 +58,18 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
 
   const isAdmin = currentUser?.role === 'ADMIN';
 
-  // Login Form Scope: The country and branch selected/assigned at logon
-  const userLoginCountry = activeCountryCode || currentUser?.countryCode || 'MM';
-  const userLoginBranch = activeBranchId || currentUser?.branchId || 'BR-001';
+  // Active Operating Scope: The country and branch selected in header or user logon
+  const effectiveCountryCode = activeCountryCode || currentUser?.countryCode || 'MM';
+  const currentBranch = db.branches.find(b => b.id === (activeBranchId || currentUser?.branchId)) 
+    || db.branches.find(b => b.countryCode === effectiveCountryCode)
+    || db.branches[0];
+  const userLoginBranch = currentBranch?.id || activeBranchId || currentUser?.branchId || 'BR-001';
+  const userLoginCountry = currentBranch?.countryCode || activeCountryCode || currentUser?.countryCode || 'MM';
 
   const [filterStatus, setFilterStatus] = useState('PENDING_APPROVAL');
-  // Country Admin defaults to 'ALL' (can view all), while regular operators (Checker/Maker) are restricted to their login scope
-  const [selectedCountry, setSelectedCountry] = useState<string>(() => (isAdmin ? 'ALL' : userLoginCountry));
-  const [selectedBranch, setSelectedBranch] = useState<string>(() => (isAdmin ? 'ALL' : userLoginBranch));
+  // Initialize to active session branch/country
+  const [selectedCountry, setSelectedCountry] = useState<string>(() => userLoginCountry);
+  const [selectedBranch, setSelectedBranch] = useState<string>(() => userLoginBranch);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTx, setSelectedTx] = useState<RemittanceTransaction | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -84,13 +88,11 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
     sender?: string;
   } | null>(null);
 
-  // Sync filter when user context changes
+  // Sync filter when active branch/country context changes
   useEffect(() => {
-    if (!isAdmin) {
-      setSelectedCountry(userLoginCountry);
-      setSelectedBranch(userLoginBranch);
-    }
-  }, [isAdmin, userLoginCountry, userLoginBranch]);
+    setSelectedCountry(userLoginCountry);
+    setSelectedBranch(userLoginBranch);
+  }, [userLoginCountry, userLoginBranch]);
 
   const openLightbox = (doc: {
     title: string;
@@ -135,33 +137,34 @@ export const InwardApproveView: React.FC<InwardApproveViewProps> = ({
   const inwardTxs = db.transactions.filter(t => t.type === 'INWARD');
 
   // Location filter applied first so status tab counts match the selected country/branch
-  // Non-Admin: strictly show only data belonging to their login country & branch
-  // Country Admin: can see all data ('ALL') or filter by specific country & branch
+  // IMPORTANT: Inward Remittances belong EXCLUSIVELY to the destination / receiving payout branch!
+  // SENDER branch (e.g. SG Branch) must NEVER show this inward remittance in its inward queue or notification.
   const locationFilteredTxs = inwardTxs.filter(tx => {
-    const txPayoutBranchId = tx.payoutBranchId || tx.branchId || tx.sendingBranchId;
+    // Receiving payout branch: strictly payoutBranchId (or destination branchId)
+    // NEVER fall back to sendingBranchId!
+    const txPayoutBranchId = tx.payoutBranchId || tx.branchId;
     const branch = db.branches.find(b => b.id === txPayoutBranchId);
-    const txCountry = branch?.countryCode || tx.receiverCountryCode || (tx as any).to_country;
+    const txReceiverCountry = branch?.countryCode || tx.receiverCountryCode || (tx as any).to_country;
 
     if (!isAdmin) {
-      // Non-Admin Checker/Maker: strictly match logged in country & branch for inward payout
-      const matchBranch = tx.payoutBranchId ? tx.payoutBranchId === userLoginBranch : (tx.branchId === userLoginBranch || tx.sendingBranchId === userLoginBranch);
-      const matchCountry = txCountry === userLoginCountry || 
+      // Non-Admin Checker/Maker: strictly match logged in destination country & branch for inward payout
+      const matchBranch = txPayoutBranchId === userLoginBranch;
+      const matchCountry = txReceiverCountry === userLoginCountry || 
         tx.receiverCountryCode === userLoginCountry || 
         (tx as any).to_country === userLoginCountry;
       return matchBranch && matchCountry;
     }
 
-    // Country Admin Role: Can view all or filter
+    // Country Admin Role: Can view all or filter by destination country & destination payout branch
     if (selectedCountry !== 'ALL') {
-      const match = txCountry === selectedCountry || 
-        tx.senderCountryCode === selectedCountry || 
+      const match = txReceiverCountry === selectedCountry || 
         tx.receiverCountryCode === selectedCountry ||
         (tx as any).to_country === selectedCountry;
       if (!match) return false;
     }
 
-    // Branch Filter
-    if (selectedBranch !== 'ALL' && txPayoutBranchId !== selectedBranch && tx.branchId !== selectedBranch) {
+    // Branch Filter: strictly match destination payout branch (receiver branch)
+    if (selectedBranch !== 'ALL' && txPayoutBranchId !== selectedBranch) {
       return false;
     }
     return true;

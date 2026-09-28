@@ -498,7 +498,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         <span>•</span>
                         <span className="inline-flex items-center space-x-1 text-slate-700 font-medium">
                           <Building2 className="w-3 h-3 text-sky-500 shrink-0" />
-                          <span>{db.branches.find(b => b.id === (tx.sendingBranchId || tx.payoutBranchId))?.nameEn || 'Yangon HQ'}</span>
+                          <span>
+                            {tx.type === 'INWARD'
+                              ? `Payout: ${db.branches.find(b => b.id === (tx.payoutBranchId || tx.branchId))?.nameEn || 'Receiver Branch'}`
+                              : `Branch: ${db.branches.find(b => b.id === (tx.sendingBranchId || tx.branchId))?.nameEn || 'Yangon HQ'}`}
+                          </span>
                         </span>
                         <span>•</span>
                         <span>Maker: <strong className="text-slate-700">{tx.creatorName}</strong></span>
