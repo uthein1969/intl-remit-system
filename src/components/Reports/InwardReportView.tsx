@@ -370,24 +370,24 @@ export const InwardReportView: React.FC = () => {
               onClick={() => setViewMode('DETAILS')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                 viewMode === 'DETAILS'
-                  ? 'bg-[#A2D9CE] text-black border border-slate-700 shadow-xs'
-                  : 'text-black hover:bg-[#C1ECE3]'
+                  ? 'bg-teal-600 text-white shadow-xs border border-teal-500'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-black" />
-              <span className="text-black">{language === 'my' ? 'အသေးစိတ် စာရင်း' : 'Detailed List'}</span>
+              <FileText className={`w-3.5 h-3.5 ${viewMode === 'DETAILS' ? 'text-white' : 'text-slate-400'}`} />
+              <span>{language === 'my' ? 'အသေးစိတ် စာရင်း' : 'Detailed List'}</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('DAY_BY_DAY')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                 viewMode === 'DAY_BY_DAY'
-                  ? 'bg-[#A2D9CE] text-black border border-slate-700 shadow-xs'
-                  : 'text-black hover:bg-[#C1ECE3]'
+                  ? 'bg-teal-600 text-white shadow-xs border border-teal-500'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5 text-black" />
-              <span className="text-black">{language === 'my' ? 'Total Inward Report (Day by Day)' : 'Day by Day Total Report'}</span>
+              <BarChart3 className={`w-3.5 h-3.5 ${viewMode === 'DAY_BY_DAY' ? 'text-white' : 'text-slate-400'}`} />
+              <span>{language === 'my' ? 'Total Inward Report (Day by Day)' : 'Day by Day Total Report'}</span>
             </button>
           </div>
 

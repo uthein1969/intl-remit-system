@@ -403,6 +403,12 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
           const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
 
+          const hasParsedTxs = Array.isArray(parsed.transactions) && parsed.transactions.length > 0;
+          if (hasParsedTxs) {
+            try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
+          }
+          const effectiveTxCleared = isTxCleared && !hasParsedTxs;
+
           return {
             ...initialDatabase,
             ...parsed,
@@ -417,9 +423,9 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             },
             branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : initialDatabase.branches,
             users: Array.isArray(parsed.users) && parsed.users.length > 0 ? sanitizeUsersList(parsed.users) : initialDatabase.users,
-            transactions: isTxCleared 
-              ? (Array.isArray(parsed.transactions) ? sanitizeTransactionsList(parsed.transactions) : [])
-              : (Array.isArray(parsed.transactions) ? sanitizeTransactionsList(parsed.transactions) : initialDatabase.transactions),
+            transactions: effectiveTxCleared 
+              ? []
+              : (hasParsedTxs ? sanitizeTransactionsList(parsed.transactions) : initialDatabase.transactions),
             currencies: Array.isArray(parsed.currencies) && parsed.currencies.length > 0 ? parsed.currencies : initialDatabase.currencies,
             countries: Array.isArray(parsed.countries) && parsed.countries.length > 0 ? parsed.countries : initialDatabase.countries,
             exchangeRates: Array.isArray(parsed.exchangeRates) && parsed.exchangeRates.length > 0 ? parsed.exchangeRates : initialDatabase.exchangeRates,
@@ -471,10 +477,17 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
 
         setDb((prev) => {
+          const hasStoredTxs = Array.isArray(idbDb.transactions) && idbDb.transactions.length > 0;
+          const hasPrevTxs = Array.isArray(prev.transactions) && prev.transactions.length > 0;
+          if (hasStoredTxs || hasPrevTxs) {
+            try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
+          }
+          const shouldClearTxs = isTxCleared && !hasStoredTxs && !hasPrevTxs;
+
           return {
             ...prev,
             ...idbDb,
-            transactions: isTxCleared ? [] : sanitizeTransactionsList(idbDb.transactions || prev.transactions),
+            transactions: shouldClearTxs ? [] : sanitizeTransactionsList((hasStoredTxs ? idbDb.transactions : prev.transactions) || []),
             auditLogs: isAuditCleared ? [] : (idbDb.auditLogs || prev.auditLogs),
             customers: Array.isArray(idbDb.customers) && idbDb.customers.length > 0 ? idbDb.customers : prev.customers,
             users: Array.isArray(idbDb.users) ? sanitizeUsersList(idbDb.users) : prev.users,
@@ -687,6 +700,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
 
       if (Array.isArray(txList) && txList.length > 0) {
+        try {
+          localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
+        } catch {}
+
         setDb(prev => {
           // Index existing by both transactionNo and id to prevent duplicate entries
           const map = new Map<string, RemittanceTransaction>();
@@ -1017,11 +1034,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
           // Push fresh local Outward and Inward records & audit logs from dbRef
           const currentDb = dbRef.current;
+          if (currentDb.transactions && currentDb.transactions.length > 0) {
+            try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
+          }
           const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
           const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
           const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
 
-          const txPayload = isTxCleared ? [] : (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+          const txPayload = (isTxCleared && (!currentDb.transactions || currentDb.transactions.length === 0))
+            ? [] 
+            : (currentDb.transactions || []).map(mapTransactionToTursoPayload);
           const auditPayload = isAuditCleared ? [] : (currentDb.auditLogs || []).slice(0, 100).map(l => ({
             id: l.id,
             timestamp: l.timestamp,
@@ -1086,11 +1108,16 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         persistDatabaseSafely(currentDb);
 
+        if (currentDb.transactions && currentDb.transactions.length > 0) {
+          try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
+        }
         const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
         const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
         const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
 
-        const txPayload = isTxCleared ? [] : (currentDb.transactions || []).map(mapTransactionToTursoPayload);
+        const txPayload = (isTxCleared && (!currentDb.transactions || currentDb.transactions.length === 0))
+          ? [] 
+          : (currentDb.transactions || []).map(mapTransactionToTursoPayload);
         const auditPayload = isAuditCleared ? [] : (currentDb.auditLogs || []).slice(0, 50).map(l => ({
           id: l.id,
           timestamp: l.timestamp,
@@ -2086,6 +2113,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       details: `Created Outward Remittance ${newTx.transactionNo} (MTCN: ${newTx.mtcn}) for ${newTx.senderName} -> ${newTx.receiverName} (${newTx.sendAmount} ${newTx.sourceCurrency})`
     };
 
+    try {
+      localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
+    } catch {}
+
     setDb(prev => ({
       ...prev,
       transactions: [newTx, ...prev.transactions],
@@ -2215,6 +2246,10 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       entityId: newTx.transactionNo,
       details: `Created Inward Remittance Claim ${newTx.transactionNo} (MTCN: ${newTx.mtcn}) for ${newTx.receiverName} (${newTx.receiveAmount} MMK payout)`
     };
+
+    try {
+      localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
+    } catch {}
 
     setDb(prev => ({
       ...prev,
@@ -4801,6 +4836,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setActiveDatabaseProvider('TURSO');
       setIsAuthenticated(true);
       setIsTursoConnected(true);
+
+      // Immediately pull fresh transactions and master data from Turso Cloud upon login
+      try {
+        await fetchDataFromTurso();
+      } catch (pullErr) {
+        console.warn('Initial Turso pull on login warning:', pullErr);
+      }
 
       // Auto-reconcile and backup local transactions to Turso
       syncAllLocalToTurso().catch(console.warn);

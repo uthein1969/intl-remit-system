@@ -494,7 +494,7 @@ export const LoginView: React.FC = () => {
                 <Zap className={`w-3.5 h-3.5 ${selectedProvider === 'TURSO' ? 'text-black' : 'text-slate-400'}`} />
                 <span>Turso Cloud</span>
                 <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                  selectedProvider === 'TURSO' ? 'bg-[#A2D9CE] text-slate-900 border border-[#85D4C3]' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  selectedProvider === 'TURSO' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 }`}>
                   Default
                 </span>

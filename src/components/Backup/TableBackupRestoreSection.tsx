@@ -614,8 +614,8 @@ export const TableBackupRestoreSection: React.FC<TableBackupRestoreSectionProps>
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                     selectedCategory === cat
-                      ? 'bg-[#A2D9CE] text-black font-bold shadow-xs'
-                      : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs border border-blue-500'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
                   }`}
                 >
                   {cat === 'all' && (language === 'my' ? 'အားလုံး (All)' : 'All')}

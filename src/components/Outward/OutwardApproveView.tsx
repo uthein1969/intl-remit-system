@@ -616,8 +616,8 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-              <CheckSquare className="w-4 h-4" />
+            <span className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+              <CheckSquare className="w-4 h-4 text-blue-400" />
             </span>
             <h2 className="text-xl font-bold text-white tracking-tight">
               {t.outwardApproveTitle}
@@ -630,27 +630,33 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
 
         {/* Filter Tabs & Cloud Sync */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
+          <div className="flex items-center bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold gap-1 shadow-inner">
             <button
               onClick={() => setFilterStatus('PENDING_APPROVAL')}
-              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
-                filterStatus === 'PENDING_APPROVAL' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
+              className={`px-3 py-1.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                filterStatus === 'PENDING_APPROVAL' 
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20 border border-amber-400' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
               {language === 'my' ? 'စိစစ်ရန်ကျန်' : 'Pending'} ({pendingCount})
             </button>
             <button
               onClick={() => setFilterStatus('APPROVED')}
-              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
-                filterStatus === 'APPROVED' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
+              className={`px-3 py-1.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                filterStatus === 'APPROVED' 
+                  ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20 border border-emerald-500' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
               {language === 'my' ? 'အတည်ပြုပြီး လွှဲပို့ပြီး (Approved and Sent)' : 'Approved and Sent'} ({approvedCount})
             </button>
             <button
               onClick={() => setFilterStatus('ALL')}
-              className={`px-3 py-1.5 rounded-lg transition-all text-black font-bold cursor-pointer ${
-                filterStatus === 'ALL' ? 'bg-[#A2D9CE] border border-slate-700 shadow-xs' : 'hover:bg-[#C1ECE3]'
+              className={`px-3 py-1.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                filterStatus === 'ALL' 
+                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/20 border border-blue-500' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
             >
               {t.all} ({allCount})
@@ -661,10 +667,10 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
           <button
             onClick={() => syncTursoBidirectional()}
             disabled={isSyncingTurso}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-semibold shadow-xs"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-semibold shadow-xs cursor-pointer"
             title={language === 'my' ? 'Turso Cloud မှ စာရင်းအသစ်များ ရယူရန် / Refresh လုပ်ရန် နှိပ်ပါ' : 'Fetch latest transactions from Turso Cloud'}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingTurso ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingTurso ? 'animate-spin text-blue-400' : 'text-blue-400'}`} />
             <span>{isSyncingTurso ? (language === 'my' ? 'Sync လုပ်နေသည်...' : 'Syncing...') : (language === 'my' ? 'Cloud Sync' : 'Sync Cloud')}</span>
           </button>
         </div>
