@@ -163,11 +163,15 @@ export const OutwardApproveView: React.FC<OutwardApproveViewProps> = ({
     const txCountry = branch?.countryCode || tx.senderCountryCode || (tx as any).from_country;
 
     if (!isAdmin) {
-      // Non-Admin Checker/Maker: strictly match logged in country & branch
-      const matchBranch = txSendingBranchId === userLoginBranch || tx.branchId === userLoginBranch;
+      // Non-Admin Checker/Maker: match logged in country & branch (or country-wide queue for checkers)
       const matchCountry = txCountry === userLoginCountry || 
         tx.senderCountryCode === userLoginCountry || 
         (tx as any).from_country === userLoginCountry;
+      const matchBranch = txSendingBranchId === userLoginBranch || 
+        tx.branchId === userLoginBranch || 
+        !userLoginBranch || 
+        userLoginBranch === 'ALL' || 
+        branch?.countryCode === userLoginCountry;
       return matchBranch && matchCountry;
     }
 

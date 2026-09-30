@@ -381,24 +381,6 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ygnHq.city = 'Yangon (Hlaing)';
             ygnHq.phone = '01-512345';
           }
-          // Ensure sample outward transaction TX-001 has senderDateOfBirth and attachments populated
-          const tx1 = parsed.transactions?.find((t: any) => t.id === 'TX-001');
-          if (tx1) {
-            if (!tx1.senderDateOfBirth) tx1.senderDateOfBirth = '14/07/1988';
-            if (!tx1.senderFatherName) tx1.senderFatherName = 'U Tin Aung';
-            if (!tx1.senderNrcAttachment) {
-              tx1.senderNrcAttachment = sampleSenderNrcAttachment;
-              tx1.senderNrcAttachmentName = 'NRC_U_Zaw_Win_Htet_12_BAHANA_184920.svg';
-              tx1.senderNrcAttachmentType = 'image/svg+xml';
-              tx1.senderNrcAttachmentSize = '18 KB';
-            }
-            if (!tx1.senderPassportAttachment) {
-              tx1.senderPassportAttachment = sampleSenderPassportAttachment;
-              tx1.senderPassportAttachmentName = 'Passport_U_Zaw_Win_Htet_MA918234.svg';
-              tx1.senderPassportAttachmentType = 'image/svg+xml';
-              tx1.senderPassportAttachmentSize = '24 KB';
-            }
-          }
           // Return safely merged object with initialDatabase fallback
           const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
           const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
@@ -699,22 +681,27 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
 
-      if (Array.isArray(txList) && txList.length > 0) {
-        try {
-          localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
-        } catch {}
+      if (Array.isArray(txList)) {
+        if (txList.length > 0) {
+          try {
+            localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED');
+          } catch {}
+        }
 
         setDb(prev => {
-          // Index existing by both transactionNo and id to prevent duplicate entries
-          const map = new Map<string, RemittanceTransaction>();
+          // Index existing by both transactionNo and id to preserve in-flight edits if any
+          const existingMap = new Map<string, RemittanceTransaction>();
           for (const t of prev.transactions) {
-            if (t.transactionNo) map.set(t.transactionNo, t);
-            if (t.id) map.set(t.id, t);
+            if (t.transactionNo) existingMap.set(t.transactionNo, t);
+            if (t.id) existingMap.set(t.id, t);
           }
 
+          const map = new Map<string, RemittanceTransaction>();
+
+          // 1. Authoritative transactions from Turso Cloud
           for (const tx of txList) {
-            const existing = (tx.transactionNo ? map.get(tx.transactionNo) : undefined) || 
-                             (tx.id ? map.get(tx.id) : undefined);
+            const existing = (tx.transactionNo ? existingMap.get(tx.transactionNo) : undefined) || 
+                             (tx.id ? existingMap.get(tx.id) : undefined);
 
             // Never downgrade an already completed / approved status to PENDING_APPROVAL
             let resolvedStatus = tx.status || existing?.status || 'PENDING_APPROVAL';
@@ -751,20 +738,24 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               linkedTransactionNo: tx.linkedTransactionNo || tx.linked_transaction_no || existing?.linkedTransactionNo || '',
             };
 
-            if (merged.transactionNo) map.set(merged.transactionNo, merged);
-            if (merged.id) map.set(merged.id, merged);
+            const key = merged.transactionNo || merged.id;
+            if (key) map.set(key, merged);
+          }
+
+          // 2. Only preserve local transactions created within the last 30 seconds (in flight before cloud push completes)
+          // Old transactions deleted from Turso are never resurrected!
+          const now = Date.now();
+          for (const t of prev.transactions) {
+            const key = t.transactionNo || t.id;
+            if (!key || map.has(key)) continue;
+            const createdTime = t.createdDate ? new Date(t.createdDate).getTime() : 0;
+            if (createdTime > 0 && (now - createdTime) < 30000) {
+              map.set(key, t);
+            }
           }
 
           // Gather unique transactions
-          const uniqueList: RemittanceTransaction[] = [];
-          const seenKeys = new Set<string>();
-          for (const t of map.values()) {
-            const key = t.transactionNo || t.id;
-            if (!seenKeys.has(key)) {
-              seenKeys.add(key);
-              uniqueList.push(t);
-            }
-          }
+          const uniqueList: RemittanceTransaction[] = Array.from(map.values());
 
           // Sort by creation date descending
           uniqueList.sort((a, b) => {
@@ -772,6 +763,13 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const dateB = b.createdDate ? new Date(b.createdDate).getTime() : 0;
             return dateB - dateA;
           });
+
+          // Sync local storage and IndexedDB immediately with authoritative live state
+          dbRef.current = {
+            ...dbRef.current,
+            transactions: uniqueList,
+          };
+          persistDatabaseSafely(dbRef.current);
 
           // Merge audit logs if present
           let updatedAuditLogs = prev.auditLogs;
@@ -1031,50 +1029,6 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (isConnected && isMounted) {
           await fetchTursoBranches();
           await fetchDataFromTurso();
-
-          // Push fresh local Outward and Inward records & audit logs from dbRef
-          const currentDb = dbRef.current;
-          if (currentDb.transactions && currentDb.transactions.length > 0) {
-            try { localStorage.removeItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED'); } catch {}
-          }
-          const isTxCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_TRANSACTIONS_CLEARED') === 'true';
-          const isAuditCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_AUDIT_CLEARED') === 'true';
-          const isCustCleared = typeof window !== 'undefined' && localStorage.getItem('REMITTANCE_DEMO_CUSTOMERS_CLEARED') === 'true';
-
-          const txPayload = (isTxCleared && (!currentDb.transactions || currentDb.transactions.length === 0))
-            ? [] 
-            : (currentDb.transactions || []).map(mapTransactionToTursoPayload);
-          const auditPayload = isAuditCleared ? [] : (currentDb.auditLogs || []).slice(0, 100).map(l => ({
-            id: l.id,
-            timestamp: l.timestamp,
-            userId: l.userId,
-            userName: l.userName,
-            action: l.action,
-            entityType: l.entityType,
-            entityId: l.entityId,
-            details: l.details,
-          }));
-          const custPayload = isCustCleared ? [] : currentDb.customers;
-
-          const syncPayload = {
-            transactions: txPayload,
-            auditLogs: auditPayload,
-            exchangeRates: currentDb.exchangeRates,
-            customers: custPayload,
-            branches: currentDb.branches,
-            users: currentDb.users,
-            roleMenuPermissions: currentDb.roleMenuPermissions,
-            countryRoleMenuPermissions: currentDb.countryRoleMenuPermissions,
-          };
-
-          const { ok } = await safeFetchJson('/api/turso/sync-push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(syncPayload)
-          });
-          if (!ok) {
-            await tursoWebSyncPush(syncPayload);
-          }
 
           if (isMounted) {
             setLastTursoSyncTime(new Date().toLocaleTimeString());
@@ -4843,9 +4797,6 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } catch (pullErr) {
         console.warn('Initial Turso pull on login warning:', pullErr);
       }
-
-      // Auto-reconcile and backup local transactions to Turso
-      syncAllLocalToTurso().catch(console.warn);
 
       logActionDirect(
         'LOGIN',

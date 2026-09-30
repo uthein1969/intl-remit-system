@@ -222,21 +222,37 @@ export const OutwardEntryView: React.FC = () => {
   const [payoutAccountNumber, setPayoutAccountNumber] = useState('');
   const [purposeId, setPurposeId] = useState('PUR-001');
   const [partnerCompanyId, setPartnerCompanyId] = useState('CMP-005');
-  const [sendingBranchId, setSendingBranchId] = useState(activeBranchId || currentUser.branchId || 'BR-001');
+  const [sendingBranchId, setSendingBranchId] = useState<string>(() => {
+    const userCountry = currentUser.countryCode || activeCountryCode || 'MM';
+    const assignedBranch = currentUser.branchId || activeBranchId;
+    const branchObj = db.branches.find(b => b.id === assignedBranch);
+    if (branchObj && branchObj.countryCode === userCountry) return assignedBranch;
+    const countryBranch = db.branches.find(b => b.countryCode === userCountry);
+    return countryBranch?.id || assignedBranch || 'BR-001';
+  });
   const [payoutBranchId, setPayoutBranchId] = useState<string>(() => {
     const otherBranch = db.branches.find(b => b.countryCode === 'MM' && b.id !== (activeBranchId || currentUser.branchId || 'BR-001'));
     return otherBranch?.id || 'BR-002';
   });
 
   useEffect(() => {
-    if (activeBranchId) {
-      setSendingBranchId(activeBranchId);
-      if (payoutBranchId === activeBranchId) {
-        const nextOther = db.branches.find(b => b.countryCode === 'MM' && b.id !== activeBranchId);
-        if (nextOther) setPayoutBranchId(nextOther.id);
+    const userCountry = currentUser.countryCode || activeCountryCode || 'MM';
+    const curBranchObj = db.branches.find(b => b.id === sendingBranchId);
+    if (!curBranchObj || curBranchObj.countryCode !== userCountry) {
+      const assignedBranch = currentUser.branchId || activeBranchId;
+      const targetBranch = (assignedBranch && db.branches.find(b => b.id === assignedBranch && b.countryCode === userCountry)?.id)
+        || db.branches.find(b => b.countryCode === userCountry)?.id;
+      if (targetBranch) {
+        setSendingBranchId(targetBranch);
       }
+    } else if (activeBranchId && db.branches.some(b => b.id === activeBranchId && b.countryCode === userCountry)) {
+      setSendingBranchId(activeBranchId);
     }
-  }, [activeBranchId]);
+    if (payoutBranchId === sendingBranchId) {
+      const nextOther = db.branches.find(b => b.countryCode === 'MM' && b.id !== sendingBranchId);
+      if (nextOther) setPayoutBranchId(nextOther.id);
+    }
+  }, [activeBranchId, currentUser.branchId, currentUser.countryCode, activeCountryCode, db.branches, sendingBranchId]);
 
   // Sync default sender ID type and scope according to user login country & admin configuration:
   // If User Login by Myanmar Country Default is Domestic and NRC; Other Country Default is International and Passport
