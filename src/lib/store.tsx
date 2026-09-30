@@ -273,6 +273,7 @@ interface RemittanceContextType {
   resetRoleMenuPermissions: (countryCode?: string) => void;
   copyRoleMenuPermissions: (sourceCountryCode: string, targetCountryCode: string) => void;
   isMenuAllowedForRole: (role: UserRole, tab: NavigationTab, countryCode?: string) => boolean;
+  syncRoleMenuPermissionsToCloud: (countryPerms?: CountryRoleMenuPermissions, rolePerms?: RoleMenuPermissions) => Promise<{ success: boolean; message?: string }>;
 
   // MTO & Inward Compliance Remittance Limits
   mtoComplianceLimits: MtoComplianceLimit[];
@@ -851,6 +852,8 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ...(extraData?.exchangeRates?.length ? { exchangeRates: extraData.exchangeRates } : {}),
             ...(extraData?.customers?.length ? { customers: extraData.customers } : {}),
             ...(extraData?.mtoComplianceLimits?.length ? { mtoComplianceLimits: extraData.mtoComplianceLimits } : {}),
+            ...(extraData?.countryRoleMenuPermissions ? { countryRoleMenuPermissions: extraData.countryRoleMenuPermissions } : {}),
+            ...(extraData?.roleMenuPermissions ? { roleMenuPermissions: extraData.roleMenuPermissions } : {}),
             auditLogs: updatedAuditLogs,
           };
         });
@@ -5076,6 +5079,37 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     syncLiveAuditLogToCloud(auditRecord);
+    syncRoleMenuPermissionsToCloud(updatedCountryPermissions, targetCountry === activeCountryCode ? currentCountryPerms : undefined).catch(() => {});
+  };
+
+  const syncRoleMenuPermissionsToCloud = async (countryPerms?: CountryRoleMenuPermissions, rolePerms?: RoleMenuPermissions): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const targetCountryPerms = countryPerms || countryRoleMenuPermissions;
+      const payload: any = {
+        countryRoleMenuPermissions: targetCountryPerms,
+      };
+      if (rolePerms) {
+        payload.roleMenuPermissions = rolePerms;
+      }
+      const { ok } = await safeFetchJson('/api/turso/sync-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!ok) {
+        await tursoWebSyncPush(payload);
+      }
+      return { success: true };
+    } catch (e: any) {
+      try {
+        const targetCountryPerms = countryPerms || countryRoleMenuPermissions;
+        await tursoWebSyncPush({ countryRoleMenuPermissions: targetCountryPerms, roleMenuPermissions: rolePerms });
+        return { success: true };
+      } catch (err: any) {
+        console.warn('Failed to sync role menu permissions to cloud:', err);
+        return { success: false, message: err?.message || 'Sync failed' };
+      }
+    }
   };
 
   const toggleRoleMenuPermission = (role: UserRole, menu: NavigationTab, countryCode?: string) => {
@@ -5129,6 +5163,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     syncLiveAuditLogToCloud(auditRecord);
+    syncRoleMenuPermissionsToCloud(updatedCountryPermissions, targetCountry === activeCountryCode ? DEFAULT_ROLE_MENU_PERMISSIONS : undefined).catch(() => {});
   };
 
   const copyRoleMenuPermissions = (sourceCountryCode: string, targetCountryCode: string) => {
@@ -5161,6 +5196,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     syncLiveAuditLogToCloud(auditRecord);
+    syncRoleMenuPermissionsToCloud(updatedCountryPermissions, targetCountryCode === activeCountryCode ? sourcePerms : undefined).catch(() => {});
   };
 
   const isMenuAllowedForRole = (role: UserRole, tab: NavigationTab, countryCode?: string): boolean => {
@@ -5269,6 +5305,7 @@ export const RemittanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetRoleMenuPermissions,
         copyRoleMenuPermissions,
         isMenuAllowedForRole,
+        syncRoleMenuPermissionsToCloud,
         mtoComplianceLimits,
         saveMtoComplianceLimit,
         deleteMtoComplianceLimit,

@@ -24,7 +24,8 @@ import {
   Globe,
   Copy,
   Layers,
-  CheckCheck
+  CheckCheck,
+  RefreshCw
 } from 'lucide-react';
 import { useRemittance } from '../../lib/store';
 import { UserRole, NavigationTab, DEFAULT_ROLE_MENU_PERMISSIONS } from '../../types';
@@ -53,6 +54,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
     copyRoleMenuPermissions,
     activeCountryCode,
     setActiveCountryCode,
+    syncRoleMenuPermissionsToCloud,
     db,
     switchUser
   } = useRemittance();
@@ -64,6 +66,7 @@ export const RoleMenuPermissionManager: React.FC = () => {
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('MAKER');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showMatrixView, setShowMatrixView] = useState<boolean>(false);
   const [copySourceCountry, setCopySourceCountry] = useState<string>('MM');
   const [showCopyModal, setShowCopyModal] = useState<boolean>(false);
@@ -273,6 +276,25 @@ export const RoleMenuPermissionManager: React.FC = () => {
     }, 4000);
   };
 
+  const handleManualSave = async () => {
+    setIsSaving(true);
+    const res = await syncRoleMenuPermissionsToCloud();
+    setIsSaving(false);
+    if (res.success) {
+      showFeedback(
+        language === 'my' 
+          ? `[${selectedCountryFlag} ${selectedCountryName}] အတွက် မီနူးခွင့်ပြုချက်များကို Turso Cloud သို့ အောင်မြင်စွာ သိမ်းဆည်း Sync လုပ်ပြီးပါပြီ` 
+          : `Permissions for [${selectedCountryName}] successfully saved and synced to Turso Cloud!`
+      );
+    } else {
+      showFeedback(
+        language === 'my'
+          ? `Turso Cloud သို့ သိမ်းဆည်းရန် မအောင်မြင်ပါ: ${res.message || 'Error'}`
+          : `Failed to save to Turso Cloud: ${res.message || 'Error'}`
+      );
+    }
+  };
+
   const handleToggle = (menuId: NavigationTab) => {
     // If admin_setup and role is not ADMIN, disallow
     if (menuId === 'admin_setup' && selectedRole !== 'ADMIN') {
@@ -422,11 +444,12 @@ export const RoleMenuPermissionManager: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => showFeedback(language === 'my' ? `[${selectedCountryFlag} ${selectedCountryName}] အတွက် မီနူးခွင့်ပြုချက်များကို သိမ်းဆည်းပြီး Turso Cloud နှင့် Sync လုပ်ပြီးပါပြီ` : `Saved and synced permissions for [${selectedCountryName}]`)}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
+            disabled={isSaving}
+            onClick={handleManualSave}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-colors"
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>{language === 'my' ? 'သိမ်းဆည်းမည် (Save)' : 'Save Changes'}</span>
+            {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <span>{isSaving ? (language === 'my' ? 'သိမ်းဆည်းနေပါသည်...' : 'Saving...') : (language === 'my' ? 'သိမ်းဆည်းမည် (Save)' : 'Save Changes')}</span>
           </button>
         </div>
       </div>
