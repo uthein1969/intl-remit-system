@@ -263,10 +263,423 @@ html.dark, :root[data-theme="dark"], body.dark {
   color: #FFFFFF !important;
 }
 
-/* Light mode overrides for clean contrast */
+/* =========================================================================
+   LIGHT MODE SYSTEM THEMING
+   (Beauty Light Color For All: Pages, Buttons, Labels, Tables, Dropdown Lists, Texts)
+   ========================================================================= */
+
 :root:not(.dark) {
   --bg: #F8FAFC;
   --card-bg: #FFFFFF;
+  --line: #E2E8F0;
+  --text-muted: #64748B;
+  --text-main: #0F172A;
+}
+
+/* 1. Light Mode Card & Surface Containers */
+:root:not(.dark) .bg-slate-900:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed),
+:root:not(.dark) .bg-slate-950:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed),
+:root:not(.dark) .bg-slate-800:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed):not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]) {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+:root:not(.dark) [class*="bg-slate-900/"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed),
+:root:not(.dark) [class*="bg-slate-950/"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed),
+:root:not(.dark) [class*="bg-slate-800/"]:not(button):not(input):not(select):not(textarea):not(option):not(a):not(.fixed) {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* Inner wells, sub-cards, stat boxes */
+:root:not(.dark) .bg-slate-950\/80:not(.fixed),
+:root:not(.dark) .bg-slate-950\/70:not(.fixed),
+:root:not(.dark) .bg-slate-950\/60:not(.fixed),
+:root:not(.dark) .bg-slate-950\/40:not(.fixed),
+:root:not(.dark) .bg-slate-900\/90:not(.fixed),
+:root:not(.dark) .bg-slate-900\/80:not(.fixed),
+:root:not(.dark) .bg-slate-900\/70:not(.fixed),
+:root:not(.dark) .bg-slate-900\/60:not(.fixed),
+:root:not(.dark) .bg-slate-900\/50:not(.fixed),
+:root:not(.dark) .bg-slate-900\/40:not(.fixed) {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* Modal Backdrops & Overlays in Light Mode */
+:root:not(.dark) .fixed.inset-0.bg-slate-950\/80,
+:root:not(.dark) .fixed.inset-0.bg-slate-950\/70,
+:root:not(.dark) .fixed.inset-0.bg-slate-950\/60,
+:root:not(.dark) .fixed.inset-0.bg-slate-900\/80,
+:root:not(.dark) .fixed.inset-0.bg-black\/50,
+:root:not(.dark) .fixed.inset-0.bg-black\/60,
+:root:not(.dark) .fixed.inset-0.bg-black\/70,
+:root:not(.dark) .fixed.inset-0.backdrop-blur-sm,
+:root:not(.dark) .fixed.inset-0.backdrop-blur-md {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Light Mode Scrollbars */
+:root:not(.dark) ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+:root:not(.dark) ::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+:root:not(.dark) ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+:root:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Light mode gradient headers (e.g. MTO limits header, Backup/Restore header) */
+:root:not(.dark) [class*="from-slate-900"]:not(button),
+:root:not(.dark) [class*="via-indigo-950"]:not(button) {
+  background-image: linear-gradient(to right, #F8FAFC, #EFF6FF, #F8FAFC) !important;
+  border-color: #DBEAFE !important;
+  color: #0F172A !important;
+}
+
+/* 2. Light Mode Typography: Headings, Labels & Texts */
+:root:not(.dark) h1,
+:root:not(.dark) h2,
+:root:not(.dark) h3,
+:root:not(.dark) h4,
+:root:not(.dark) h5,
+:root:not(.dark) h6 {
+  color: #0F172A !important;
+}
+
+:root:not(.dark) .text-white:not(button):not(button *):not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-orange"]) {
+  color: #0F172A !important;
+}
+
+:root:not(.dark) .text-slate-100,
+:root:not(.dark) .text-slate-200 {
+  color: #1E293B !important;
+}
+
+/* High contrast for previously faint text on light surfaces */
+:root:not(.dark) .text-slate-300:not(button):not(button *) {
+  color: #334155 !important;
+}
+
+:root:not(.dark) .text-slate-400:not(button):not(button *) {
+  color: #475569 !important;
+}
+
+:root:not(.dark) .text-slate-500:not(button):not(button *) {
+  color: #64748B !important;
+}
+
+/* 3. Light Mode Labels & Field Headers */
+:root:not(.dark) label {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+:root:not(.dark) label span.text-slate-400,
+:root:not(.dark) label span.text-slate-300,
+:root:not(.dark) label span.text-slate-500 {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+:root:not(.dark) label .text-rose-500,
+:root:not(.dark) label .text-red-500 {
+  color: #DC2626 !important;
+}
+
+/* 4. Light Mode Borders & Dividers */
+:root:not(.dark) .border-slate-800,
+:root:not(.dark) .border-slate-700,
+:root:not(.dark) .border-slate-600,
+:root:not(.dark) [class*="border-slate-800"],
+:root:not(.dark) [class*="border-slate-700"] {
+  border-color: #E2E8F0 !important;
+}
+
+:root:not(.dark) .divide-slate-800 > * + *,
+:root:not(.dark) .divide-slate-700 > * + *,
+:root:not(.dark) [class*="divide-slate-800"] > * + *,
+:root:not(.dark) [class*="divide-slate-700"] > * + * {
+  border-color: #E2E8F0 !important;
+}
+
+/* 5. Light Mode Buttons & Tabs */
+/* Secondary, toolbar, and dark-styled buttons converted to crisp beauty light style */
+:root:not(.dark) button.bg-slate-800,
+:root:not(.dark) button.bg-slate-700,
+:root:not(.dark) button.bg-slate-900,
+:root:not(.dark) button.bg-slate-950,
+:root:not(.dark) button[class*="bg-slate-800"]:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-rose"]),
+:root:not(.dark) button[class*="bg-slate-700"]:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-rose"]) {
+  background-color: #F8FAFC !important;
+  color: #1E293B !important;
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+:root:not(.dark) button.bg-slate-800:hover,
+:root:not(.dark) button.bg-slate-700:hover,
+:root:not(.dark) button.bg-slate-900:hover,
+:root:not(.dark) button.bg-slate-950:hover,
+:root:not(.dark) button[class*="bg-slate-800"]:hover,
+:root:not(.dark) button[class*="bg-slate-700"]:hover {
+  background-color: #EFF6FF !important;
+  color: #1D4ED8 !important;
+  border-color: #BFDBFE !important;
+}
+
+/* Primary and colored action buttons maintain bold saturation & crisp white text */
+:root:not(.dark) button.bg-blue-600,
+:root:not(.dark) button.bg-emerald-600,
+:root:not(.dark) button.bg-sky-600,
+:root:not(.dark) button.bg-rose-600,
+:root:not(.dark) button.bg-indigo-600,
+:root:not(.dark) button.bg-purple-600,
+:root:not(.dark) button[class*="bg-blue-600"],
+:root:not(.dark) button[class*="bg-emerald-600"],
+:root:not(.dark) button[class*="bg-sky-600"],
+:root:not(.dark) button[class*="bg-rose-600"],
+:root:not(.dark) button[class*="bg-indigo-600"],
+:root:not(.dark) button[class*="bg-purple-600"] {
+  color: #FFFFFF !important;
+}
+
+:root:not(.dark) button.bg-blue-600 *,
+:root:not(.dark) button.bg-emerald-600 *,
+:root:not(.dark) button.bg-sky-600 *,
+:root:not(.dark) button.bg-rose-600 *,
+:root:not(.dark) button.bg-indigo-600 *,
+:root:not(.dark) button.bg-purple-600 *,
+:root:not(.dark) button[class*="bg-blue-600"] *,
+:root:not(.dark) button[class*="bg-emerald-600"] *,
+:root:not(.dark) button[class*="bg-sky-600"] *,
+:root:not(.dark) button[class*="bg-rose-600"] *,
+:root:not(.dark) button[class*="bg-indigo-600"] *,
+:root:not(.dark) button[class*="bg-purple-600"] * {
+  color: #FFFFFF !important;
+}
+
+/* Tab bars & Inactive tab buttons */
+:root:not(.dark) div[class*="bg-slate-950"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]),
+:root:not(.dark) div[class*="bg-slate-900"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]),
+:root:not(.dark) div[class*="bg-slate-800"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]) {
+  color: #475569 !important;
+  background-color: transparent !important;
+}
+
+:root:not(.dark) div[class*="bg-slate-950"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]):hover,
+:root:not(.dark) div[class*="bg-slate-900"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]):hover,
+:root:not(.dark) div[class*="bg-slate-800"] button:not([class*="bg-blue"]):not([class*="bg-emerald"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-rose"]):hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* 6. Light Mode Form Controls (Inputs, Selects, Dropdown Lists, Textareas) */
+:root:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+:root:not(.dark) textarea {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+:root:not(.dark) input:focus,
+:root:not(.dark) textarea:focus {
+  background-color: #FFFFFF !important;
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  outline: none !important;
+}
+
+:root:not(.dark) input::placeholder,
+:root:not(.dark) textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+/* Native and Custom Drop Down Lists */
+:root:not(.dark) select {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 0.75rem !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+:root:not(.dark) select:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  outline: none !important;
+}
+
+:root:not(.dark) option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  padding: 6px 12px !important;
+}
+
+/* Floating Dropdown Menus & Autocomplete Panels (e.g. CustomerSearchAutoFill, popups) */
+:root:not(.dark) [class*="bg-slate-900/98"],
+:root:not(.dark) [class*="bg-slate-900/95"],
+:root:not(.dark) [class*="bg-slate-800/95"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
+
+:root:not(.dark) [class*="bg-slate-900/98"] *,
+:root:not(.dark) [class*="bg-slate-900/95"] * {
+  color: #1E293B;
+}
+
+:root:not(.dark) [class*="bg-slate-900/98"] .text-white,
+:root:not(.dark) [class*="bg-slate-900/95"] .text-white {
+  color: #0F172A !important;
+}
+
+:root:not(.dark) [class*="bg-slate-900/98"] .text-slate-400,
+:root:not(.dark) [class*="bg-slate-900/95"] .text-slate-400 {
+  color: #64748B !important;
+}
+
+/* Dropdown list items hover highlight */
+:root:not(.dark) [class*="bg-slate-900/98"] > div > div:hover,
+:root:not(.dark) [class*="bg-slate-900/98"] [class*="hover:bg-slate-800"]:hover,
+:root:not(.dark) [class*="bg-slate-900/95"] [class*="hover:bg-slate-800"]:hover {
+  background-color: #EFF6FF !important;
+  color: #1D4ED8 !important;
+}
+
+/* 7. Light Mode Tables (Detailed List, Day by Day Totals, MTO Limits, Audit Trail) */
+:root:not(.dark) table {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+:root:not(.dark) thead tr,
+:root:not(.dark) thead th {
+  background-color: #F8FAFC !important;
+  color: #334155 !important;
+  border-bottom: 2px solid #E2E8F0 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.05em !important;
+}
+
+:root:not(.dark) tbody tr {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  transition: background-color 0.15s ease !important;
+}
+
+:root:not(.dark) tbody tr:nth-child(even) {
+  background-color: #FAFCFE !important;
+}
+
+:root:not(.dark) tbody tr:hover {
+  background-color: #EFF6FF !important; /* Elegant light sky tint on hover */
+}
+
+:root:not(.dark) tbody td {
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+:root:not(.dark) tbody td .text-white {
+  color: #0F172A !important;
+}
+
+:root:not(.dark) tbody td .text-slate-300,
+:root:not(.dark) tbody td .text-slate-400 {
+  color: #475569 !important;
+}
+
+/* Vibrant table values in light mode */
+:root:not(.dark) tbody td .text-amber-300,
+:root:not(.dark) tbody td .text-amber-400 {
+  color: #B45309 !important; /* Rich amber gold */
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) tbody td .text-sky-300,
+:root:not(.dark) tbody td .text-sky-400 {
+  color: #0369A1 !important; /* Rich sky blue */
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) tbody td .text-emerald-300,
+:root:not(.dark) tbody td .text-emerald-400 {
+  color: #047857 !important; /* Rich emerald */
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) tbody td .text-indigo-300,
+:root:not(.dark) tbody td .text-indigo-400 {
+  color: #4338CA !important; /* Rich indigo */
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) tfoot tr,
+:root:not(.dark) tfoot td,
+:root:not(.dark) tfoot th {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+  border-top: 2px solid #CBD5E1 !important;
+  font-weight: 700 !important;
+}
+
+/* 8. Light Mode Badges Contrast Optimization */
+:root:not(.dark) [class*="bg-emerald-950"] {
+  background-color: #ECFDF5 !important;
+  color: #065F46 !important;
+  border-color: #A7F3D0 !important;
+}
+
+:root:not(.dark) [class*="bg-amber-950"] {
+  background-color: #FFFBEB !important;
+  color: #92400E !important;
+  border-color: #FDE68A !important;
+}
+
+:root:not(.dark) [class*="bg-rose-950"] {
+  background-color: #FFF1F2 !important;
+  color: #9F1239 !important;
+  border-color: #FECDD3 !important;
+}
+
+:root:not(.dark) [class*="bg-blue-950"] {
+  background-color: #EFF6FF !important;
+  color: #1E40AF !important;
+  border-color: #BFDBFE !important;
+}
+
+:root:not(.dark) [class*="bg-sky-950"] {
+  background-color: #F0F9FF !important;
+  color: #0369A1 !important;
+  border-color: #BAE6FD !important;
+}
+
+:root:not(.dark) [class*="bg-indigo-950"] {
+  background-color: #EEF2FF !important;
+  color: #3730A3 !important;
+  border-color: #C7D2FE !important;
+}
+
+:root:not(.dark) [class*="bg-teal-950"] {
+  background-color: #F0FDFA !important;
+  color: #115E59 !important;
+  border-color: #99F6E4 !important;
 }
 
 :root:not(.dark) [class*="bg-[#D1F2EB]"]:not(button):not(input):not(select):not(textarea) {

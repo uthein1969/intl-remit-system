@@ -226,8 +226,8 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               ? `🔍 ${label} - အမည်၊ ဖုန်း၊ NRC သို့မဟုတ် Passport ဖြင့် Auto Search ရှာပါ...`
               : `🔍 ${label} - Auto search by Name, Phone, NRC, Passport...`)
           }
-          className={`w-full bg-slate-900/90 border rounded-xl pl-9 pr-9 py-2.5 text-xs text-white placeholder-slate-400 font-medium focus:outline-none transition-all shadow-inner ${
-            isOpen ? `${accentBorder} ring-2 ${isEmerald ? 'ring-emerald-500/30' : 'ring-sky-500/30'}` : 'border-slate-700 hover:border-slate-600'
+          className={`w-full bg-white dark:bg-slate-900/90 border rounded-xl pl-9 pr-9 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 font-medium focus:outline-none transition-all shadow-xs ${
+            isOpen ? `${accentBorder} ring-2 ${isEmerald ? 'ring-emerald-500/30' : 'ring-sky-500/30'}` : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
           }`}
         />
 
@@ -239,7 +239,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               setIsOpen(false);
               inputRef.current?.focus();
             }}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white cursor-pointer"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -248,12 +248,12 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
 
       {/* Floating Auto-Search Dropdown */}
       {isOpen && searchTerm.trim().length > 0 && (
-        <div className={`absolute z-50 left-0 right-0 mt-2 bg-slate-900/98 backdrop-blur-md border-2 rounded-2xl shadow-2xl max-h-84 overflow-y-auto divide-y divide-slate-800 ${
-          isEmerald ? 'border-emerald-500/80 shadow-emerald-950/70' : 'border-sky-500/80 shadow-sky-950/70'
+        <div className={`absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-slate-900/98 backdrop-blur-md border rounded-2xl shadow-xl max-h-84 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 ${
+          isEmerald ? 'border-emerald-500/80 shadow-emerald-950/10' : 'border-sky-500/80 shadow-sky-950/10'
         }`}>
           {/* Header */}
-          <div className="p-3 bg-slate-800/95 sticky top-0 z-10 flex items-center justify-between text-xs text-slate-200 border-b border-slate-700/80 backdrop-blur-md">
-            <span className="flex items-center space-x-1.5 font-bold text-white">
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/95 sticky top-0 z-10 flex items-center justify-between text-xs text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+            <span className="flex items-center space-x-1.5 font-bold text-slate-900 dark:text-white">
               <Sparkles className={`w-4 h-4 ${accentText}`} />
               <span>
                 {language === 'my' 
@@ -262,7 +262,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
               </span>
             </span>
             <span className={`font-mono text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
-              isEmerald ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+              isEmerald ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40' : 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40'
             }`}>
               {combinedResults.length} {language === 'my' ? 'ဦး တွေ့ရှိ' : 'found'}
             </span>
@@ -286,20 +286,20 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                     className={`p-3.5 cursor-pointer transition-all flex items-center justify-between gap-3 text-xs ${
                       isRowActive
                         ? isEmerald
-                          ? 'bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 text-white shadow-xl ring-2 ring-emerald-300/90 scale-[1.005]'
-                          : 'bg-gradient-to-r from-sky-600 via-sky-600 to-blue-600 text-white shadow-xl ring-2 ring-sky-300/90 scale-[1.005]'
-                        : 'bg-slate-900/90 hover:bg-slate-800/80 text-slate-300 border-b border-slate-800/60'
+                          ? 'bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 text-white shadow-md ring-2 ring-emerald-300/90 scale-[1.002]'
+                          : 'bg-gradient-to-r from-sky-600 via-sky-600 to-blue-600 text-white shadow-md ring-2 ring-sky-300/90 scale-[1.002]'
+                        : 'bg-white hover:bg-slate-50 dark:bg-slate-900/90 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60'
                     }`}
                   >
                     <div className="flex items-start space-x-3 min-w-0 flex-1">
                       <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 transition-colors ${
                         isRowActive
                           ? isEmerald
-                            ? 'bg-white text-emerald-700 shadow-md ring-2 ring-emerald-200'
-                            : 'bg-white text-sky-700 shadow-md ring-2 ring-sky-200'
+                            ? 'bg-white text-emerald-700 shadow-sm ring-2 ring-emerald-200'
+                            : 'bg-white text-sky-700 shadow-sm ring-2 ring-sky-200'
                           : isEmerald
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                            : 'bg-sky-950 text-sky-400 border border-sky-500/40'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-500/40'
+                            : 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950 dark:text-sky-400 dark:border-sky-500/40'
                       }`}>
                         <User className="w-4 h-4" />
                       </div>
@@ -307,26 +307,26 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                       <div className="min-w-0 flex-1 space-y-1.5">
                         {/* Name & Code */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={`font-extrabold text-sm ${isRowActive ? 'text-white drop-shadow-xs' : 'text-white'}`}>
+                          <span className={`font-extrabold text-sm ${isRowActive ? 'text-white drop-shadow-xs' : 'text-slate-900 dark:text-white'}`}>
                             {cust.fullNameEn}
                           </span>
                           {cust.fullNameMm && (
-                            <span className={`text-xs font-semibold ${isRowActive ? 'text-emerald-100' : 'text-slate-400'}`}>
+                            <span className={`text-xs font-semibold ${isRowActive ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'}`}>
                               ({cust.fullNameMm})
                             </span>
                           )}
-                          <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold shadow-xs ${
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold shadow-2xs ${
                             isRowActive
                               ? 'bg-white/20 text-white border border-white/40'
-                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                           }`}>
                             {cust.customerCode || 'CUST'}
                           </span>
                           {cust.customerType && (
-                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold shadow-xs ${
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold shadow-2xs ${
                               isRowActive
                                 ? 'bg-amber-300 text-slate-950 font-extrabold'
-                                : 'bg-amber-950/60 text-amber-300 border border-amber-600/40'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-600/40'
                             }`}>
                               {cust.customerType}
                             </span>
@@ -340,11 +340,11 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
 
                         {/* Phone, NRC, Passport */}
                         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs ${
-                          isRowActive ? 'text-white' : 'text-slate-400'
+                          isRowActive ? 'text-white' : 'text-slate-600 dark:text-slate-400'
                         }`}>
                           {cust.phone && (
                             <span className="flex items-center space-x-1 font-semibold">
-                              <Phone className={`w-3.5 h-3.5 ${isRowActive ? 'text-white' : 'text-slate-400'}`} />
+                              <Phone className={`w-3.5 h-3.5 ${isRowActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
                               <span className="font-mono">{cust.phone}</span>
                             </span>
                           )}
@@ -352,7 +352,7 @@ export const CustomerSearchAutoFill: React.FC<CustomerSearchAutoFillProps> = ({
                             <span className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold ${
                               isRowActive
                                 ? 'bg-amber-400 text-slate-950 shadow-xs'
-                                : 'text-amber-400 bg-amber-950/40 border border-amber-500/30'
+                                : 'text-amber-800 bg-amber-50 border border-amber-200 dark:text-amber-400 dark:bg-amber-950/40 dark:border-amber-500/30'
                             }`}>
                               <FileText className="w-3 h-3" />
                               <span>{cust.nrcNumber}</span>

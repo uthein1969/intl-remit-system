@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (tab === 'admin_setup') {
       return currentUser.role === 'ADMIN';
     }
-    return isMenuAllowedForRole ? isMenuAllowedForRole(currentUser.role, tab) : true;
+    return isMenuAllowedForRole ? isMenuAllowedForRole(currentUser.role, tab, currentUser?.countryCode) : true;
   };
 
   const hasCoreMenus = isAllowed('dashboard') || isAllowed('outward_entry') || isAllowed('outward_approve') || isAllowed('inward_entry') || isAllowed('inward_approve');

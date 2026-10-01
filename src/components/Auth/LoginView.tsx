@@ -402,11 +402,11 @@ export const LoginView: React.FC = () => {
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
-      case 'ADMIN': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'MAKER': return 'bg-[#D1F2EB] text-black border-[#85D4C3]';
-      case 'CHECKER': return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'AUDITOR': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'ADMIN': return 'bg-purple-50 text-purple-700 border-purple-200 font-semibold';
+      case 'MAKER': return 'bg-sky-50 text-sky-700 border-sky-200 font-semibold';
+      case 'CHECKER': return 'bg-amber-50 text-amber-700 border-amber-200 font-semibold';
+      case 'AUDITOR': return 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold';
+      default: return 'bg-slate-50 text-slate-700 border-slate-200 font-semibold';
     }
   };
 
@@ -487,14 +487,14 @@ export const LoginView: React.FC = () => {
                 }}
                 className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
                   selectedProvider === 'TURSO'
-                    ? 'bg-[#D1F2EB] text-black border-[#85D4C3] shadow-sm font-bold'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-xs font-bold ring-1 ring-blue-400/30'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <Zap className={`w-3.5 h-3.5 ${selectedProvider === 'TURSO' ? 'text-black' : 'text-slate-400'}`} />
+                <Zap className={`w-3.5 h-3.5 ${selectedProvider === 'TURSO' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span>Turso Cloud</span>
-                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                  selectedProvider === 'TURSO' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase ${
+                  selectedProvider === 'TURSO' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
                 }`}>
                   Default
                 </span>
@@ -510,14 +510,14 @@ export const LoginView: React.FC = () => {
                 }}
                 className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
                   selectedProvider === 'SUPABASE'
-                    ? 'bg-[#D1F2EB] text-black border-[#85D4C3] shadow-sm font-bold'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-xs font-bold ring-1 ring-blue-400/30'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <Cloud className={`w-3.5 h-3.5 ${selectedProvider === 'SUPABASE' ? 'text-black' : 'text-slate-400'}`} />
+                <Cloud className={`w-3.5 h-3.5 ${selectedProvider === 'SUPABASE' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span>Supabase</span>
                 {db?.supabaseConfig?.isConnected && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
                 )}
               </button>
             </div>
@@ -621,7 +621,7 @@ export const LoginView: React.FC = () => {
                     <select
                       value={selectedCountryCode}
                       onChange={(e) => handleCountryChange(e.target.value)}
-                      className="w-full text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#85D4C3] focus:border-[#85D4C3] transition-colors"
+                      className="w-full text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-2xs"
                     >
                       {(db?.countries || []).map(c => (
                         <option key={c.code} value={c.code}>
@@ -640,7 +640,7 @@ export const LoginView: React.FC = () => {
                     <select
                       value={selectedBranchId}
                       onChange={(e) => handleBranchChange(e.target.value)}
-                      className="w-full text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#85D4C3] focus:border-[#85D4C3] transition-colors"
+                      className="w-full text-xs font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-2xs"
                     >
                       {(() => {
                         const filteredBranches = (db?.branches || []).filter(b => !selectedCountryCode || b.countryCode === selectedCountryCode);
@@ -677,7 +677,7 @@ export const LoginView: React.FC = () => {
                     value={usernameOrEmail}
                     onChange={(e) => handleUsernameChange(e.target.value)}
                     placeholder={language === 'my' ? 'ဥပမာ- admin သို့မဟုတ် th-maker' : 'e.g. admin or th-maker'}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#85D4C3] focus:border-[#85D4C3] text-slate-900 transition-colors"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors shadow-2xs"
                   />
                 </div>
               </div>
@@ -688,8 +688,8 @@ export const LoginView: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                     {language === 'my' ? 'လျှို့ဝှက်နံပါတ် (Password)' : 'Password / Security PIN'}
                   </label>
-                  <span className="text-[11px] text-slate-400">
-                    Default: <span className="font-mono font-bold text-black">password123</span>
+                  <span className="text-[11px] text-slate-500">
+                    Default: <span className="font-mono font-bold text-slate-800">password123</span>
                   </span>
                 </div>
                 <div className="relative rounded-lg shadow-xs">
@@ -701,7 +701,7 @@ export const LoginView: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#85D4C3] focus:border-[#85D4C3] text-slate-900 transition-colors"
+                    className="w-full pl-10 pr-10 py-2.5 text-sm bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors shadow-2xs"
                   />
                   <button
                     type="button"
@@ -926,30 +926,30 @@ export const LoginView: React.FC = () => {
                     onClick={() => handleQuickSelectUser(u)}
                     className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
                       usernameOrEmail === u.username
-                        ? 'bg-[#D1F2EB] border-[#85D4C3] ring-1 ring-[#85D4C3]'
-                        : 'bg-slate-50 border-slate-200 hover:bg-[#D1F2EB] hover:border-[#85D4C3]'
+                        ? 'bg-blue-50/80 border-blue-300 ring-1 ring-blue-400/30 shadow-2xs'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-blue-200 shadow-2xs'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-bold text-xs text-slate-900 group-hover:text-black transition-colors truncate">
+                        <span className="font-bold text-xs text-slate-900 group-hover:text-blue-700 transition-colors truncate">
                           {u.fullName}
                         </span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${getRoleBadgeColor(u.role)}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getRoleBadgeColor(u.role)}`}>
                           {u.role}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center space-x-1.5 truncate">
                         <span>@{u.username}</span>
                         <span>•</span>
-                        <span className="text-amber-800 font-sans text-[10px] bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                        <span className="text-amber-800 font-sans text-[10px] bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
                           {country?.flagEmoji || '🌐'} {branch?.nameEn || u.branchId || 'BR-001'}
                         </span>
                       </div>
                     </div>
 
                     <div className="pl-2">
-                      <span className="text-[10px] font-semibold text-black px-2 py-1 rounded bg-[#D1F2EB] border border-[#85D4C3]">
+                      <span className="text-[10px] font-bold text-blue-700 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors">
                         {language === 'my' ? 'ရွေးမည်' : 'Select'}
                       </span>
                     </div>
@@ -965,28 +965,28 @@ export const LoginView: React.FC = () => {
                   type="button"
                   disabled={seedingTursoUsers}
                   onClick={handleSeedTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#D1F2EB] hover:bg-[#BCE7DE] border border-[#85D4C3] text-black text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-2xs"
                 >
-                  {seedingTursoUsers ? <RefreshCw className="w-3 h-3 animate-spin text-black" /> : <Sparkles className="w-3 h-3 text-black" />}
-                  <span className="text-black">{language === 'my' ? 'Turso သို့ User ထည့်မည်' : 'Seed Turso Users'}</span>
+                  {seedingTursoUsers ? <RefreshCw className="w-3 h-3 animate-spin text-blue-600" /> : <Sparkles className="w-3 h-3 text-blue-600" />}
+                  <span>{language === 'my' ? 'Turso သို့ User ထည့်မည်' : 'Seed Turso Users'}</span>
                 </button>
 
                 <button
                   type="button"
                   disabled={syncingTurso}
                   onClick={handleSyncAllToTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#D1F2EB] hover:bg-[#BCE7DE] border border-[#85D4C3] text-black text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-2xs"
                 >
-                  <UploadCloud className={`w-3.5 h-3.5 text-black ${syncingTurso ? 'animate-bounce' : ''}`} />
-                  <span className="text-black">{language === 'my' ? 'Data အားလုံး Sync မည်' : 'Sync All Data'}</span>
+                  <UploadCloud className={`w-3.5 h-3.5 text-blue-600 ${syncingTurso ? 'animate-bounce' : ''}`} />
+                  <span>{language === 'my' ? 'Data အားလုံး Sync မည်' : 'Sync All Data'}</span>
                 </button>
               </div>
             )}
 
             {/* Supabase Empty Seed Helper */}
             {selectedProvider === 'SUPABASE' && supabaseUsers.length === 0 && db.supabaseConfig.isConnected && (
-              <div className="mt-3 p-3 rounded-lg bg-[#D1F2EB] border border-[#85D4C3] text-xs">
-                <div className="text-black font-semibold mb-1">
+              <div className="mt-3 p-3 rounded-lg bg-blue-50/60 border border-blue-200 text-xs">
+                <div className="text-blue-900 font-semibold mb-1">
                   {language === 'my' ? 'Supabase Table တွင် User မရှိသေးပါသလား?' : 'Empty Users Table on Supabase?'}
                 </div>
                 <p className="text-[11px] text-slate-700 mb-2">
@@ -998,10 +998,10 @@ export const LoginView: React.FC = () => {
                   type="button"
                   disabled={seedingSupabaseUsers}
                   onClick={handleSeedSupabase}
-                  className="w-full py-1.5 px-2.5 rounded bg-[#D1F2EB] hover:bg-[#BCE7DE] text-black border border-[#85D4C3] font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-xs"
+                  className="w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-xs transition-colors"
                 >
-                  {seedingSupabaseUsers ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-black" /> : <Sparkles className="w-3.5 h-3.5 text-black" />}
-                  <span className="text-black">{language === 'my' ? 'User စာရင်းကို Supabase သို့ ပို့မည်' : 'Upload Users to Supabase'}</span>
+                  {seedingSupabaseUsers ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" /> : <Sparkles className="w-3.5 h-3.5 text-white" />}
+                  <span>{language === 'my' ? 'User စာရင်းကို Supabase သို့ ပို့မည်' : 'Upload Users to Supabase'}</span>
                 </button>
               </div>
             )}

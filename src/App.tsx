@@ -41,7 +41,7 @@ const MainLayout: React.FC = () => {
     if (tab === 'admin_setup') {
       return currentUser?.role === 'ADMIN';
     }
-    return isMenuAllowedForRole ? isMenuAllowedForRole(currentUser.role, tab) : true;
+    return isMenuAllowedForRole ? isMenuAllowedForRole(currentUser.role, tab, currentUser?.countryCode) : true;
   };
 
   // Auto-redirect if role changes or activeTab becomes unauthorized
