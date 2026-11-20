@@ -4,16 +4,36 @@
 import { createClient, Client } from '@libsql/client/web';
 import { User, UserRole, RemittanceTransaction, Branch, ExchangeRate } from '../types';
 
-const TURSO_URL = 'https://remittance-db-uthein.turso.io';
-const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTczMTQsImlkIjoiMDFhMDhmYTYtZTYwMS03MzQ2LTk5YTYtYjAxNGNiZDU5YTI4Iiwia2lkIjoidU1rSk9uS0Rqcl9wRkNWOEtEQ3dDUFFtM2FacHlBTjNOVmZkaE9UeFV1OCIsInJpZCI6IjE3OTZkMDNiLTA4OGItNGZhMC04Yjk0LTAwZjliYWI1YjI3ZSJ9.1cgPOor1F3S55DoxEQ9IzWxvmxkxcy8Bq2EvMjmz6j5SzONju6fFIGKImCSB6vQjdnJbSTNQpYO8JzwHWUV6Cg';
+const DEFAULT_TURSO_URL = 'https://remittance-db-uthein.turso.io';
+const DEFAULT_TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTczMTQsImlkIjoiMDFhMDhmYTYtZTYwMS03MzQ2LTk5YTYtYjAxNGNiZDU5YTI4Iiwia2lkIjoidU1rSk9uS0Rqcl9wRkNWOEtEQ3dDUFFtM2FacHlBTjNOVmZkaE9UeFV1OCIsInJpZCI6IjE3OTZkMDNiLTA4OGItNGZhMC04Yjk0LTAwZjliYWI1YjI3ZSJ9.1cgPOor1F3S55DoxEQ9IzWxvmxkxcy8Bq2EvMjmz6j5SzONju6fFIGKImCSB6vQjdnJbSTNQpYO8JzwHWUV6Cg';
+
+export function getTursoWebConfig() {
+  let envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURSO_DATABASE_URL || '').trim();
+  if (!envUrl) {
+    envUrl = DEFAULT_TURSO_URL;
+  }
+  // Convert libsql:// to https:// for HTTP Web Client
+  if (envUrl.startsWith('libsql://')) {
+    envUrl = envUrl.replace('libsql://', 'https://');
+  }
+
+  const envToken = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURSO_AUTH_TOKEN || '').trim() || DEFAULT_TURSO_TOKEN;
+
+  return { url: envUrl, token: envToken };
+}
 
 let webClient: Client | null = null;
+let currentWebUrl = '';
+let currentWebToken = '';
 
 export function getTursoWebClient(): Client {
-  if (!webClient) {
+  const { url, token } = getTursoWebConfig();
+  if (!webClient || currentWebUrl !== url || currentWebToken !== token) {
+    currentWebUrl = url;
+    currentWebToken = token;
     webClient = createClient({
-      url: TURSO_URL,
-      authToken: TURSO_TOKEN,
+      url,
+      authToken: token,
     });
   }
   return webClient;

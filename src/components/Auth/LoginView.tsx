@@ -467,103 +467,15 @@ export const LoginView: React.FC = () => {
       {/* Main Container */}
       <div className="max-w-4xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Column: Login Card with Database Choice */}
+        {/* Left Column: Login Card */}
         <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
-          
-          {/* Database Provider Selection Tabs (Turso Default) */}
-          <div className="bg-slate-50 p-2.5 border-b border-slate-200">
-            <div className="text-[11px] font-semibold text-slate-600 mb-1.5 px-1 flex items-center justify-between">
-              <span>{language === 'my' ? 'အသုံးပြုလိုသော Cloud Database ရွေးချယ်ပါ:' : 'Select Authentication Database:'}</span>
-              <span className="text-[10px] text-emerald-700 font-mono font-bold">Turso: Default</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {/* Turso Cloud Option (DEFAULT) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedProvider('TURSO');
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
-                className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
-                  selectedProvider === 'TURSO'
-                    ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-xs font-bold ring-1 ring-blue-400/30'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Zap className={`w-3.5 h-3.5 ${selectedProvider === 'TURSO' ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span>Turso Cloud</span>
-                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase ${
-                  selectedProvider === 'TURSO' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
-                }`}>
-                  Default
-                </span>
-              </button>
-
-              {/* Supabase Cloud Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedProvider('SUPABASE');
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
-                className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border ${
-                  selectedProvider === 'SUPABASE'
-                    ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-xs font-bold ring-1 ring-blue-400/30'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Cloud className={`w-3.5 h-3.5 ${selectedProvider === 'SUPABASE' ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span>Supabase</span>
-                {db?.supabaseConfig?.isConnected && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
-                )}
-              </button>
-            </div>
-          </div>
 
           {/* Card Header */}
           <div className="bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 p-6 text-slate-900 dark:text-slate-100 relative">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                  {selectedProvider === 'TURSO' ? 'Turso Cloud Login' : 'Supabase Login'}
-                </span>
-              </div>
-              
-              {/* Provider Connection Status Pill */}
-              {selectedProvider === 'TURSO' ? (
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Turso Connected</span>
-                </div>
-              ) : (
-                <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-                  db?.supabaseConfig?.isConnected 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
-                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${db?.supabaseConfig?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                  <span>{db?.supabaseConfig?.isConnected ? 'Supabase Connected' : 'DB Not Connected'}</span>
-                </div>
-              )}
-            </div>
-
-            <h2 className="text-2xl font-bold mt-2 text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               <span>User Login</span>
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-              {selectedProvider === 'TURSO'
-                ? (language === 'my' 
-                    ? 'Turso Cloud database ရှိ "system_users" table မှ user အကောင့်ဖြင့် login ဝင်ပါ (Default)' 
-                    : 'Sign in with Turso Cloud database verified system_users (Default)')
-                : (language === 'my' 
-                    ? 'Supabase database ရှိ "users" table မှ user အကောင့်ဖြင့် login ဝင်ပါ' 
-                    : 'Sign in with verified Supabase users table')}
-            </p>
           </div>
 
           {/* Form Area */}
@@ -688,9 +600,6 @@ export const LoginView: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                     {language === 'my' ? 'လျှို့ဝှက်နံပါတ် (Password)' : 'Password / Security PIN'}
                   </label>
-                  <span className="text-[11px] text-slate-500">
-                    Default: <span className="font-mono font-bold text-slate-800">password123</span>
-                  </span>
                 </div>
                 <div className="relative rounded-lg shadow-xs">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -724,146 +633,19 @@ export const LoginView: React.FC = () => {
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-white" />
                     <span className="text-white">
-                      {selectedProvider === 'TURSO'
-                        ? (language === 'my' ? 'Turso Cloud တွင် စစ်ဆေးနေပါသည်...' : 'Authenticating with Turso Cloud...')
-                        : (language === 'my' ? 'Supabase Table တွင် စစ်ဆေးနေသည်...' : 'Authenticating with Supabase...')}
+                      {language === 'my' ? 'စစ်ဆေးနေပါသည်...' : 'Authenticating...'}
                     </span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-4 h-4 text-white" />
                     <span className="text-white">
-                      {language === 'my' 
-                        ? `User Login (ဝင်မည် - ${selectedProvider === 'TURSO' ? 'Turso Cloud' : 'Supabase'})` 
-                        : `User Login (${selectedProvider === 'TURSO' ? 'Turso Cloud' : 'Supabase'})`}
+                      {language === 'my' ? 'User Login (ဝင်မည်)' : 'User Login'}
                     </span>
                   </>
                 )}
               </button>
             </form>
-
-            {/* Bottom Tools for Turso Provider */}
-            {selectedProvider === 'TURSO' && (
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <div className="flex items-center space-x-2 text-slate-600">
-                  <Zap className="w-3.5 h-3.5 text-black" />
-                  <span className="font-mono text-[11px] truncate max-w-[220px]">
-                    {tursoStats?.url || 'libsql://remittance-db-uthein.turso.io'}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={syncingTurso}
-                  onClick={handleSyncAllToTurso}
-                  className="inline-flex items-center space-x-1 font-semibold text-black hover:text-slate-800 cursor-pointer"
-                  title="Push all local transactions to Turso Cloud"
-                >
-                  <UploadCloud className={`w-3.5 h-3.5 text-black ${syncingTurso ? 'animate-bounce' : ''}`} />
-                  <span className="text-black">{syncingTurso ? 'Syncing...' : (language === 'my' ? 'Cloud Sync လုပ်မည်' : 'Sync to Cloud')}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Bottom Tools for Supabase Provider */}
-            {selectedProvider === 'SUPABASE' && (
-              <>
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                  <button
-                    type="button"
-                    onClick={() => setShowConfigDrawer(!showConfigDrawer)}
-                    className="inline-flex items-center space-x-1.5 font-medium text-slate-600 hover:text-black transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span>{language === 'my' ? 'Supabase Database ချိတ်ဆက်မှု ပြင်ဆင်ရန်' : 'Configure Supabase Database'}</span>
-                    {showConfigDrawer ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopy('ddl')}
-                    className="inline-flex items-center space-x-1 font-medium text-slate-500 hover:text-slate-800"
-                    title="Copy SQL Schema"
-                  >
-                    {copiedSql === 'ddl' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedSql === 'ddl' ? 'Copied!' : 'SQL DDL'}</span>
-                  </button>
-                </div>
-
-                {/* Collapsible Supabase Connection Config */}
-                {showConfigDrawer && (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="font-bold text-xs text-slate-800 flex items-center space-x-1.5">
-                        <Database className="w-3.5 h-3.5 text-black" />
-                        <span>Supabase Project Connection</span>
-                      </div>
-                      <a
-                        href="https://supabase.com/dashboard"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-black hover:underline flex items-center space-x-1"
-                      >
-                        <span>Supabase Dashboard</span>
-                        <ExternalLink className="w-3 h-3 text-black" />
-                      </a>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-[11px] font-semibold text-slate-600">Project URL</label>
-                        <input
-                          type="text"
-                          value={cfgUrl}
-                          onChange={(e) => setCfgUrl(e.target.value)}
-                          placeholder="https://xyzcompany.supabase.co"
-                          className="w-full mt-0.5 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:ring-1 focus:ring-[#85D4C3] text-slate-800 font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold text-slate-600">Anon Public Key</label>
-                        <input
-                          type="password"
-                          value={cfgKey}
-                          onChange={(e) => setCfgKey(e.target.value)}
-                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                          className="w-full mt-0.5 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:ring-1 focus:ring-[#85D4C3] text-slate-800 font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {testResult && (
-                      <div className={`p-2 rounded text-[11px] ${testResult.success ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                        {testResult.message}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-1">
-                      <button
-                        type="button"
-                        disabled={seedingSupabaseUsers}
-                        onClick={handleSeedSupabase}
-                        className="px-2.5 py-1 text-xs font-semibold rounded bg-[#D1F2EB] text-black hover:bg-[#BCE7DE] border border-[#85D4C3] transition-colors flex items-center space-x-1 cursor-pointer"
-                        title="Upload standard users into Supabase users table"
-                      >
-                        {seedingSupabaseUsers ? <RefreshCw className="w-3 h-3 animate-spin text-black" /> : <Sparkles className="w-3 h-3 text-black" />}
-                        <span className="text-black">{language === 'my' ? 'User များ ထည့်သွင်းမည် (Seed)' : 'Seed Users to Cloud'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={testingConn}
-                        onClick={handleTestAndSaveConfig}
-                        className="px-3 py-1 text-xs font-bold rounded bg-[#D1F2EB] hover:bg-[#BCE7DE] text-black border border-[#85D4C3] transition-colors flex items-center space-x-1 cursor-pointer"
-                      >
-                        {testingConn ? <RefreshCw className="w-3 h-3 animate-spin text-black" /> : <Check className="w-3 h-3 text-black" />}
-                        <span className="text-black">{language === 'my' ? 'စမ်းသပ်ပြီး သိမ်းမည်' : 'Test & Save'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </div>
 
@@ -872,26 +654,7 @@ export const LoginView: React.FC = () => {
           
           {/* Quick Select User Accounts */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 text-slate-900 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-black" />
-                <h3 className="font-bold text-sm text-slate-900">
-                  {selectedProvider === 'TURSO'
-                    ? (language === 'my' ? 'Turso Cloud Table မှ User များ' : 'Users in Turso Cloud')
-                    : (language === 'my' ? 'Supabase Table မှ User များ' : 'Users in Supabase Table')}
-                </h3>
-              </div>
-              <button
-                onClick={selectedProvider === 'TURSO' ? loadTursoUsers : loadSupabaseUsers}
-                disabled={loadingTursoUsers || loadingSupabaseUsers}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                title="Refresh users list"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${(loadingTursoUsers || loadingSupabaseUsers) ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 mt-2.5 mb-3 leading-relaxed">
+            <p className="text-xs text-slate-600 mb-3 leading-relaxed">
               {language === 'my'
                 ? 'အောက်ပါအကောင့်များကို နှိပ်၍ အသုံးပြုသူအမည်နှင့် လျှို့ဝှက်နံပါတ်ကို အလိုအလျောက် ဖြည့်သွင်းနိုင်ပါသည်:'
                 : 'Click any account below to autofill and verify authentication instantly:'}
@@ -958,96 +721,7 @@ export const LoginView: React.FC = () => {
               })}
             </div>
 
-            {/* Turso Cloud Helper Actions */}
-            {selectedProvider === 'TURSO' && (
-              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  disabled={seedingTursoUsers}
-                  onClick={handleSeedTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-2xs"
-                >
-                  {seedingTursoUsers ? <RefreshCw className="w-3 h-3 animate-spin text-blue-600" /> : <Sparkles className="w-3 h-3 text-blue-600" />}
-                  <span>{language === 'my' ? 'Turso သို့ User ထည့်မည်' : 'Seed Turso Users'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={syncingTurso}
-                  onClick={handleSyncAllToTurso}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-2xs"
-                >
-                  <UploadCloud className={`w-3.5 h-3.5 text-blue-600 ${syncingTurso ? 'animate-bounce' : ''}`} />
-                  <span>{language === 'my' ? 'Data အားလုံး Sync မည်' : 'Sync All Data'}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Supabase Empty Seed Helper */}
-            {selectedProvider === 'SUPABASE' && supabaseUsers.length === 0 && db.supabaseConfig.isConnected && (
-              <div className="mt-3 p-3 rounded-lg bg-blue-50/60 border border-blue-200 text-xs">
-                <div className="text-blue-900 font-semibold mb-1">
-                  {language === 'my' ? 'Supabase Table တွင် User မရှိသေးပါသလား?' : 'Empty Users Table on Supabase?'}
-                </div>
-                <p className="text-[11px] text-slate-700 mb-2">
-                  {language === 'my'
-                    ? 'စနစ်တွင်းရှိ မူလ User (၅) ဦးကို Supabase သို့ ချက်ချင်းထည့်သွင်းနိုင်ပါသည်'
-                    : 'Upload 5 pre-configured operator roles (Admin, Maker, Checker, Auditor) to Supabase now.'}
-                </p>
-                <button
-                  type="button"
-                  disabled={seedingSupabaseUsers}
-                  onClick={handleSeedSupabase}
-                  className="w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-xs transition-colors"
-                >
-                  {seedingSupabaseUsers ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" /> : <Sparkles className="w-3.5 h-3.5 text-white" />}
-                  <span>{language === 'my' ? 'User စာရင်းကို Supabase သို့ ပို့မည်' : 'Upload Users to Supabase'}</span>
-                </button>
-              </div>
-            )}
           </div>
-
-          {/* Database Info & Architecture Note */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 text-xs text-slate-600 space-y-2 shadow-sm">
-            <div className="font-bold text-slate-900 flex items-center space-x-1.5">
-              <Layers className="w-4 h-4 text-black" />
-              <span>
-                {selectedProvider === 'TURSO' 
-                  ? (language === 'my' ? 'Turso Cloud Architecture (Default)' : 'Turso LibSQL Cloud Architecture')
-                  : (language === 'my' ? 'Supabase PostgreSQL Architecture' : 'Supabase PostgreSQL Architecture')}
-              </span>
-            </div>
-            <p className="text-[11px] leading-relaxed text-slate-600">
-              {selectedProvider === 'TURSO' 
-                ? (language === 'my'
-                    ? 'Turso Cloud သည် Serverless LibSQL SQLite ဖြစ်ပြီး Local Storage နှင့် Realtime Cloud Synchronization ကို တစ်ပြိုင်တည်း ထောက်ပံ့ပေးပါသည်။ အင်တာနက်ပြတ်တောက်ချိန်တွင်လည်း Local တွင် သိမ်းဆည်းထားနိုင်ပြီး အင်တာနက်ရချိန်တွင် Auto-Sync ပြုလုပ်ပေးပါသည်။'
-                    : 'Turso Cloud operates on distributed LibSQL with embedded resilience. Local outward and inward transactions sync directly to the cloud table remittance_transactions.')
-                : (language === 'my'
-                    ? 'Supabase တွင် Row-Level Security (RLS) ကြောင့် ဖတ်မရပါက "Copy RLS Script" နှိပ်၍ Supabase SQL Editor တွင် Run ပေးပါရန် လိုအပ်ပါသည်။'
-                    : 'If Supabase blocks login with a permission error, Row Level Security is active. Run the RLS disable query in your Supabase SQL Editor.')}
-            </p>
-            {selectedProvider === 'SUPABASE' && (
-              <div className="pt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCopy('rls')}
-                  className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer border border-slate-300"
-                >
-                  {copiedSql === 'rls' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedSql === 'rls' ? 'Copied!' : 'Copy RLS Script'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCopy('ddl')}
-                  className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer border border-slate-300"
-                >
-                  {copiedSql === 'ddl' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedSql === 'ddl' ? 'Copied!' : 'Copy Full DDL'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
     </div>
